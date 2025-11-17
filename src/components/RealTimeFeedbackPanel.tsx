@@ -2,7 +2,15 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, Sparkles, ThumbsUp, Brain, ArrowRight, Loader2, X } from "lucide-react";
+import {
+  Lightbulb,
+  Sparkles,
+  ThumbsUp,
+  Brain,
+  ArrowRight,
+  Loader2,
+  X,
+} from "lucide-react";
 import { apiRequest } from "@/services/queryClient";
 
 interface RealTimeFeedback {
@@ -39,37 +47,48 @@ export default function RealTimeFeedbackPanel({
   const previousResponseRef = useRef<string>("");
 
   // Debounced fetch feedback function
-  const fetchFeedback = useCallback(async (response: string) => {
-    // Don't fetch if response is too short or hasn't changed
-    if (response.trim().length < 20 || response === lastFetchedResponseRef.current) {
-      return;
-    }
+  const fetchFeedback = useCallback(
+    async (response: string) => {
+      // Don't fetch if response is too short or hasn't changed
+      if (
+        response.trim().length < 20 ||
+        response === lastFetchedResponseRef.current
+      ) {
+        return;
+      }
 
-    lastFetchedResponseRef.current = response;
-    setIsLoading(true);
+      lastFetchedResponseRef.current = response;
+      setIsLoading(true);
 
-    try {
-      const result = await apiRequest("POST", "/api/real-time-feedback", {
-        question,
-        userResponse: response,
-        sectionContext,
-      });
+      try {
+        const result = await apiRequest(
+          "POST",
+          "/api/ai-coaching/real-time-feedback",
+          {
+            question,
+            userResponse: response,
+            sectionContext,
+          }
+        );
 
-      // Parse the response if it's a Response object
-      const data = result instanceof Response ? await result.json() : result;
+        // Parse the response if it's a Response object
+        const data = result instanceof Response ? await result.json() : result;
 
-      setFeedback(data);
-    } catch (error) {
-      console.error("[REAL-TIME FEEDBACK] Error fetching feedback:", error);
-      // Set encouraging fallback feedback
-      setFeedback({
-        status: "good-start",
-        encouragement: "You're on the right track! Keep developing your thoughts.",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [question, sectionContext]);
+        setFeedback(data);
+      } catch (error) {
+        console.error("[REAL-TIME FEEDBACK] Error fetching feedback:", error);
+        // Set encouraging fallback feedback
+        setFeedback({
+          status: "good-start",
+          encouragement:
+            "You're on the right track! Keep developing your thoughts.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [question, sectionContext]
+  );
 
   // Reset dismiss state and initial mount flag when question changes
   useEffect(() => {
@@ -136,17 +155,30 @@ export default function RealTimeFeedbackPanel({
 
   // Get status icon and color
   const getStatusConfig = () => {
-    if (!feedback) return { icon: Brain, color: "text-slate-400", bgColor: "bg-slate-50" };
-    
+    if (!feedback)
+      return { icon: Brain, color: "text-slate-400", bgColor: "bg-slate-50" };
+
     switch (feedback.status) {
       case "typing":
         return { icon: Brain, color: "text-blue-500", bgColor: "bg-blue-50" };
       case "good-start":
-        return { icon: Lightbulb, color: "text-yellow-500", bgColor: "bg-yellow-50" };
+        return {
+          icon: Lightbulb,
+          color: "text-yellow-500",
+          bgColor: "bg-yellow-50",
+        };
       case "developing":
-        return { icon: Sparkles, color: "text-purple-500", bgColor: "bg-purple-50" };
+        return {
+          icon: Sparkles,
+          color: "text-purple-500",
+          bgColor: "bg-purple-50",
+        };
       case "strong":
-        return { icon: ThumbsUp, color: "text-green-500", bgColor: "bg-green-50" };
+        return {
+          icon: ThumbsUp,
+          color: "text-green-500",
+          bgColor: "bg-green-50",
+        };
       default:
         return { icon: Brain, color: "text-slate-400", bgColor: "bg-slate-50" };
     }
@@ -169,7 +201,7 @@ export default function RealTimeFeedbackPanel({
         >
           <X className="w-4 h-4" />
         </Button>
-        
+
         <div className="flex items-start gap-3 pr-8">
           <StatusIcon className={`w-5 h-5 ${color} flex-shrink-0 mt-0.5`} />
           <div className="flex-1 space-y-3">
@@ -191,10 +223,15 @@ export default function RealTimeFeedbackPanel({
                 {/* Suggestions */}
                 {feedback.suggestions && feedback.suggestions.length > 0 && (
                   <div className="space-y-2 mb-3">
-                    <p className="text-sm font-semibold text-slate-700">To deepen this further:</p>
+                    <p className="text-sm font-semibold text-slate-700">
+                      To deepen this further:
+                    </p>
                     <ul className="space-y-2">
                       {feedback.suggestions.map((suggestion, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                        <li
+                          key={idx}
+                          className="flex items-start gap-2 text-sm text-slate-700"
+                        >
                           <ArrowRight className="w-4 h-4 text-embodied-coral flex-shrink-0 mt-0.5" />
                           <span>{suggestion}</span>
                         </li>
@@ -211,7 +248,10 @@ export default function RealTimeFeedbackPanel({
                       Example:
                     </p>
                     {feedback.examples.map((example, idx) => (
-                      <p key={idx} className="text-sm text-slate-700 italic pl-5">
+                      <p
+                        key={idx}
+                        className="text-sm text-slate-700 italic pl-5"
+                      >
                         "{example}"
                       </p>
                     ))}
@@ -221,8 +261,12 @@ export default function RealTimeFeedbackPanel({
                 {/* Rewording Suggestion */}
                 {feedback.rewording && (
                   <div className="p-3 bg-white/60 rounded-lg border border-embodied-coral/20 mb-3">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">Consider this rewording:</p>
-                    <p className="text-sm text-slate-700 italic mb-3">"{feedback.rewording}"</p>
+                    <p className="text-sm font-semibold text-slate-700 mb-2">
+                      Consider this rewording:
+                    </p>
+                    <p className="text-sm text-slate-700 italic mb-3">
+                      "{feedback.rewording}"
+                    </p>
                     {onAddRewording && (
                       <Button
                         variant="outline"
@@ -248,7 +292,10 @@ export default function RealTimeFeedbackPanel({
                 {feedback.nextSteps && feedback.nextSteps.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-slate-200">
                     {feedback.nextSteps.map((step, idx) => (
-                      <p key={idx} className="text-sm text-slate-700 font-medium">
+                      <p
+                        key={idx}
+                        className="text-sm text-slate-700 font-medium"
+                      >
                         {step}
                       </p>
                     ))}
@@ -263,7 +310,8 @@ export default function RealTimeFeedbackPanel({
       {/* Subtle note about real-time coaching */}
       {feedback && feedback.status !== "typing" && !isLoading && (
         <p className="text-xs text-slate-500 text-center italic">
-          🤝 Your AI Coach is here to help refine your thinking - keep editing and feedback updates live!
+          🤝 Your AI Coach is here to help refine your thinking - keep editing
+          and feedback updates live!
         </p>
       )}
     </div>

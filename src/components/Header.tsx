@@ -14,6 +14,7 @@ import { apiRequest } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import IssueReportDialog from "./IssueReportDialog";
 import NotificationBell from "./NotificationBell";
+import { apiClient } from "@/services/api.config";
 
 export default function Header() {
   const { user } = useAuth();
@@ -21,7 +22,8 @@ export default function Header() {
 
   const handleLogout = async () => {
     try {
-      await apiRequest("POST", "/api/auth/logout");
+      console.log("Logging out...");
+      await apiClient.post("/api/auth/logout");
       toast({
         title: "Logged out successfully",
         description: "You've been logged out of your account.",
@@ -54,16 +56,21 @@ export default function Header() {
             <div className="w-7 h-7 md:w-8 md:h-8 bg-primary rounded-lg flex items-center justify-center">
               <Flame className="text-white w-3 h-3 md:w-4 md:h-4" />
             </div>
-            <h1 className="text-lg md:text-xl font-semibold text-slate-900">IGNITE</h1>
+            <h1 className="text-lg md:text-xl font-semibold text-slate-900">
+              IGNITE
+            </h1>
           </div>
-          
+
           <div className="flex items-center space-x-2 md:space-x-3">
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="p-0 h-auto">
                   <Avatar className="w-7 h-7 md:w-8 md:h-8">
-                    <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || 'User'} />
+                    <AvatarImage
+                      src={user?.profileImageUrl || undefined}
+                      alt={user?.firstName || "User"}
+                    />
                     <AvatarFallback className="bg-slate-300 text-xs md:text-sm">
                       {getUserInitials()}
                     </AvatarFallback>
@@ -73,10 +80,9 @@ export default function Header() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem className="flex-col items-start">
                   <div className="font-medium">
-                    {user?.firstName && user?.lastName 
+                    {user?.firstName && user?.lastName
                       ? `${user.firstName} ${user.lastName}`
-                      : user?.email || "User"
-                    }
+                      : user?.email || "User"}
                   </div>
                   {user?.email && (
                     <div className="text-sm text-slate-500">{user.email}</div>
@@ -84,15 +90,18 @@ export default function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center w-full cursor-pointer">
+                  <Link
+                    href="/profile"
+                    className="flex items-center w-full cursor-pointer"
+                  >
                     <User className="w-4 h-4 mr-2" />
                     My Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <IssueReportDialog 
-                    userId={user?.id || 0} 
+                  <IssueReportDialog
+                    userId={user?.id || 0}
                     userEmail={user?.email}
                     trigger={
                       <div className="flex items-center w-full cursor-pointer">
