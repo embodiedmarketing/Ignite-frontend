@@ -62,6 +62,71 @@ export const insertForumPostSchema = z.object({
     .max(20000, "Reply must be less than 20,000 characters"),
 });
 
+// ============================================
+// ICA INTERVIEW TRANSCRIPT SCHEMAS
+// ============================================
+
+export const insertIcaInterviewTranscriptSchema = z.object({
+  userId: z.number().int("User ID must be an integer"),
+  title: z.string().min(1, "Title is required"),
+  customerName: z.string().nullable().optional(),
+  interviewDate: z.string().datetime().nullable().optional(),
+  platform: z.string().nullable().optional(),
+  duration: z.string().nullable().optional(),
+  rawTranscript: z.string().min(1, "Raw transcript is required"),
+  extractedInsights: z.any().nullable().optional(), // JSONB can be any JSON structure
+  tags: z.array(z.string()).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  status: z
+    .enum(["draft", "processing", "processed", "updated"])
+    .default("draft")
+    .optional(),
+});
+
+export const icaInterviewTranscriptSchema = z.object({
+  id: z.number().int(),
+  userId: z.number().int(),
+  title: z.string(),
+  customerName: z.string().nullable().optional(),
+  interviewDate: z.string().datetime().nullable().optional(),
+  platform: z.string().nullable().optional(),
+  duration: z.string().nullable().optional(),
+  rawTranscript: z.string(),
+  extractedInsights: z.any().nullable().optional(), // JSONB can be any JSON structure
+  tags: z.array(z.string()).nullable().optional(),
+  notes: z.string().nullable().optional(),
+  status: z.enum(["draft", "processing", "processed", "updated"]),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+// ============================================
+// USER PROGRESS SCHEMAS
+// ============================================
+
+export const insertUserProgressSchema = z.object({
+  userId: z.number().int("User ID must be an integer"),
+  stepNumber: z.number().int("Step number must be an integer"),
+  completedPrompts: z.any().nullable().optional(), // JSONB can be any JSON structure
+  brandVoice: z.string().nullable().optional(),
+  customerAvatar: z.any().nullable().optional(), // JSONB can be any JSON structure
+  isCompleted: z.boolean().default(false),
+  completedAt: z.string().datetime().nullable().optional(),
+});
+
+export const userProgressSchema = z.object({
+  id: z.number().int(),
+  userId: z.number().int(),
+  stepNumber: z.number().int(),
+  completedPrompts: z.any().nullable().optional(), // JSONB can be any JSON structure
+  brandVoice: z.string().nullable().optional(),
+  customerAvatar: z.any().nullable().optional(), // JSONB can be any JSON structure
+  isCompleted: z.boolean(),
+  completedAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
 export const UserSchema = z.object({
   id: z.number().int().optional(), // serial primary key, usually auto-generated
   email: z.string().email(),
@@ -97,4 +162,12 @@ export type ResetPasswordRequest = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordRequest = z.infer<typeof changePasswordSchema>;
 export type InsertForumThread = z.infer<typeof insertForumThreadSchema>;
 export type InsertForumPost = z.infer<typeof insertForumPostSchema>;
+export type InsertIcaInterviewTranscript = z.infer<
+  typeof insertIcaInterviewTranscriptSchema
+>;
+export type IcaInterviewTranscript = z.infer<
+  typeof icaInterviewTranscriptSchema
+>;
+export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
+export type UserProgress = z.infer<typeof userProgressSchema>;
 export type User = z.infer<typeof UserSchema>;

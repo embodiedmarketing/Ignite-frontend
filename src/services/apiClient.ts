@@ -1,10 +1,48 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { apiClient } from "./api.config";
+import type { AxiosResponse, AxiosError } from "axios";
+
+// Response-like wrapper for backward compatibility with fetch API
+export class ResponseWrapper {
+  private _data: any;
+  public ok: boolean;
+  public status: number;
+  public statusText: string;
+  public headers: Headers;
+
+  constructor(axiosResponse: AxiosResponse) {
+    this._data = axiosResponse.data;
+    this.ok = axiosResponse.status >= 200 && axiosResponse.status < 300;
+    this.status = axiosResponse.status;
+    this.statusText = axiosResponse.statusText;
+    
+    // Convert axios headers to Headers-like object
+    const headers = new Headers();
+    Object.keys(axiosResponse.headers).forEach((key) => {
+      const value = axiosResponse.headers[key];
+      if (typeof value === "string") {
+        headers.set(key, value);
+      }
+    });
+    this.headers = headers;
+  }
+
+  async json(): Promise<any> {
+    return this._data;
+  }
+
+  async text(): Promise<string> {
+    return typeof this._data === "string" 
+      ? this._data 
+      : JSON.stringify(this._data);
+  }
+}
 
 // Enhanced API request with retry logic and error handling
 export interface RequestQueue {
   id: string;
-  request: () => Promise<Response>;
-  resolve: (value: Response) => void;
+  request: () => Promise<ResponseWrapper>;
+  resolve: (value: ResponseWrapper) => void;
   reject: (error: Error) => void;
   retryCount: number;
   maxRetries: number;
@@ -47,14 +85,14 @@ class EnhancedApiClient {
       priority?: "high" | "medium" | "low";
       timeout?: number;
     } = {}
-  ): Promise<Response> {
+  ): Promise<ResponseWrapper> {
     const {
       maxRetries = this.MAX_RETRIES,
       priority = "medium",
       timeout = 30000,
     } = options;
 
-    return new Promise<Response>((resolve, reject) => {
+    return new Promise<ResponseWrapper>((resolve, reject) => {
       const requestId = this.generateRequestId();
 
       // Check queue size limit
@@ -63,45 +101,38 @@ class EnhancedApiClient {
         return;
       }
 
-      const requestPromise = async (): Promise<Response> => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+      const requestPromise = async (): Promise<ResponseWrapper> => {
         try {
-          const res = await fetch(url, {
-            method,
-            headers: data ? { "Content-Type": "application/json" } : {},
-            body: data ? JSON.stringify(data) : undefined,
-            credentials: "include",
-            signal: controller.signal,
+          // Use axios from api.config.ts
+          const axiosResponse = await apiClient.request({
+            method: method as any,
+            url,
+            data,
+            timeout,
           });
 
-          clearTimeout(timeoutId);
-
-          // Handle different error types
-          if (!res.ok) {
-            const errorText = await res.text();
-            let errorMessage = errorText || res.statusText;
-
-            // Try to parse JSON error response
-            try {
-              const errorJson = JSON.parse(errorText);
-              if (errorJson.message) {
-                errorMessage = errorJson.message;
-              }
-            } catch {
-              // Not JSON, use text as-is
-            }
-
-            const error = new Error(errorMessage);
-            error.name = `HttpError${res.status}`;
-            throw error;
-          }
-
-          return res;
+          return new ResponseWrapper(axiosResponse);
         } catch (error) {
-          clearTimeout(timeoutId);
-          throw error;
+          // Handle axios errors
+          const axiosError = error as AxiosError;
+          
+          if (axiosError.response) {
+            // Server responded with error status
+            const errorMessage = 
+              (axiosError.response.data as any)?.message ||
+              axiosError.message ||
+              axiosError.response.statusText;
+            
+            const error = new Error(errorMessage);
+            error.name = `HttpError${axiosError.response.status}`;
+            throw error;
+          } else if (axiosError.request) {
+            // Request was made but no response received
+            throw new Error("Network error: No response from server");
+          } else {
+            // Something else happened
+            throw new Error(axiosError.message || "Request failed");
+          }
         }
       };
 
@@ -203,12 +234,21 @@ class EnhancedApiClient {
       return false;
     }
 
-    // Network errors
-    if (error.name === "TypeError" || error.message.includes("fetch"))
+    // Network errors (both fetch and axios)
+    if (
+      error.name === "TypeError" || 
+      error.message.includes("fetch") ||
+      error.message.includes("Network error") ||
+      error.message.includes("ECONNREFUSED") ||
+      error.message.includes("ETIMEDOUT")
+    ) {
       return true;
+    }
 
     // Timeout errors
-    if (error.name === "AbortError") return true;
+    if (error.name === "AbortError" || error.message.includes("timeout")) {
+      return true;
+    }
 
     // HTTP status codes that are retryable
     if (error.name.startsWith("HttpError")) {
@@ -267,6 +307,7 @@ class EnhancedApiClient {
 const enhancedApiClient = new EnhancedApiClient();
 
 // Enhanced API request function (backward compatible)
+// Returns ResponseWrapper that mimics fetch Response API
 export async function apiRequest(
   method: string,
   url: string,
@@ -276,7 +317,7 @@ export async function apiRequest(
     priority?: "high" | "medium" | "low";
     timeout?: number;
   }
-): Promise<Response> {
+): Promise<ResponseWrapper> {
   return enhancedApiClient.apiRequestWithRetry(method, url, data, options);
 }
 
@@ -285,7 +326,7 @@ export async function apiRequestBasic(
   method: string,
   url: string,
   data?: unknown
-): Promise<Response> {
+): Promise<ResponseWrapper> {
   return enhancedApiClient.apiRequestWithRetry(method, url, data, {
     maxRetries: 1,
   });
