@@ -675,6 +675,8 @@ export default function InteractiveStep({
     saveResponse,
   } = useWorkbookResponses(memoizedUserId, stepNumber, offerNumber);
 
+  console.log("responses", responses, rawResponses);
+
   // PHASE 3 FIX: Automatic localStorage migration with memoized userId
   const { migrationComplete, migrationNeeded, isMigrating } =
     useWorkbookMigration(memoizedUserId, stepNumber);
@@ -4148,18 +4150,13 @@ export default function InteractiveStep({
             title: "Customer Avatar Deep Dive",
             prompts: [
               {
-                question: "What is your ideal customer's demographics?",
+                question: "What is your ideal customer's biggest frustration?",
                 guidance:
-                  "Be specific about who your ideal customer is. Example: '35-50 year old women, $75K-150K household income, marketing managers or consultants, married with 1-2 school-age children.'",
+                  "List out as many specific frustrations as possible - you should have a list of 10-15 frustrations here. For each frustration, keep asking 'why' until you get to the root emotional pain. Use their exact words and language whenever possible. Think about what keeps them stuck, defeated, and overwhelmed. Example: 'I'm so tired of trying everything and nothing working. I feel like I'm spinning my wheels. Nothing I do seems to move the needle. I'm starting to think I'm just not cut out for this.'",
               },
+
               {
-                question: "Who Are People They Follow & Trust For Information?",
-                guidance:
-                  "List specific influencers, podcasts, websites, authors, coaches, or thought leaders your ideal customers follow and trust. Include social media accounts, YouTube channels, newsletters, and blogs they regularly consume. This information can also be valuable for future ad targeting and partnership opportunities. Example: 'They follow Amy Porterfield, listen to Smart Passive Income podcast, read Entrepreneur magazine, and are active in Facebook groups like Online Business Builders.'",
-              },
-              {
-                question:
-                  "What are your ideal customer's biggest frustrations?",
+                question: "What keeps them awake at night?",
                 guidance:
                   "List out as many specific frustrations as possible - you should have a list of 10-15 frustrations here. For each frustration, keep asking 'why' until you get to the root emotional pain. Use their exact words and language whenever possible. Think about what keeps them stuck, defeated, and overwhelmed. Example: 'I'm so tired of trying everything and nothing working. I feel like I'm spinning my wheels. Nothing I do seems to move the needle. I'm starting to think I'm just not cut out for this.'",
               },
@@ -4169,23 +4166,28 @@ export default function InteractiveStep({
                 guidance:
                   "What's the deeper fear they're embarrassed to voice? What would mortify them if others knew? Get specific about their fears and anxieties - what scenarios play on repeat in their mind? What are they worried about at 2am? Example: 'I'm afraid I'm not cut out for this' or 'What if I'm just not smart enough?'",
               },
+
               {
                 question:
-                  "If you could wave a magic wand for them and give them their ultimate desires, what are those?",
+                  "If you could wave a magic wand for them and solve their problem, what would that look like?",
                 guidance:
                   "List their ultimate, specific desires using their own language. What do they really want most in life? What are they secretly hoping for? Write these desires as if your ideal customer is speaking directly to you. Example: 'I want to feel confident in my own skin,' 'I want to stop worrying about money,' 'I want to feel like I'm actually good at what I do,' 'I want my family to be proud of me.'",
               },
+
               {
-                question: "What do they WANT vs. NEED?",
+                question:
+                  "What is their age range, income level, and job title or role?",
                 guidance:
-                  "People often want something different than they need. We can't change what people want, but we can meet them where they're at and bridge the gap between what they want (their desires and what they think they need) and what they actually need (our solutions). What do they think they want? What do they actually need? How can you connect these two?",
+                  "Be specific about who your ideal customer is. Example: '35-50 year old women, $75K-150K household income, marketing managers or consultants, married with 1-2 school-age children.'",
               },
+
               {
                 question:
                   "What have they already tried to solve this problem that didn't work?",
                 guidance:
                   "List the specific solutions, courses, coaches, or strategies they've already invested in. Why didn't these work? What was missing? This helps you position against failed alternatives.",
               },
+
               {
                 question:
                   "What is currently blocking them from getting the results they want?",
@@ -4194,19 +4196,41 @@ export default function InteractiveStep({
               },
               {
                 question:
+                  "Where do they go for advice and information (websites, podcasts, influencers)?",
+                guidance:
+                  "List specific influencers, podcasts, websites, authors, coaches, or thought leaders your ideal customers follow and trust. Include social media accounts, YouTube channels, newsletters, and blogs they regularly consume. This information can also be valuable for future ad targeting and partnership opportunities. Example: 'They follow Amy Porterfield, listen to Smart Passive Income podcast, read Entrepreneur magazine, and are active in Facebook groups like Online Business Builders.'",
+              },
+
+              {
+                question:
+                  "How do they typically make purchasing decisions (research-heavy, impulse, ask others)?",
+                guidance:
+                  "People often want something different than they need. We can't change what people want, but we can meet them where they're at and bridge the gap between what they want (their desires and what they think they need) and what they actually need (our solutions). What do they think they want? What do they actually need? How can you connect these two?",
+              },
+
+              {
+                question:
                   "What would need to happen for them to invest in a solution like yours?",
                 guidance:
                   "What criteria must be met? What evidence do they need? What would push them over the edge to say yes? Example: 'See proof it works for someone like me, know exactly what I'll get, feel confident about the investment.'",
               },
+
               {
                 question:
                   "How will they measure success after working with you?",
                 guidance:
                   "What specific outcomes would make them feel like it was worth it? Be concrete. Example: 'Booking 5 clients per month consistently' or 'Working 25 hours per week instead of 50 while making the same income.'",
               },
+
               {
                 question:
                   "What specific outcomes would make them tell others about your solution?",
+                guidance:
+                  "What specific outcomes would make them feel like it was worth it? Be concrete. Example: 'Booking 5 clients per month consistently' or 'Working 25 hours per week instead of 50 while making the same income.",
+              },
+              {
+                question:
+                  "Automatically placed in relevant messaging strategy section?",
                 guidance:
                   "What results would be so compelling they'd naturally recommend you? What would they brag about to friends? This helps you understand what creates raving fans.",
               },
@@ -4976,7 +5000,11 @@ export default function InteractiveStep({
         currentResponses,
       });
     },
-    onSuccess: (data: any) => {
+    onSuccess: (data: any, variables) => {
+      // The question key for "Automatically placed in relevant messaging strategy section?"
+      const autoPlacementQuestionKey =
+        "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?";
+
       // Update the appropriate workbook sections with the placed content
       if (data.placements && data.placements.length > 0) {
         const updates: Record<string, string> = {};
@@ -4987,22 +5015,99 @@ export default function InteractiveStep({
             currentContent + separator + placement.transformedContent;
         });
 
+        // Also save the original customer answer to the "Automatically placed" question
+        // This ensures the value shows up in the input field
+        if (variables.customerAnswer && variables.customerAnswer.trim()) {
+          const currentAutoPlacementValue =
+            responses[autoPlacementQuestionKey] || "";
+          // If there's existing content, append with separator; otherwise use the customer answer
+          if (currentAutoPlacementValue.trim()) {
+            updates[autoPlacementQuestionKey] =
+              currentAutoPlacementValue + "\n\n" + variables.customerAnswer;
+          } else {
+            updates[autoPlacementQuestionKey] = variables.customerAnswer;
+          }
+
+          // Update local state immediately for responsive UI
+          setLocalResponses((prev) => ({
+            ...prev,
+            [autoPlacementQuestionKey]: updates[autoPlacementQuestionKey],
+          }));
+        }
+
         // Save each update to database - AUTO-SAVE enabled
         Object.entries(updates).forEach(([questionKey, responseText]) => {
           console.log(
             `[AUTO-SAVE] Saving smart placement for ${questionKey} (step ${stepNumber})`
           );
-          saveResponse.mutate({
-            questionKey,
-            responseText,
-            sectionTitle: "Smart Placement",
-          });
+          saveResponse.mutate(
+            {
+              questionKey,
+              responseText,
+              sectionTitle:
+                questionKey === autoPlacementQuestionKey
+                  ? "Customer Avatar Deep Dive"
+                  : "Smart Placement",
+            },
+            {
+              onSuccess: () => {
+                // Invalidate queries after successful save to refresh UI
+                queryClient.invalidateQueries({
+                  queryKey: [
+                    `/api/workbook-responses/user/${memoizedUserId}/step/${stepNumber}`,
+                  ],
+                });
+                console.log(
+                  `[AUTO-SAVE] Invalidated queries after saving ${questionKey}`
+                );
+              },
+            }
+          );
         });
 
         toast({
           title: "Insights placed intelligently!",
           description: `Added to ${data.placements.length} messaging strategy section(s) based on content analysis.`,
         });
+      } else {
+        // Even if no placements were made, save the customer answer to the auto-placement question
+        if (variables.customerAnswer && variables.customerAnswer.trim()) {
+          const currentAutoPlacementValue =
+            responses[autoPlacementQuestionKey] || "";
+          const newValue = currentAutoPlacementValue.trim()
+            ? currentAutoPlacementValue + "\n\n" + variables.customerAnswer
+            : variables.customerAnswer;
+
+          // Update local state immediately for responsive UI
+          setLocalResponses((prev) => ({
+            ...prev,
+            [autoPlacementQuestionKey]: newValue,
+          }));
+
+          console.log(
+            `[AUTO-SAVE] Saving customer answer to auto-placement question (step ${stepNumber})`
+          );
+          saveResponse.mutate(
+            {
+              questionKey: autoPlacementQuestionKey,
+              responseText: newValue,
+              sectionTitle: "Customer Avatar Deep Dive",
+            },
+            {
+              onSuccess: () => {
+                // Invalidate queries after successful save to refresh UI
+                queryClient.invalidateQueries({
+                  queryKey: [
+                    `/api/workbook-responses/user/${memoizedUserId}/step/${stepNumber}`,
+                  ],
+                });
+                console.log(
+                  `[AUTO-SAVE] Invalidated queries after saving auto-placement question`
+                );
+              },
+            }
+          );
+        }
       }
     },
     onError: () => {
@@ -5143,16 +5248,19 @@ export default function InteractiveStep({
       const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
       try {
-        const response = await fetch("/api/synthesize-interview-response", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            interviewResponse,
-            existingMessagingStrategy: responses,
-          }),
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          "/api/interview/synthesize-interview-response",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              interviewResponse,
+              existingMessagingStrategy: responses,
+            }),
+            signal: controller.signal,
+          }
+        );
 
         clearTimeout(timeoutId);
 
@@ -5209,7 +5317,7 @@ export default function InteractiveStep({
       unsavedChanges.clearChange(variables.interviewResponse.workbookSection);
 
       // Simple dedicated transfer endpoint with proper response handling
-      fetch("/api/transfer-interview-response", {
+      fetch("/api/interview/transfer-interview-response", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -5347,7 +5455,7 @@ export default function InteractiveStep({
         .replace(/\bwas\b/g, "were");
 
       // Simple dedicated transfer endpoint for error fallback with proper response handling
-      fetch("/api/transfer-interview-response", {
+      fetch("/api/interview/transfer-interview-response", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -5542,9 +5650,11 @@ export default function InteractiveStep({
       {
         question: "Is there anything else you think I should know?",
         key: "additional_insights",
-        workbookKey: "smart-placement",
+        // workbookKey: "smart-placement",
+        workbookKey:
+          "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?",
         workbookMap:
-          "Automatically placed in relevant messaging strategy section",
+          "Automatically placed in relevant messaging strategy section?",
       },
     ];
 
@@ -5605,6 +5715,7 @@ export default function InteractiveStep({
 
         if (item.key === "additional_insights") {
           // Smart placement for additional insights
+          // First, use smartPlacementMutation to place content in multiple sections
           await new Promise<void>((resolve, reject) => {
             smartPlacementMutation.mutate(
               {
@@ -5613,8 +5724,34 @@ export default function InteractiveStep({
               },
               {
                 onSuccess: () => {
-                  succeeded++;
-                  resolve();
+                  // After smart placement, also synthesize and save to the specific question
+                  // This ensures the answer shows up in the "Automatically placed" question field
+                  synthesizeMutation.mutate(
+                    {
+                      interviewResponse: {
+                        question: item.question,
+                        customerAnswer: customerAnswer,
+                        workbookSection: item.workbookKey,
+                      },
+                      workbookSection: item.workbookKey,
+                      buttonKey: itemButtonKey,
+                    },
+                    {
+                      onSuccess: () => {
+                        succeeded++;
+                        resolve();
+                      },
+                      onError: (error) => {
+                        // Even if synthesis fails, smart placement succeeded
+                        console.warn(
+                          `[BULK TRANSFER] Synthesis failed but smart placement succeeded: ${item.key}`,
+                          error
+                        );
+                        succeeded++;
+                        resolve();
+                      },
+                    }
+                  );
                 },
                 onError: (error) => {
                   failed++;
@@ -5683,6 +5820,9 @@ export default function InteractiveStep({
         description: `Successfully transferred ${succeeded} interview answer(s) to your messaging strategy.`,
         duration: 5000,
       });
+      setTimeout(() => {
+        setActiveTab("workbook");
+      }, 1500);
     } else if (succeeded > 0) {
       toast({
         title: "Partial transfer completed",
@@ -8989,6 +9129,7 @@ export default function InteractiveStep({
                           const feedbackKey = `${section.title}-${questionText}`;
                           const currentFeedback = feedback[feedbackKey];
                           const isAnalyzing = analyzingResponse === feedbackKey;
+                          console.log("promptKey", promptKey);
 
                           // Debug logging for Customer Avatar Deep Dive
                           if (
@@ -9025,12 +9166,12 @@ export default function InteractiveStep({
                               </label>
 
                               {/* Guidance text below question in italics */}
-                              {typeof prompt === "object" &&
+                              {/* {typeof prompt === "object" &&
                                 (prompt as { guidance?: string }).guidance && (
                                   <p className="text-sm text-slate-600 italic mb-2 leading-relaxed">
                                     {(prompt as { guidance: string }).guidance}
                                   </p>
-                                )}
+                                )} */}
 
                               <div className="space-y-3">
                                 {/* Auto-prefill button for offer foundation and presentation questions */}
@@ -9093,7 +9234,7 @@ export default function InteractiveStep({
                                 <div className="space-y-2">
                                   {/* Special handling for demographics question */}
                                   {questionText.startsWith(
-                                    "What is your ideal customer's demographics?"
+                                    "What is your ideal customer's demographics?jdsds"
                                   ) ? (
                                     <DemographicsFields
                                       promptKey={promptKey}
@@ -9163,7 +9304,7 @@ export default function InteractiveStep({
                                     </div>
                                   )}
 
-                                  {/* Real-Time AI Coaching Panel - Shows live feedback as user types */}
+                                  {/* Real-Time AI Coaching Panel - Only shows feedback when user clicks button */}
                                   {stepNumber === 1 &&
                                     !questionText.startsWith(
                                       "What is your ideal customer's demographics?"
@@ -9175,6 +9316,7 @@ export default function InteractiveStep({
                                         }
                                         sectionContext={section.title}
                                         debounceMs={2000}
+                                        autoStart={false}
                                         onAddRewording={(rewording) =>
                                           handleResponseChange(
                                             promptKey,
@@ -10090,9 +10232,10 @@ export default function InteractiveStep({
                         question:
                           "Is there anything else you think I should know?",
                         key: "additional_insights",
-                        workbookKey: "smart-placement",
+                        workbookKey:
+                          "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?",
                         workbookMap:
-                          "Automatically placed in relevant messaging strategy section",
+                          "Automatically placed in relevant messaging strategy section?",
                       },
                     ].map((item, index) => (
                       <div

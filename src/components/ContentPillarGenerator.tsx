@@ -192,6 +192,100 @@ export default function ContentPillarGenerator() {
     if (!userId) return;
 
     const STORAGE_KEY = `content-strategy-responses-${userId}`;
+    const INSIGHTS_KEY = `latest-transcript-insights-${userId}`;
+    
+    // Helper function to map extracted insights to form fields
+    const mapInsightsToForm = (insights: any): Partial<ContentPreferences> => {
+      if (!insights || typeof insights !== 'object') return {};
+      
+      const mapped: Partial<ContentPreferences> = {};
+      
+      // Map common field names from extracted insights
+      // These mappings may need adjustment based on actual API response structure
+      if (insights.desiredFeelings) mapped.desiredFeelings = String(insights.desiredFeelings);
+      if (insights.avoidFeelings) mapped.avoidFeelings = String(insights.avoidFeelings);
+      if (insights.brandAdjectives) mapped.brandAdjectives = String(insights.brandAdjectives);
+      if (insights.coreThemes) mapped.coreThemes = String(insights.coreThemes);
+      if (insights.problemsMyths) mapped.problemsMyths = String(insights.problemsMyths);
+      if (insights.valuesBeliefs) mapped.valuesBeliefs = String(insights.valuesBeliefs);
+      if (insights.contrarianTakes) mapped.contrarianTakes = String(insights.contrarianTakes);
+      if (insights.actionableTips) mapped.actionableTips = String(insights.actionableTips);
+      if (insights.commonObjections) mapped.commonObjections = String(insights.commonObjections);
+      if (insights.beliefShifts) mapped.beliefShifts = String(insights.beliefShifts);
+      if (insights.authenticTruths) mapped.authenticTruths = String(insights.authenticTruths);
+      if (insights.keyMessage) mapped.keyMessage = String(insights.keyMessage);
+      if (insights.authenticVoice) mapped.authenticVoice = String(insights.authenticVoice);
+      
+      return mapped;
+    };
+    
+    // Check for latest transcript insights first (highest priority)
+    const insightsData = localStorage.getItem(INSIGHTS_KEY);
+    if (insightsData) {
+      try {
+        const parsed = JSON.parse(insightsData);
+        if (parsed.extractedInsights) {
+          const insightsMapping = mapInsightsToForm(parsed.extractedInsights);
+          
+          // Get existing form data
+          const STORAGE_KEY = `content-strategy-responses-${userId}`;
+          const existingData = localStorage.getItem(STORAGE_KEY);
+          let formData: ContentPreferences;
+          
+          if (existingData) {
+            try {
+              formData = JSON.parse(existingData);
+            } catch {
+              formData = form.getValues();
+            }
+          } else if (savedResponses) {
+            formData = {
+              postingFrequency: savedResponses.postingFrequency || "",
+              corePlatform: savedResponses.corePlatform || "",
+              contentFormat: savedResponses.contentFormat || "",
+              desiredFeelings: savedResponses.desiredFeelings || "",
+              avoidFeelings: savedResponses.avoidFeelings || "",
+              brandAdjectives: savedResponses.brandAdjectives || "",
+              coreThemes: savedResponses.coreThemes || "",
+              problemsMyths: savedResponses.problemsMyths || "",
+              valuesBeliefs: savedResponses.valuesBeliefs || "",
+              contrarianTakes: savedResponses.contrarianTakes || "",
+              actionableTips: savedResponses.actionableTips || "",
+              commonObjections: savedResponses.commonObjections || "",
+              beliefShifts: savedResponses.beliefShifts || "",
+              authenticTruths: savedResponses.authenticTruths || "",
+              keyMessage: savedResponses.keyMessage || "",
+              authenticVoice: savedResponses.authenticVoice || ""
+            };
+          } else {
+            formData = form.getValues();
+          }
+          
+          // Merge insights into form data (only populate empty fields)
+          const mergedData: ContentPreferences = {
+            ...formData,
+            ...Object.fromEntries(
+              Object.entries(insightsMapping).filter(([key, value]) => 
+                value && (!formData[key as keyof ContentPreferences] || formData[key as keyof ContentPreferences] === "")
+              )
+            )
+          } as ContentPreferences;
+          
+          form.reset(mergedData);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedData));
+          console.log("✅ Populated Content Strategy form with latest transcript insights");
+          
+          toast({
+            title: "Form updated",
+            description: "Latest interview insights have been loaded into the form fields.",
+          });
+          
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing transcript insights:', e);
+      }
+    }
     
     // First try localStorage (most recent)
     const localData = localStorage.getItem(STORAGE_KEY);
@@ -229,7 +323,84 @@ export default function ContentPillarGenerator() {
       // Also save to localStorage for faster future loads
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
     }
-  }, [userId, savedResponses, form]);
+  }, [userId, savedResponses, form, toast]);
+  
+  // Listen for transcript insights updates
+  useEffect(() => {
+    if (!userId) return;
+    
+    const handleTranscriptInsightsUpdate = (event: CustomEvent) => {
+      const insightsData = event.detail;
+      if (insightsData?.extractedInsights) {
+        // Reload form with new insights
+        const INSIGHTS_KEY = `latest-transcript-insights-${userId}`;
+        localStorage.setItem(INSIGHTS_KEY, JSON.stringify(insightsData));
+        
+        // Trigger form reload by updating a dependency
+        const STORAGE_KEY = `content-strategy-responses-${userId}`;
+        const existingData = localStorage.getItem(STORAGE_KEY);
+        const currentValues = form.getValues();
+        
+        // Map insights to form fields
+        const insights = insightsData.extractedInsights;
+        const updates: Partial<ContentPreferences> = {};
+        
+        if (insights.desiredFeelings && !currentValues.desiredFeelings) {
+          updates.desiredFeelings = String(insights.desiredFeelings);
+        }
+        if (insights.avoidFeelings && !currentValues.avoidFeelings) {
+          updates.avoidFeelings = String(insights.avoidFeelings);
+        }
+        if (insights.brandAdjectives && !currentValues.brandAdjectives) {
+          updates.brandAdjectives = String(insights.brandAdjectives);
+        }
+        if (insights.coreThemes && !currentValues.coreThemes) {
+          updates.coreThemes = String(insights.coreThemes);
+        }
+        if (insights.problemsMyths && !currentValues.problemsMyths) {
+          updates.problemsMyths = String(insights.problemsMyths);
+        }
+        if (insights.valuesBeliefs && !currentValues.valuesBeliefs) {
+          updates.valuesBeliefs = String(insights.valuesBeliefs);
+        }
+        if (insights.contrarianTakes && !currentValues.contrarianTakes) {
+          updates.contrarianTakes = String(insights.contrarianTakes);
+        }
+        if (insights.actionableTips && !currentValues.actionableTips) {
+          updates.actionableTips = String(insights.actionableTips);
+        }
+        if (insights.commonObjections && !currentValues.commonObjections) {
+          updates.commonObjections = String(insights.commonObjections);
+        }
+        if (insights.beliefShifts && !currentValues.beliefShifts) {
+          updates.beliefShifts = String(insights.beliefShifts);
+        }
+        if (insights.authenticTruths && !currentValues.authenticTruths) {
+          updates.authenticTruths = String(insights.authenticTruths);
+        }
+        if (insights.keyMessage && !currentValues.keyMessage) {
+          updates.keyMessage = String(insights.keyMessage);
+        }
+        if (insights.authenticVoice && !currentValues.authenticVoice) {
+          updates.authenticVoice = String(insights.authenticVoice);
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          form.reset({ ...currentValues, ...updates });
+          toast({
+            title: "Form updated",
+            description: "Latest interview insights have been loaded into empty form fields.",
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('transcriptInsightsUpdated', handleTranscriptInsightsUpdate as EventListener);
+    
+    return () => {
+      window.removeEventListener('transcriptInsightsUpdated', handleTranscriptInsightsUpdate as EventListener);
+    };
+  }, [userId, form, toast]);
 
   // Load saved generated strategy and ideas
   useEffect(() => {
