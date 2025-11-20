@@ -356,7 +356,7 @@ export function InterviewTranscriptManager({
         const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds for AI processing
 
         const response = await fetch(
-          "/api/interview/intelligent-interview-processing",
+          "https://ignite-backend-production-5910.up.railway.app/api/interview/intelligent-interview-processing",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -575,7 +575,7 @@ export function InterviewTranscriptManager({
 
           // Refetch transcripts to check actual database status
           const transcriptsResponse = await fetch(
-            `/api/interview-transcripts/user/${userId}`,
+            `https://ignite-backend-production-5910.up.railway.app/api/interview-transcripts/user/${userId}`,
             {
               credentials: "include",
             }
@@ -697,11 +697,14 @@ export function InterviewTranscriptManager({
       const formData = new FormData();
       formData.append("transcript", file);
 
-      const response = await fetch("/api/interview/upload-transcript", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+      const response = await fetch(
+        "https://ignite-backend-production-5910.up.railway.app/api/interview/upload-transcript",
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
