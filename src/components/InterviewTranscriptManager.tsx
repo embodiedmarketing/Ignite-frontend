@@ -403,13 +403,38 @@ export function InterviewTranscriptManager({
       // Only update transcript status if it's individual processing
       if (transcriptId) {
         try {
-          await apiRequest(
+          const updateResponse = await apiRequest(
             "PUT",
             `/api/interview-transcripts/${transcriptId}`,
             {
               status: "processed",
             }
           );
+          const updatedTranscript = await updateResponse.json();
+
+          // Store extracted insights for Content Strategy tab
+          if (updatedTranscript.extractedInsights) {
+            const insightsData = {
+              extractedInsights: updatedTranscript.extractedInsights,
+              transcriptId: transcriptId,
+              processedAt: new Date().toISOString(),
+            };
+            localStorage.setItem(
+              `latest-transcript-insights-${userId}`,
+              JSON.stringify(insightsData)
+            );
+            console.log(
+              "✅ Stored extracted insights for Content Strategy tab"
+            );
+
+            // Dispatch event to notify ContentPillarGenerator
+            window.dispatchEvent(
+              new CustomEvent("transcriptInsightsUpdated", {
+                detail: insightsData,
+              })
+            );
+          }
+
           queryClient.invalidateQueries({
             queryKey: [`/api/interview-transcripts/user/${userId}`],
           });
@@ -997,7 +1022,7 @@ export function InterviewTranscriptManager({
                   <Button
                     onClick={() =>
                       createMutation.mutate({
-                        userId: userId,
+                        userId: String(userId),
                         title: newTranscript.title || "Untitled Interview",
                         customerName: newTranscript.customerName || undefined,
                         interviewDate: newTranscript.interviewDate as any,
@@ -1220,7 +1245,7 @@ function InterviewTranscriptForm({
     e.preventDefault();
 
     const submitData: InsertIcaInterviewTranscript = {
-      userId: userId,
+      userId: String(userId),
       title: formData.title,
       customerName: formData.customerName || null,
       interviewDate: formData.interviewDate as any,
