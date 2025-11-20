@@ -3,18 +3,46 @@ import { Plus, Trash2, Edit3, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useUserOffers, useCreateUserOffer, useUpdateUserOffer, useDeleteUserOffer, useSetActiveOffer } from "@/hooks/useUserOffers";
-import type { UserOffer } from "@shared/schema";
+import {
+  useUserOffers,
+  useCreateUserOffer,
+  useUpdateUserOffer,
+  useDeleteUserOffer,
+  useSetActiveOffer,
+} from "@/hooks/useUserOffers";
 
 interface OfferManagerProps {
-  userId: number;
-  onOfferSelect?: (offer: UserOffer) => void;
+  userId: any;
+  onOfferSelect?: (offer: any) => void;
 }
 
 interface OfferFormData {
@@ -23,10 +51,10 @@ interface OfferFormData {
   isActive: boolean;
 }
 
-export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
+export function OfferManager({ userId }: OfferManagerProps) {
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editingOffer, setEditingOffer] = useState<UserOffer | null>(null);
+  const [editingOffer, setEditingOffer] = useState<any | null>(null);
   const [formData, setFormData] = useState<OfferFormData>({
     title: "",
     status: "draft",
@@ -147,7 +175,7 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
     }
   };
 
-  const handleEditOffer = (offer: UserOffer) => {
+  const handleEditOffer = (offer: any) => {
     setEditingOffer(offer);
     setFormData({
       title: offer.title,
@@ -178,7 +206,7 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
         <h2 className="text-2xl font-bold text-slate-900">Your Offers</h2>
         <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button 
+            <Button
               variant="default"
               size="sm"
               className="bg-[#f5a89f] hover:bg-[#f5a89f]/90 text-white border-0 flex-shrink-0 min-w-max px-4 py-2 shadow-sm"
@@ -197,13 +225,20 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                 <Input
                   id="title"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
                   placeholder="Enter offer title..."
                 />
               </div>
               <div>
                 <Label htmlFor="status">Status</Label>
-                <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value: any) =>
+                    setFormData({ ...formData, status: value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -220,16 +255,21 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isActive: e.target.checked })
+                  }
                 />
                 <Label htmlFor="isActive">Set as active offer</Label>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setCreateDialogOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleCreateOffer}
                 disabled={createOfferMutation.isPending}
                 className="bg-[#f5a89f] hover:bg-[#f5a89f]/90 text-white"
@@ -245,8 +285,10 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">You haven't created any offers yet</p>
-              <Button 
+              <p className="text-gray-500 mb-4">
+                You haven't created any offers yet
+              </p>
+              <Button
                 onClick={() => setCreateDialogOpen(true)}
                 className="bg-coral hover:bg-coral/90"
               >
@@ -258,8 +300,11 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {offers.map((offer) => (
-            <Card key={offer.id} className={offer.isActive ? "ring-2 ring-coral" : ""}>
+          {offers.map((offer: any) => (
+            <Card
+              key={offer.id}
+              className={offer.isActive ? "ring-2 ring-coral" : ""}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <CardTitle className="text-lg">{offer.title}</CardTitle>
@@ -287,20 +332,34 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                             <Input
                               id="edit-title"
                               value={formData.title}
-                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  title: e.target.value,
+                                })
+                              }
                             />
                           </div>
                           <div>
                             <Label htmlFor="edit-status">Status</Label>
-                            <Select value={formData.status} onValueChange={(value: any) => setFormData({ ...formData, status: value })}>
+                            <Select
+                              value={formData.status}
+                              onValueChange={(value: any) =>
+                                setFormData({ ...formData, status: value })
+                              }
+                            >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="draft">Draft</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="archived">Archived</SelectItem>
+                                <SelectItem value="completed">
+                                  Completed
+                                </SelectItem>
+                                <SelectItem value="archived">
+                                  Archived
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -309,21 +368,30 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                               type="checkbox"
                               id="edit-isActive"
                               checked={formData.isActive}
-                              onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  isActive: e.target.checked,
+                                })
+                              }
                             />
-                            <Label htmlFor="edit-isActive">Set as active offer</Label>
+                            <Label htmlFor="edit-isActive">
+                              Set as active offer
+                            </Label>
                           </div>
                         </div>
                         <DialogFooter>
                           <Button variant="outline" onClick={resetForm}>
                             Cancel
                           </Button>
-                          <Button 
+                          <Button
                             onClick={handleUpdateOffer}
                             disabled={updateOfferMutation.isPending}
                             className="bg-coral hover:bg-coral/90"
                           >
-                            {updateOfferMutation.isPending ? "Updating..." : "Update Offer"}
+                            {updateOfferMutation.isPending
+                              ? "Updating..."
+                              : "Update Offer"}
                           </Button>
                         </DialogFooter>
                       </DialogContent>
@@ -338,7 +406,8 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Offer</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete "{offer.title}"? This action cannot be undone.
+                            Are you sure you want to delete "{offer.title}"?
+                            This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -362,7 +431,9 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                       {offer.status}
                     </Badge>
                     {offer.isActive && (
-                      <Badge className="bg-coral text-white">Currently Active</Badge>
+                      <Badge className="bg-coral text-white">
+                        Currently Active
+                      </Badge>
                     )}
                   </div>
                   <p className="text-sm text-gray-500">
@@ -374,7 +445,11 @@ export function OfferManager({ userId, onOfferSelect }: OfferManagerProps) {
                     onClick={() => handleSetActive(offer.id)}
                     variant={offer.isActive ? "outline" : "default"}
                     size="sm"
-                    className={offer.isActive ? "bg-green-500 hover:bg-green-500 text-white font-semibold w-full border-0" : "bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"}
+                    className={
+                      offer.isActive
+                        ? "bg-green-500 hover:bg-green-500 text-white font-semibold w-full border-0"
+                        : "bg-yellow-400 hover:bg-yellow-500 text-black font-semibold w-full"
+                    }
                     disabled={offer.isActive}
                   >
                     {offer.isActive ? "Currently Active" : "Work on This Offer"}

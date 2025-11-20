@@ -67,7 +67,7 @@ export const insertForumPostSchema = z.object({
 // ============================================
 
 export const insertIcaInterviewTranscriptSchema = z.object({
-  userId: z.number().int("User ID must be an integer"),
+  userId: z.string().uuid("Invalid user ID"),
   title: z.string().min(1, "Title is required"),
   customerName: z.string().nullable().optional(),
   interviewDate: z.string().datetime().nullable().optional(),

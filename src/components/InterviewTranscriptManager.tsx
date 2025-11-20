@@ -355,17 +355,20 @@ export function InterviewTranscriptManager({
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds for AI processing
 
-        const response = await fetch("/api/intelligent-interview-processing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transcript,
-            userId,
-            existingMessagingStrategy,
-          }),
-          credentials: "include",
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          "/api/interview/intelligent-interview-processing",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              transcript,
+              userId,
+              existingMessagingStrategy,
+            }),
+            credentials: "include",
+            signal: controller.signal,
+          }
+        );
 
         clearTimeout(timeoutId);
 
@@ -399,13 +402,38 @@ export function InterviewTranscriptManager({
       // Only update transcript status if it's individual processing
       if (transcriptId) {
         try {
-          await apiRequest(
+          const updateResponse = await apiRequest(
             "PUT",
             `/api/interview-transcripts/${transcriptId}`,
             {
               status: "processed",
             }
           );
+          const updatedTranscript = await updateResponse.json();
+
+          // Store extracted insights for Content Strategy tab
+          if (updatedTranscript.extractedInsights) {
+            const insightsData = {
+              extractedInsights: updatedTranscript.extractedInsights,
+              transcriptId: transcriptId,
+              processedAt: new Date().toISOString(),
+            };
+            localStorage.setItem(
+              `latest-transcript-insights-${userId}`,
+              JSON.stringify(insightsData)
+            );
+            console.log(
+              "✅ Stored extracted insights for Content Strategy tab"
+            );
+
+            // Dispatch event to notify ContentPillarGenerator
+            window.dispatchEvent(
+              new CustomEvent("transcriptInsightsUpdated", {
+                detail: insightsData,
+              })
+            );
+          }
+
           queryClient.invalidateQueries({
             queryKey: [`/api/interview-transcripts/user/${userId}`],
           });
@@ -669,7 +697,7 @@ export function InterviewTranscriptManager({
       const formData = new FormData();
       formData.append("transcript", file);
 
-      const response = await fetch("/api/upload-transcript/upload-transcript", {
+      const response = await fetch("/api/interview/upload-transcript", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -988,7 +1016,7 @@ export function InterviewTranscriptManager({
                   <Button
                     onClick={() =>
                       createMutation.mutate({
-                        userId: userId,
+                        userId: String(userId),
                         title: newTranscript.title || "Untitled Interview",
                         customerName: newTranscript.customerName || undefined,
                         interviewDate: newTranscript.interviewDate as any,
@@ -1211,7 +1239,7 @@ function InterviewTranscriptForm({
     e.preventDefault();
 
     const submitData: InsertIcaInterviewTranscript = {
-      userId: userId,
+      userId: String(userId),
       title: formData.title,
       customerName: formData.customerName || null,
       interviewDate: formData.interviewDate as any,
