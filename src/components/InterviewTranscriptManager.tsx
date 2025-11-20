@@ -40,11 +40,12 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/services/queryClient";
+
 import type {
   IcaInterviewTranscript,
   InsertIcaInterviewTranscript,
 } from "@shared/schema";
+import { apiRequest } from "@/services/apiClient";
 
 interface InterviewTranscriptManagerProps {
   userId: number;
@@ -177,6 +178,54 @@ export function InterviewTranscriptManager({
   });
 
   // AUTOMATIC CLEANUP: Reset stuck "processing" transcripts when component mounts or data refreshes
+  useEffect(() => {
+    if (!transcripts || transcripts.length === 0) return;
+
+    const stuckTranscripts = transcripts.filter((t: IcaInterviewTranscript) => {
+      if (t.status !== "processing") return false;
+
+      // Check if it's been processing for more than 3 minutes (stuck)
+      const updatedAt = new Date(t.updatedAt).getTime();
+      const now = Date.now();
+      const minutesElapsed = (now - updatedAt) / (1000 * 60);
+
+      return minutesElapsed > 3;
+    });
+
+    if (stuckTranscripts.length > 0) {
+      console.log(
+        `🔧 Found ${stuckTranscripts.length} stuck transcripts - resetting to draft`
+      );
+
+      // Reset each stuck transcript to draft
+      stuckTranscripts.forEach(async (transcript: IcaInterviewTranscript) => {
+        try {
+          await apiRequest(
+            "PUT",
+            `/api/interview-transcripts/${transcript.id}`,
+            {
+              status: "draft",
+            }
+          );
+          console.log(
+            `✅ Reset stuck transcript ${transcript.id} (${transcript.title}) to draft`
+          );
+        } catch (error) {
+          console.error(
+            `❌ Failed to reset transcript ${transcript.id}:`,
+            error
+          );
+        }
+      });
+
+      // Refresh the list after a short delay
+      setTimeout(() => {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/interview-transcripts/user/${userId}`],
+        });
+      }, 1000);
+    }
+  }, [transcripts, userId, queryClient]);
 
   const createMutation = useMutation({
     mutationFn: async (data: InsertIcaInterviewTranscript) => {
@@ -266,7 +315,38 @@ export function InterviewTranscriptManager({
         }`
       );
 
-      // Process with AI (with extended timeout for large transcripts)
+      // First update status to processing (only for individual transcripts)
+      if (transcriptId) {
+        try {
+          await apiRequest(
+            "PUT",
+            `/api/interview-transcripts/${transcriptId}`,
+            {
+              status: "processing",
+            }
+          );
+          queryClient.invalidateQueries({
+            queryKey: [`/api/interview-transcripts/user/${userId}`],
+          });
+          console.log(
+            `✅ Updated transcript ${transcriptId} status to 'processing'`
+          );
+        } catch (statusError) {
+          console.error(
+            `❌ Failed to update status to 'processing':`,
+            statusError
+          );
+          throw new Error(
+            `Failed to update transcript status: ${
+              statusError instanceof Error
+                ? statusError.message
+                : "Unknown error"
+            }`
+          );
+        }
+      }
+
+      // Then process with AI (with extended timeout for large transcripts)
       try {
         console.log(
           `🤖 Calling AI processing endpoint with 120 second timeout...`
@@ -277,7 +357,9 @@ export function InterviewTranscriptManager({
         const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds for AI processing
 
         const response = await fetch(
-          "/api/interview/intelligent-interview-processing",
+          `${
+            import.meta.env.VITE_BASE_URL
+          }/api/interview/intelligent-interview-processing`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -319,6 +401,37 @@ export function InterviewTranscriptManager({
     },
     onSuccess: async ({ aiResponse, transcriptId }) => {
       console.log("AI Processing Success - Full Response:", aiResponse);
+
+      // Only update transcript status if it's individual processing
+      if (transcriptId) {
+        try {
+          await apiRequest(
+            "PUT",
+            `/api/interview-transcripts/${transcriptId}`,
+            {
+              status: "processed",
+            }
+          );
+          queryClient.invalidateQueries({
+            queryKey: [`/api/interview-transcripts/user/${userId}`],
+          });
+          console.log(
+            `✅ Successfully updated transcript ${transcriptId} status to 'processed'`
+          );
+        } catch (statusUpdateError) {
+          console.error(
+            `❌ Failed to update transcript ${transcriptId} status to 'processed':`,
+            statusUpdateError
+          );
+          // Still allow the rest of the processing to continue even if status update fails
+          toast({
+            title: "Status update failed",
+            description:
+              "Interview processed successfully but status update failed. Please refresh the page.",
+            variant: "destructive",
+          });
+        }
+      }
 
       // Fix: Extract the actual updates from the response structure
       const messagingUpdatesResponse = aiResponse.messagingUpdates;
@@ -413,9 +526,112 @@ export function InterviewTranscriptManager({
       }
     },
     onError: async (error: any, variables) => {
-      console.error("❌ AI Processing Error:", error);
+      console.error("❌ AI Processing Error - Full Details:", {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+        transcriptId: variables.transcriptId,
+        isNetworkError:
+          error?.message?.includes("network") ||
+          error?.message?.includes("fetch"),
+      });
 
-      // Show user-friendly error message
+      // NETWORK RECOVERY LOGIC: Check if processing actually succeeded despite connection loss
+      const isNetworkError =
+        error?.message?.includes("network") ||
+        error?.message?.includes("fetch") ||
+        error?.message?.includes("Failed to fetch");
+
+      if (isNetworkError) {
+        console.log(
+          "🔍 Network error detected - checking if processing actually succeeded..."
+        );
+
+        try {
+          // Wait 2 seconds for potential background completion
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+
+          // Refetch transcripts to check actual database status
+          const transcriptsResponse = await fetch(
+            `/api/interview-transcripts/user/${userId}`,
+            {
+              credentials: "include",
+            }
+          );
+
+          if (transcriptsResponse.ok) {
+            const latestTranscripts = await transcriptsResponse.json();
+            const processingCount = latestTranscripts.filter(
+              (t: any) => t.status === "processing"
+            ).length;
+
+            console.log(
+              `📊 Status check: ${processingCount} transcripts still processing`
+            );
+
+            // If no transcripts are processing, the job actually completed!
+            if (processingCount === 0) {
+              console.log(
+                "✅ RECOVERY: Processing actually completed despite network error!"
+              );
+
+              // Refetch interview notes to update UI
+              queryClient.invalidateQueries({
+                queryKey: [`/api/interview-transcripts/user/${userId}`],
+              });
+              queryClient.invalidateQueries({
+                queryKey: ["/api/interview-notes"],
+              });
+
+              // Trigger UI update
+              window.dispatchEvent(
+                new CustomEvent("interviewNotesUpdated", {
+                  detail: {
+                    messagingUpdates: {},
+                    wasTruncated: false,
+                    shouldUpdateTextAreas: true,
+                  },
+                })
+              );
+
+              toast({
+                title: "Processing completed successfully!",
+                description:
+                  "Your interview insights have been saved. Connection was lost but the processing finished.",
+              });
+
+              return; // Exit early - don't show error or revert status
+            }
+          }
+        } catch (recoveryError) {
+          console.error("Recovery check failed:", recoveryError);
+          // Continue to normal error handling
+        }
+      }
+
+      // Normal error handling: Revert status back to draft on error (only for individual transcripts)
+      if (variables.transcriptId) {
+        try {
+          console.log(
+            `🔄 Reverting transcript ${variables.transcriptId} status to 'draft'`
+          );
+          await apiRequest(
+            "PUT",
+            `/api/interview-transcripts/${variables.transcriptId}`,
+            {
+              status: "draft",
+            }
+          );
+          queryClient.invalidateQueries({
+            queryKey: [`/api/interview-transcripts/user/${userId}`],
+          });
+          console.log(`✅ Successfully reverted status to 'draft'`);
+        } catch (updateError) {
+          console.error("❌ Failed to revert status:", updateError);
+        }
+      }
+
+      // Show user-friendly error message with technical details
       const errorMessage = error?.message || "Unknown error occurred";
       toast({
         title: "Processing failed",
@@ -459,7 +675,7 @@ export function InterviewTranscriptManager({
       const formData = new FormData();
       formData.append("transcript", file);
 
-      const response = await fetch("/api/interview/upload-transcript", {
+      const response = await fetch("/api/upload-transcript", {
         method: "POST",
         body: formData,
         credentials: "include",
@@ -778,7 +994,7 @@ export function InterviewTranscriptManager({
                   <Button
                     onClick={() =>
                       createMutation.mutate({
-                        userId: String(userId),
+                        userId: userId.toString(),
                         title: newTranscript.title || "Untitled Interview",
                         customerName: newTranscript.customerName || undefined,
                         interviewDate: newTranscript.interviewDate as any,
@@ -1001,7 +1217,7 @@ function InterviewTranscriptForm({
     e.preventDefault();
 
     const submitData: InsertIcaInterviewTranscript = {
-      userId: String(userId),
+      userId: userId.toString(),
       title: formData.title,
       customerName: formData.customerName || null,
       interviewDate: formData.interviewDate as any,

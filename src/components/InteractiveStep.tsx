@@ -5249,7 +5249,9 @@ export default function InteractiveStep({
 
       try {
         const response = await fetch(
-          "/api/interview/synthesize-interview-response",
+          `${
+            import.meta.env.VITE_BASE_URL
+          }/api/interview/synthesize-interview-response`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -5317,19 +5319,24 @@ export default function InteractiveStep({
       unsavedChanges.clearChange(variables.interviewResponse.workbookSection);
 
       // Simple dedicated transfer endpoint with proper response handling
-      fetch("/api/interview/transfer-interview-response", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          userId: memoizedUserId,
-          stepNumber,
-          questionKey: variables.interviewResponse.workbookSection,
-          responseText: data.synthesizedContent,
-          sectionTitle:
-            variables.interviewResponse.workbookSection.split("-")[0],
-        }),
-      })
+      fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/interview/transfer-interview-response`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            userId: memoizedUserId,
+            stepNumber,
+            questionKey: variables.interviewResponse.workbookSection,
+            responseText: data.synthesizedContent,
+            sectionTitle:
+              variables.interviewResponse.workbookSection.split("-")[0],
+          }),
+        }
+      )
         .then((response) => {
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -5455,19 +5462,24 @@ export default function InteractiveStep({
         .replace(/\bwas\b/g, "were");
 
       // Simple dedicated transfer endpoint for error fallback with proper response handling
-      fetch("/api/interview/transfer-interview-response", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          userId: memoizedUserId,
-          stepNumber,
-          questionKey: variables.interviewResponse.workbookSection,
-          responseText: basicTransform,
-          sectionTitle:
-            variables.interviewResponse.workbookSection.split("-")[0],
-        }),
-      })
+      fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/interview/transfer-interview-response`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            userId: memoizedUserId,
+            stepNumber,
+            questionKey: variables.interviewResponse.workbookSection,
+            responseText: basicTransform,
+            sectionTitle:
+              variables.interviewResponse.workbookSection.split("-")[0],
+          }),
+        }
+      )
         .then((response) => {
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
@@ -5550,14 +5562,14 @@ export default function InteractiveStep({
     // Define the interview questions array (same as in the JSX)
     const interviewQuestions = [
       {
-        question: "What is your biggest frustration right now in [your field]?",
+        question: "What is your ideal customer's biggest frustration?",
         key: "frustrations",
         workbookKey:
           "Customer Avatar Deep Dive-What is your ideal customer's biggest frustration?",
         workbookMap: "What is your ideal customer's biggest frustration?",
       },
       {
-        question: "What keeps you awake at night about this situation?",
+        question: "What keeps them awake at night?",
         key: "nighttime_worries",
         workbookKey:
           "Customer Avatar Deep Dive-What keeps them awake at night?",
@@ -5565,7 +5577,7 @@ export default function InteractiveStep({
       },
       {
         question:
-          "What are you secretly afraid of that you won't admit to others?",
+          "What are they secretly afraid of that they won't admit to others?",
         key: "secret_fears",
         workbookKey:
           "Customer Avatar Deep Dive-What are they secretly afraid of that they won't admit to others?",
@@ -5574,7 +5586,7 @@ export default function InteractiveStep({
       },
       {
         question:
-          "If I could wave a magic wand and solve this problem, what would that look like?",
+          "If you could wave a magic wand for them and solve their problem, what would that look like?",
         key: "magic_solution",
         workbookKey:
           "Customer Avatar Deep Dive-If you could wave a magic wand for them and solve their problem, what would that look like?",
@@ -5583,7 +5595,7 @@ export default function InteractiveStep({
       },
       {
         question:
-          "What is your age range, income level, and job title or role?",
+          "What is their age range, income level, and job title or role?",
         key: "demographics",
         workbookKey:
           "Customer Avatar Deep Dive-What is their age range, income level, and job title or role?",
@@ -5591,7 +5603,8 @@ export default function InteractiveStep({
           "What is their age range, income level, and job title or role?",
       },
       {
-        question: "What have you already tried to solve this that didn't work?",
+        question:
+          "What have they already tried to solve this problem that didn't work?",
         key: "failed_solutions",
         workbookKey:
           "Customer Avatar Deep Dive-What have they already tried to solve this problem that didn't work?",
@@ -5600,7 +5613,7 @@ export default function InteractiveStep({
       },
       {
         question:
-          "What's currently blocking you from getting the results you want?",
+          "What is currently blocking them from getting the results they want?",
         key: "blockers",
         workbookKey:
           "Customer Avatar Deep Dive-What is currently blocking them from getting the results they want?",
@@ -5608,7 +5621,8 @@ export default function InteractiveStep({
           "What is currently blocking them from getting the results they want?",
       },
       {
-        question: "Where do you go for advice and information about this?",
+        question:
+          "Where do they go for advice and information (websites, podcasts, influencers)?",
         key: "info_sources",
         workbookKey:
           "Customer Avatar Deep Dive-Where do they go for advice and information (websites, podcasts, influencers)?",
@@ -5616,7 +5630,8 @@ export default function InteractiveStep({
           "Where do they go for advice and information (websites, podcasts, influencers)?",
       },
       {
-        question: "How do you typically make purchasing decisions?",
+        question:
+          "How do they typically make purchasing decisions (research-heavy, impulse, ask others)?",
         key: "decision_making",
         workbookKey:
           "Customer Avatar Deep Dive-How do they typically make purchasing decisions (research-heavy, impulse, ask others)?",
@@ -5624,7 +5639,8 @@ export default function InteractiveStep({
           "How do they typically make purchasing decisions (research-heavy, impulse, ask others)?",
       },
       {
-        question: "What would need to happen for you to invest in a solution?",
+        question:
+          "What would need to happen for them to invest in a solution like yours?",
         key: "investment_criteria",
         workbookKey:
           "Customer Avatar Deep Dive-What would need to happen for them to invest in a solution like yours?",
@@ -5632,7 +5648,7 @@ export default function InteractiveStep({
           "What would need to happen for them to invest in a solution like yours?",
       },
       {
-        question: "How would you measure success after solving this?",
+        question: "How will they measure success after working with you?",
         key: "success_measures",
         workbookKey:
           "Customer Avatar Deep Dive-How will they measure success after working with you?",
@@ -5640,7 +5656,7 @@ export default function InteractiveStep({
       },
       {
         question:
-          "What specific outcomes would make you recommend a solution to others?",
+          "What specific outcomes would make them tell others about your solution?",
         key: "referral_outcomes",
         workbookKey:
           "Customer Avatar Deep Dive-What specific outcomes would make them tell others about your solution?",
@@ -5648,7 +5664,8 @@ export default function InteractiveStep({
           "What specific outcomes would make them tell others about your solution?",
       },
       {
-        question: "Is there anything else you think I should know?",
+        question:
+          "Automatically placed in relevant messaging strategy section?",
         key: "additional_insights",
         // workbookKey: "smart-placement",
         workbookKey:
@@ -10123,7 +10140,7 @@ export default function InteractiveStep({
                     {[
                       {
                         question:
-                          "What is your biggest frustration right now in [your field]?",
+                          "What is your ideal customer's biggest frustration?",
                         key: "frustrations",
                         workbookKey:
                           "Customer Avatar Deep Dive-What is your ideal customer's biggest frustration?",
@@ -10131,8 +10148,7 @@ export default function InteractiveStep({
                           "What is your ideal customer's biggest frustration?",
                       },
                       {
-                        question:
-                          "What keeps you awake at night about this situation?",
+                        question: "What keeps them awake at night?",
                         key: "nighttime_worries",
                         workbookKey:
                           "Customer Avatar Deep Dive-What keeps them awake at night?",
@@ -10140,7 +10156,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "What are you secretly afraid of that you won't admit to others?",
+                          "What are they secretly afraid of that they won't admit to others?",
                         key: "secret_fears",
                         workbookKey:
                           "Customer Avatar Deep Dive-What are they secretly afraid of that they won't admit to others?",
@@ -10149,7 +10165,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "If I could wave a magic wand and solve this problem, what would that look like?",
+                          "If you could wave a magic wand for them and solve their problem, what would that look like?",
                         key: "magic_solution",
                         workbookKey:
                           "Customer Avatar Deep Dive-If you could wave a magic wand for them and solve their problem, what would that look like?",
@@ -10158,7 +10174,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "What is your age range, income level, and job title or role?",
+                          "What is their age range, income level, and job title or role?",
                         key: "demographics",
                         workbookKey:
                           "Customer Avatar Deep Dive-What is their age range, income level, and job title or role?",
@@ -10167,7 +10183,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "What have you already tried to solve this that didn't work?",
+                          "What have they already tried to solve this problem that didn't work?",
                         key: "failed_solutions",
                         workbookKey:
                           "Customer Avatar Deep Dive-What have they already tried to solve this problem that didn't work?",
@@ -10176,7 +10192,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "What's currently blocking you from getting the results you want?",
+                          "What is currently blocking them from getting the results they want?",
                         key: "blockers",
                         workbookKey:
                           "Customer Avatar Deep Dive-What is currently blocking them from getting the results they want?",
@@ -10185,7 +10201,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "Where do you go for advice and information about this?",
+                          "Where do they go for advice and information (websites, podcasts, influencers)?",
                         key: "info_sources",
                         workbookKey:
                           "Customer Avatar Deep Dive-Where do they go for advice and information (websites, podcasts, influencers)?",
@@ -10194,7 +10210,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "How do you typically make purchasing decisions?",
+                          "How do they typically make purchasing decisions (research-heavy, impulse, ask others)?",
                         key: "decision_making",
                         workbookKey:
                           "Customer Avatar Deep Dive-How do they typically make purchasing decisions (research-heavy, impulse, ask others)?",
@@ -10203,7 +10219,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "What would need to happen for you to invest in a solution?",
+                          "What would need to happen for them to invest in a solution like yours?",
                         key: "investment_criteria",
                         workbookKey:
                           "Customer Avatar Deep Dive-What would need to happen for them to invest in a solution like yours?",
@@ -10212,7 +10228,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "How would you measure success after solving this?",
+                          "How will they measure success after working with you?",
                         key: "success_measures",
                         workbookKey:
                           "Customer Avatar Deep Dive-How will they measure success after working with you?",
@@ -10221,7 +10237,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "What specific outcomes would make you recommend a solution to others?",
+                          "What specific outcomes would make them tell others about your solution?",
                         key: "referral_outcomes",
                         workbookKey:
                           "Customer Avatar Deep Dive-What specific outcomes would make them tell others about your solution?",
@@ -10230,7 +10246,7 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "Is there anything else you think I should know?",
+                          "Automatically placed in relevant messaging strategy section?",
                         key: "additional_insights",
                         workbookKey:
                           "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?",
@@ -10275,9 +10291,9 @@ export default function InteractiveStep({
                                     : "View Previous"}
                                 </Button>
                               )}
-                              <span className="text-xs text-slate-500 italic">
+                              {/* <span className="text-xs text-slate-500 italic">
                                 → Maps to: "{item.workbookMap}"
-                              </span>
+                              </span> */}
                             </div>
                           </div>
 
