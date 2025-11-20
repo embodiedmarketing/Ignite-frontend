@@ -351,23 +351,21 @@ export function InterviewTranscriptManager({
           `🤖 Calling AI processing endpoint with 120 second timeout...`
         );
 
-        // Use fetch directly with extended timeout for AI processing
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds for AI processing
-
-        const response = await fetch("/api/intelligent-interview-processing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        // Use apiRequest with extended timeout for AI processing (uses base URL from api.config.ts)
+        const response = await apiRequest(
+          "POST",
+          "/api/interview/intelligent-interview-processing",
+          {
             transcript,
             userId,
             existingMessagingStrategy,
-          }),
-          credentials: "include",
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
+          },
+          {
+            timeout: 120000, // 120 seconds for AI processing
+            maxRetries: 1, // Don't retry AI processing requests
+            priority: "high",
+          }
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -381,7 +379,13 @@ export function InterviewTranscriptManager({
         return { aiResponse, transcriptId };
       } catch (aiError) {
         console.error(`❌ AI processing failed:`, aiError);
-        if (aiError instanceof Error && aiError.name === "AbortError") {
+        // Check for timeout errors (Axios uses ECONNABORTED code for timeouts)
+        if (
+          aiError instanceof Error &&
+          (aiError.message.includes("timeout") ||
+            aiError.message.includes("ECONNABORTED") ||
+            aiError.name === "AbortError")
+        ) {
           throw new Error(
             "AI processing timed out after 120 seconds. Please try again with a shorter transcript."
           );
@@ -545,12 +549,10 @@ export function InterviewTranscriptManager({
           // Wait 2 seconds for potential background completion
           await new Promise((resolve) => setTimeout(resolve, 2000));
 
-          // Refetch transcripts to check actual database status
-          const transcriptsResponse = await fetch(
-            `/api/interview-transcripts/user/${userId}`,
-            {
-              credentials: "include",
-            }
+          // Refetch transcripts to check actual database status (uses base URL from api.config.ts)
+          const transcriptsResponse = await apiRequest(
+            "GET",
+            `/api/interview-transcripts/user/${userId}`
           );
 
           if (transcriptsResponse.ok) {
@@ -669,11 +671,18 @@ export function InterviewTranscriptManager({
       const formData = new FormData();
       formData.append("transcript", file);
 
-      const response = await fetch("/api/upload-transcript/upload-transcript", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+      // Use apiRequest with FormData (uses base URL from api.config.ts)
+      // Axios automatically handles FormData and sets the correct Content-Type header
+      const response = await apiRequest(
+        "POST",
+        "/api/upload-transcript/upload-transcript",
+        formData,
+        {
+          timeout: 60000, // 60 seconds for file upload
+          maxRetries: 1,
+          priority: "high",
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
