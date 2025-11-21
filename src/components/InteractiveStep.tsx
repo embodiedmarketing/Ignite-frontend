@@ -5707,7 +5707,7 @@ export default function InteractiveStep({
       },
     ]);
 
-    // Process each question sequentially
+    // Process each question sequentially - NO AI PROCESSING, just direct copy
     let succeeded = 0;
     let failed = 0;
 
@@ -5727,89 +5727,63 @@ export default function InteractiveStep({
         console.log(
           `[BULK TRANSFER] Processing ${i + 1}/${
             questionsWithContent.length
-          }: ${item.key}`
+          }: ${item.key} - Direct copy (no AI processing)`
         );
 
-        if (item.key === "additional_insights") {
-          // Smart placement for additional insights
-          // First, use smartPlacementMutation to place content in multiple sections
-          await new Promise<void>((resolve, reject) => {
-            smartPlacementMutation.mutate(
-              {
-                customerAnswer,
-                currentResponses: responses,
-              },
-              {
-                onSuccess: () => {
-                  // After smart placement, also synthesize and save to the specific question
-                  // This ensures the answer shows up in the "Automatically placed" question field
-                  synthesizeMutation.mutate(
-                    {
-                      interviewResponse: {
-                        question: item.question,
-                        customerAnswer: customerAnswer,
-                        workbookSection: item.workbookKey,
-                      },
-                      workbookSection: item.workbookKey,
-                      buttonKey: itemButtonKey,
-                    },
-                    {
-                      onSuccess: () => {
-                        succeeded++;
-                        resolve();
-                      },
-                      onError: (error) => {
-                        // Even if synthesis fails, smart placement succeeded
-                        console.warn(
-                          `[BULK TRANSFER] Synthesis failed but smart placement succeeded: ${item.key}`,
-                          error
-                        );
-                        succeeded++;
-                        resolve();
-                      },
-                    }
-                  );
-                },
-                onError: (error) => {
-                  failed++;
-                  console.error(`[BULK TRANSFER] Failed: ${item.key}`, error);
-                  reject(error);
-                },
-              }
-            );
-          });
-        } else {
-          // Intelligent synthesis for specific questions
-          await new Promise<void>((resolve, reject) => {
-            synthesizeMutation.mutate(
-              {
-                interviewResponse: {
-                  question: item.question,
-                  customerAnswer: customerAnswer,
-                  workbookSection: item.workbookKey,
-                },
-                workbookSection: item.workbookKey,
-                buttonKey: itemButtonKey,
-              },
-              {
-                onSuccess: () => {
-                  succeeded++;
-                  resolve();
-                },
-                onError: (error) => {
-                  failed++;
-                  console.error(`[BULK TRANSFER] Failed: ${item.key}`, error);
-                  reject(error);
-                },
-              }
-            );
-          });
+        // DIRECT TRANSFER: Copy interview answer as-is to workbook response
+        // No AI synthesis - just save the raw answer directly
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_BASE_URL
+          }/api/interview/transfer-interview-response`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              userId: memoizedUserId,
+              stepNumber,
+              questionKey: item.workbookKey,
+              responseText: customerAnswer, // Use raw answer, not synthesized
+              sectionTitle: item.workbookKey.split("-")[0],
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
+        const result = await response.json();
+
+        // Update local state immediately for responsive UI
+        setLocalResponses((prev) => ({
+          ...prev,
+          [item.workbookKey]: customerAnswer,
+        }));
+
+        // Clear unsaved changes for this question
+        unsavedChanges.clearChange(item.workbookKey);
+
+        // Force immediate cache invalidation and refetch for workbook responses
+        queryClient.invalidateQueries({
+          queryKey: ["workbook-responses", memoizedUserId, stepNumber],
+        });
+        queryClient.refetchQueries({
+          queryKey: ["workbook-responses", memoizedUserId, stepNumber],
+        });
+
+        console.log(
+          `[BULK TRANSFER] Successfully transferred ${item.key} directly (no AI processing)`
+        );
+
+        succeeded++;
+
         // Small delay between transfers to avoid overwhelming the API
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       } catch (error) {
         console.error(`[BULK TRANSFER] Error processing ${item.key}:`, error);
+        failed++;
         // Continue with next item even if this one failed
       }
     }
@@ -5834,7 +5808,7 @@ export default function InteractiveStep({
     if (failed === 0) {
       toast({
         title: "All answers transferred successfully!",
-        description: `Successfully transferred ${succeeded} interview answer(s) to your messaging strategy.`,
+        description: `Successfully copied ${succeeded} interview answer(s) directly to your workbook. Click "Generate Messaging Strategy" to create your strategy.`,
         duration: 5000,
       });
       setTimeout(() => {

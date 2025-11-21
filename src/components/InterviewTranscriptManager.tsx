@@ -675,11 +675,14 @@ export function InterviewTranscriptManager({
       const formData = new FormData();
       formData.append("transcript", file);
 
-      const response = await fetch("/api/upload-transcript", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/interview/upload-transcript`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
