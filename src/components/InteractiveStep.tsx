@@ -2977,20 +2977,19 @@ export default function InteractiveStep({
   }, [stepNumber, userId]);
 
   // Ensure messaging strategy content is synchronized with database (but respect edit sessions)
+  // CRITICAL: Only watch activeStrategy changes, NOT messagingStrategyContent changes
+  // This prevents the useEffect from reverting manual state updates (like after generation)
   useEffect(() => {
     // CRITICAL: Always sync from database when activeStrategy updates, unless actively editing
     if (!editingStrategy && !hasUnsavedChanges && activeStrategy?.content) {
       // Sync database content to UI whenever activeStrategy updates (including after transfers)
+      // Only update if the content actually differs to avoid unnecessary re-renders
       if (messagingStrategyContent !== activeStrategy.content) {
         console.log(
-          "[MESSAGING STRATEGY SOURCE DEBUG] Syncing database content to UI:",
+          "[SYNC] Syncing messagingStrategyContent from activeStrategy:",
           {
-            currentUILength: messagingStrategyContent?.length || 0,
-            newDBLength: activeStrategy.content.length,
-            strategyId: activeStrategy.id,
-            version: activeStrategy.version,
-            contentPreview: activeStrategy.content.substring(0, 200) + "...",
-            isFromDatabase: true,
+            current: messagingStrategyContent?.substring(0, 50),
+            new: activeStrategy.content?.substring(0, 50),
           }
         );
         setMessagingStrategyContent(activeStrategy.content);
@@ -3018,11 +3017,12 @@ export default function InteractiveStep({
       }
     }
   }, [
+    // REMOVED messagingStrategyContent from dependencies to prevent reverting manual updates
     activeStrategy?.content,
     activeStrategy?.version,
     editingStrategy,
     hasUnsavedChanges,
-    messagingStrategyContent,
+    // messagingStrategyContent, // REMOVED: Causes useEffect to revert manual state updates
   ]);
 
   // Check URL parameters on mount and handle Step 3 auto-migration
@@ -3429,6 +3429,8 @@ export default function InteractiveStep({
       if (data.strategy && data.strategy.trim()) {
         const strategyContent = data.strategy;
 
+        console.log("strategyContent", strategyContent);
+
         // Update component state first (like edit-save pattern)
         setMessagingStrategyContent(strategyContent);
         setOriginalStrategyContent(strategyContent);
@@ -3448,17 +3450,25 @@ export default function InteractiveStep({
           })
             .then((response) => response.json())
             .then((updatedStrategy) => {
-              // Update query cache with exact database response (like edit-save pattern)
-              queryClient.setQueryData(
-                ["messaging-strategy", "active", userId],
-                () => ({
-                  ...updatedStrategy,
-                  content: strategyContent,
-                })
-              );
+              // Update query cache with correct query key to match useMessagingStrategy hook
+              const correctQueryKey = [
+                "/api/messaging-strategies/active",
+                userId,
+              ];
+              queryClient.setQueryData(correctQueryKey, {
+                ...updatedStrategy,
+                content: strategyContent,
+              });
 
-              // Skip cache invalidation to prevent reversion issues
-              // queryClient.invalidateQueries({ queryKey: ['messaging-strategy', 'active', userId] });
+              // CRITICAL: Invalidate and refetch to ensure activeStrategy hook updates
+              queryClient.invalidateQueries({
+                queryKey: correctQueryKey,
+              });
+
+              // Also invalidate alternative query keys that might be used
+              queryClient.invalidateQueries({
+                queryKey: ["messaging-strategy", "active", userId],
+              });
             });
         } else {
           // CREATE new strategy only if none exists
@@ -3476,7 +3486,14 @@ export default function InteractiveStep({
             },
             {
               onSuccess: () => {
-                // Refetch the active strategy to ensure UI is updated
+                // Refetch the active strategy to ensure UI is updated with correct query key
+                queryClient.invalidateQueries({
+                  queryKey: [
+                    "/api/messaging-strategies/active",
+                    memoizedUserId,
+                  ],
+                });
+                // Also invalidate alternative query keys
                 queryClient.invalidateQueries({
                   queryKey: ["messaging-strategy", "active", memoizedUserId],
                 });
@@ -3513,6 +3530,10 @@ export default function InteractiveStep({
           });
           queryClient.invalidateQueries({
             queryKey: ["/api/messaging-strategies/user", memoizedUserId],
+          });
+          // Also invalidate alternative query keys
+          queryClient.invalidateQueries({
+            queryKey: ["messaging-strategy", "active", memoizedUserId],
           });
 
           // Do not navigate - strategy will display on the same page
