@@ -2988,8 +2988,15 @@ export default function InteractiveStep({
   // CRITICAL: Only watch activeStrategy changes, NOT messagingStrategyContent changes
   // This prevents the useEffect from reverting manual state updates (like after generation)
   useEffect(() => {
+    // CRITICAL: NEVER sync when actively editing - this prevents the edit box from disappearing
+    // when user clears content. The edit box should remain open until user explicitly saves or cancels.
+    if (editingStrategy) {
+      console.log("[SYNC] Skipping sync - user is actively editing");
+      return; // Don't sync while editing - let user have full control, even if content is empty
+    }
+
     // CRITICAL: Always sync from database when activeStrategy updates, unless actively editing
-    if (!editingStrategy && !hasUnsavedChanges && activeStrategy?.content) {
+    if (!hasUnsavedChanges && activeStrategy?.content) {
       // Sync database content to UI whenever activeStrategy updates (including after transfers)
       // Only update if the content actually differs to avoid unnecessary re-renders
       if (messagingStrategyContent !== activeStrategy.content) {
@@ -7117,9 +7124,11 @@ export default function InteractiveStep({
           )}
 
           {/* Display Generated Messaging Strategy at the top for Step 1 */}
+          {/* Show card if there's content OR if user is actively editing (even if content is empty) */}
           {stepNumber === 1 &&
-            messagingStrategyContent &&
-            messagingStrategyContent.trim() && (
+            (editingStrategy ||
+              (messagingStrategyContent &&
+                messagingStrategyContent.trim())) && (
               <Card id="generated-messaging-strategy">
                 <CardHeader className="border-b border-coral-100 bg-gradient-to-r from-coral-50 to-orange-50 p-4 sm:p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -7458,7 +7467,7 @@ export default function InteractiveStep({
                         </p>
                       </div>
                       <Textarea
-                        value={messagingStrategyContent}
+                        value={messagingStrategyContent || ""}
                         onChange={(e) =>
                           setMessagingStrategyContent(e.target.value)
                         }
@@ -7482,18 +7491,29 @@ export default function InteractiveStep({
                         </Button>
                         <Button
                           onClick={async () => {
+                            // Validate that content is not empty before saving
+                            const editedContent =
+                              messagingStrategyContent?.trim();
+
+                            if (!editedContent || editedContent.length === 0) {
+                              toast({
+                                title: "Cannot save empty content",
+                                description:
+                                  "There is no content to save. Please add some content before saving.",
+                                variant: "destructive",
+                              });
+                              return; // Exit early - don't proceed with save
+                            }
+
                             setIsSavingStrategy(true);
                             try {
-                              // Save the edited content
-                              const editedContent = messagingStrategyContent;
-
                               // Update database
                               if (activeStrategy?.id && memoizedUserId) {
                                 const response = await apiRequest(
                                   "PUT",
                                   `/api/messaging-strategies/${activeStrategy.id}`,
                                   {
-                                    content: editedContent,
+                                    content: editedContent.trim(),
                                     version: (activeStrategy.version || 1) + 1,
                                   }
                                 );
@@ -7531,12 +7551,11 @@ export default function InteractiveStep({
                                 );
 
                                 // Update local state with saved content from database response
-                                setMessagingStrategyContent(
-                                  updatedStrategy.content || editedContent
-                                );
-                                setOriginalStrategyContent(
-                                  updatedStrategy.content || editedContent
-                                );
+                                const savedContent =
+                                  updatedStrategy.content ||
+                                  editedContent.trim();
+                                setMessagingStrategyContent(savedContent);
+                                setOriginalStrategyContent(savedContent);
 
                                 // Invalidate and refetch to ensure data is fresh
                                 await queryClient.invalidateQueries({
