@@ -2665,7 +2665,9 @@ export default function InteractiveStep({
 
     try {
       const response = await fetch(
-        "/api/core-offer/generate-core-offer-outline",
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/core-offer/generate-core-offer-outline`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2673,6 +2675,7 @@ export default function InteractiveStep({
             coreResponses,
             userId: Number(userId),
           }),
+          credentials: "include",
         }
       );
 
