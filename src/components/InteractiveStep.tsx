@@ -2961,6 +2961,7 @@ export default function InteractiveStep({
   const [originalStrategyContent, setOriginalStrategyContent] =
     useState<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [isSavingStrategy, setIsSavingStrategy] = useState<boolean>(false);
   const [prefillLoadingButton, setPrefillLoadingButton] = useState<
     string | null
   >(null);
@@ -7481,6 +7482,7 @@ export default function InteractiveStep({
                         </Button>
                         <Button
                           onClick={async () => {
+                            setIsSavingStrategy(true);
                             try {
                               // Save the edited content
                               const editedContent = messagingStrategyContent;
@@ -7497,6 +7499,37 @@ export default function InteractiveStep({
                                 );
                                 const updatedStrategy = await response.json();
 
+                                // Update query cache immediately with the new data
+                                // Use the correct query keys that match useMessagingStrategy hook
+                                const activeQueryKey = [
+                                  "messaging-strategy",
+                                  "active",
+                                  memoizedUserId,
+                                ];
+                                const allStrategiesQueryKey = [
+                                  "messaging-strategies",
+                                  memoizedUserId,
+                                ];
+
+                                // Update the active strategy cache immediately
+                                queryClient.setQueryData(
+                                  activeQueryKey,
+                                  updatedStrategy
+                                );
+
+                                // Update the all strategies cache
+                                queryClient.setQueryData(
+                                  allStrategiesQueryKey,
+                                  (old: any) => {
+                                    if (!old || !Array.isArray(old)) return old;
+                                    return old.map((strategy: any) =>
+                                      strategy.id === updatedStrategy.id
+                                        ? updatedStrategy
+                                        : strategy
+                                    );
+                                  }
+                                );
+
                                 // Update local state with saved content from database response
                                 setMessagingStrategyContent(
                                   updatedStrategy.content || editedContent
@@ -7505,22 +7538,22 @@ export default function InteractiveStep({
                                   updatedStrategy.content || editedContent
                                 );
 
-                                // Invalidate queries to refetch the updated data
+                                // Invalidate and refetch to ensure data is fresh
                                 await queryClient.invalidateQueries({
-                                  queryKey: [
-                                    "/api/messaging-strategies/active",
-                                    memoizedUserId,
-                                  ],
+                                  queryKey: activeQueryKey,
                                 });
                                 await queryClient.invalidateQueries({
-                                  queryKey: [
-                                    "/api/messaging-strategies/user",
-                                    memoizedUserId,
-                                  ],
+                                  queryKey: allStrategiesQueryKey,
+                                });
+
+                                // Explicitly refetch to ensure UI updates
+                                await queryClient.refetchQueries({
+                                  queryKey: activeQueryKey,
                                 });
                               }
 
                               setEditingStrategy(false);
+                              setHasUnsavedChanges(false);
 
                               toast({
                                 title: "✓ Changes saved!",
@@ -7529,18 +7562,34 @@ export default function InteractiveStep({
                                 className: "border-green-200 bg-green-50",
                               });
                             } catch (error) {
+                              console.error(
+                                "Failed to save messaging strategy:",
+                                error
+                              );
                               toast({
                                 title: "Error",
                                 description: "Failed to save changes",
                                 variant: "destructive",
                               });
+                            } finally {
+                              setIsSavingStrategy(false);
                             }
                           }}
+                          disabled={isSavingStrategy}
                           style={{ backgroundColor: "#689cf2", color: "white" }}
-                          className="hover:opacity-90 min-h-12 sm:min-h-auto w-full sm:w-auto"
+                          className="hover:opacity-90 min-h-12 sm:min-h-auto w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
+                          {isSavingStrategy ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Save Changes
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
