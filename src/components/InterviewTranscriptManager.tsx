@@ -467,6 +467,7 @@ export function InterviewTranscriptManager({
                 noteKey,
                 content: content as string,
                 source: "ai-processing",
+                transcriptId,
               })
           );
 
