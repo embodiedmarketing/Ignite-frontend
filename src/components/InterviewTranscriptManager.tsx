@@ -119,6 +119,9 @@ export function InterviewTranscriptManager({
     rawTranscript: "",
   });
   const [uploadedFileName, setUploadedFileName] = useState("");
+  const [loadingTranscriptId, setLoadingTranscriptId] = useState<number | null>(
+    null
+  );
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -367,6 +370,7 @@ export function InterviewTranscriptManager({
               transcript,
               userId,
               existingMessagingStrategy,
+              transcriptId,
             }),
             credentials: "include",
             signal: controller.signal,
@@ -816,6 +820,90 @@ export function InterviewTranscriptManager({
     );
   }
 
+  const handleUseTranscript = async (transcriptId: number) => {
+    setLoadingTranscriptId(transcriptId);
+    try {
+      const response = await apiRequest(
+        "GET",
+        `/api/interview/transcript/${transcriptId}/notes`
+      );
+      if (!response.ok) throw new Error("Failed to use transcript");
+      const data = await response.json();
+      console.log("Transcript notes:", data);
+
+      if (data.success && data.extractedAnswers) {
+        const extractedAnswers = data.extractedAnswers as Record<
+          string,
+          string
+        >;
+
+        if (!extractedAnswers || Object.keys(extractedAnswers).length === 0) {
+          toast({
+            title: "No answers found",
+            description: "No extracted answers available to populate.",
+            variant: "destructive",
+          });
+          setLoadingTranscriptId(null);
+          return;
+        }
+
+        // Get existing interview notes
+        const existingNotes = JSON.parse(
+          localStorage.getItem(`interview-notes-${userId}`) || "{}"
+        );
+        console.log("Existing interview-notes:", existingNotes);
+
+        // Merge the extracted answers with existing notes (extracted answers take precedence)
+        const updatedNotes = { ...existingNotes, ...extractedAnswers };
+        console.log("Updated interview-notes to save:", updatedNotes);
+
+        // Save to localStorage
+        localStorage.setItem(
+          `interview-notes-${userId}`,
+          JSON.stringify(updatedNotes)
+        );
+
+        // Trigger re-render by dispatching a custom event to update the answer fields
+        // Set shouldUpdateTextAreas to false to avoid triggering API calls
+        const event = new CustomEvent("interviewNotesUpdated", {
+          detail: {
+            messagingUpdates: extractedAnswers,
+            wasTruncated: false,
+            shouldUpdateTextAreas: false, // Don't trigger auto-populate API calls
+          },
+        });
+
+        window.dispatchEvent(event);
+        console.log(
+          "Event dispatched successfully - fields will update without API calls"
+        );
+
+        toast({
+          title: "Answers populated!",
+          description: `Loaded ${
+            Object.keys(extractedAnswers).length
+          } answers from "${
+            data.transcript?.title || "transcript"
+          }" into answer fields.`,
+        });
+      } else {
+        toast({
+          title: "No answers found",
+          description: "No extracted answers available to populate.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to use transcript:", error);
+      toast({
+        title: "Failed to use transcript",
+        description: "Failed to fetch transcript notes. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingTranscriptId(null);
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1073,6 +1161,26 @@ export function InterviewTranscriptManager({
                       )}
                     </div>
                   </div>
+
+                  <div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUseTranscript(transcript.id)}
+                      disabled={loadingTranscriptId === transcript.id}
+                      className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                    >
+                      {loadingTranscriptId === transcript.id ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Use It"
+                      )}
+                    </Button>
+                  </div>
+
                   <div className="flex gap-2">
                     {(transcript.status === "draft" ||
                       transcript.status === "updated") && (
@@ -1085,7 +1193,7 @@ export function InterviewTranscriptManager({
                             transcript.id
                           )
                         }
-                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 ml-1"
                       >
                         Process with AI
                       </Button>
