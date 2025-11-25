@@ -90,7 +90,9 @@ export default function SimplifiedSalesPageGenerator({ userId }: SimplifiedSales
   const { data: messagingStrategy, refetch: refetchMessagingStrategy } = useQuery({
     queryKey: ['messaging-strategy', 'active', userId],
     queryFn: async () => {
-      const response = await fetch(`/api/messaging-strategies/active/${userId}`);
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/messaging-strategies/active/${userId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to fetch messaging strategy');
       return response.json();
     },
@@ -101,7 +103,9 @@ export default function SimplifiedSalesPageGenerator({ userId }: SimplifiedSales
   const { data: offerOutline, refetch: refetchOfferOutline } = useQuery({
     queryKey: [`/api/user-offer-outlines/user/${userId}`, userId],
     queryFn: async () => {
-      const response = await fetch(`/api/user-offer-outlines/user/${userId}`);
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/user-offer-outlines/user/${userId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to fetch offer outline');
       const data = await response.json();
       // Return the most recent outline if any exist
@@ -149,11 +153,12 @@ export default function SimplifiedSalesPageGenerator({ userId }: SimplifiedSales
       }
       
       // Use the latest refetched data instead of stale cached data
-      const response = await fetch('/api/generate-sales-page', {
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           userId,
           messagingStrategy: latestMessagingStrategy, // Now using refetched data

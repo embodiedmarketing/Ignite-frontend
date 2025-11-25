@@ -1402,7 +1402,11 @@ export default function InteractiveStep({
   const { data: tripwireOutlineData } = useQuery({
     queryKey: ["/api/user-offer-outlines/user", userId, "tripwire"],
     queryFn: async () => {
-      const response = await fetch(`/api/user-offer-outlines/user/${userId}`);
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/user-offer-outlines/user/${userId}`
+      );
       if (!response.ok) return null;
       const outlines = await response.json();
       // Find the Tripwire outline (offerNumber = 2)
@@ -7793,7 +7797,7 @@ export default function InteractiveStep({
                                     "POST",
                                     "/api/user-offer-outlines",
                                     {
-                                      userId,
+                                      userId: Number(userId),
                                       offerNumber: 2, // Tripwire is offer #2
                                       title: "Tripwire Offer Outline",
                                       content: newOutline,
