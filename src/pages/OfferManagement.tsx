@@ -21,7 +21,9 @@ export default function OfferManagement({ user }: OfferManagementProps) {
     queryKey: ["/api/offers/single", selectedOfferId],
     queryFn: async () => {
       if (!selectedOfferId) return null;
-      const response = await fetch(`/api/offers/${selectedOfferId}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/offers/${selectedOfferId}`
+      );
       if (!response.ok) throw new Error("Failed to fetch offer");
       return response.json();
     },

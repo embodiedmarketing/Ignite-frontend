@@ -88,10 +88,13 @@ export default function ThreadDetail() {
         for (const file of attachments) {
           const formData = new FormData();
           formData.append("file", file);
-          const uploadResponse = await fetch("/api/forum/upload-attachment", {
-            method: "POST",
-            body: formData,
-          });
+          const uploadResponse = await fetch(
+            `${import.meta.env.VITE_BASE_URL}/api/forum/upload-attachment`,
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
           if (uploadResponse.ok) {
             const attachment = await uploadResponse.json();
             uploadedAttachments.push(attachment);

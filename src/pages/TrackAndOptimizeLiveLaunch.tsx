@@ -298,7 +298,9 @@ export default function TrackAndOptimizeLiveLaunch() {
   const { data: launches = [], isLoading: launchesLoading } = useQuery({
     queryKey: ["/api/live-launches/user", userId],
     queryFn: async () => {
-      const response = await fetch(`/api/live-launches/user/${userId}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/live-launches/user/${userId}`
+      );
       if (!response.ok) throw new Error("Failed to fetch launches");
       return response.json();
     },

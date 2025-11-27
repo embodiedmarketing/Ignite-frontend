@@ -334,7 +334,9 @@ export default function SalesPageGenerator({
     queryKey: ["/api/workbook-responses", userId, offerNumber],
     queryFn: async () => {
       const response = await fetch(
-        `/api/workbook-responses/${userId}?offerNumber=${offerNumber}`
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/workbook-responses/${userId}?offerNumber=${offerNumber}`
       );
       if (!response.ok) throw new Error("Failed to fetch workbook responses");
       return await response.json();
@@ -351,7 +353,9 @@ export default function SalesPageGenerator({
     queryKey: ["/api/workbook-responses/user", userId, "step", 2],
     queryFn: async () => {
       const response = await fetch(
-        `/api/workbook-responses/user/${userId}/step/2`
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/workbook-responses/user/${userId}/step/2`
       );
       if (!response.ok)
         throw new Error("Failed to fetch original offer outline");
@@ -486,21 +490,24 @@ export default function SalesPageGenerator({
         hasOfferSpecificResponses: !!offerSpecificResponses,
       });
 
-      const response = await fetch("/api/generate-sales-page", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId,
-          messagingStrategy, // Shared across offers
-          offerOutline: offerData, // Offer-specific outline
-          workbookResponses: workbookData, // Offer-specific responses
-          salesPageInputs,
-          offerNumber, // CRITICAL: Pass offer number for backend differentiation
-          offerType: offerNumber === 2 ? "course" : "program", // Different types for variety
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            messagingStrategy, // Shared across offers
+            offerOutline: offerData, // Offer-specific outline
+            workbookResponses: workbookData, // Offer-specific responses
+            salesPageInputs,
+            offerNumber, // CRITICAL: Pass offer number for backend differentiation
+            offerType: offerNumber === 2 ? "course" : "program", // Different types for variety
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to generate sales page");

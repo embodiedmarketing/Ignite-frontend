@@ -2803,9 +2803,12 @@ export default function InteractiveStep({
   const { data: dbInterviewNotes } = useQuery({
     queryKey: ["/api/interview-notes", userId],
     queryFn: async () => {
-      const response = await fetch(`/api/interview-notes/${userId}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/interview-notes/${userId}`,
+        {
+          credentials: "include",
+        }
+      );
       if (!response.ok) throw new Error("Failed to fetch interview notes");
       return response.json();
     },
@@ -5159,14 +5162,17 @@ export default function InteractiveStep({
   // Transcript parsing mutation
   const parseTranscriptMutation = useMutation({
     mutationFn: async ({ transcript }: { transcript: string }) => {
-      const response = await fetch("/api/parse-interview-transcript", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ transcript }),
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/parse-interview-transcript`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ transcript }),
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -6128,10 +6134,13 @@ export default function InteractiveStep({
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/extract-text-from-file", {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_BASE_URL}/api/extract-text-from-file`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Failed to extract text from document");
