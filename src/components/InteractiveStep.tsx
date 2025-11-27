@@ -33,6 +33,7 @@ import {
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useManualSave } from "@/hooks/useManualSave";
 import { useWorkbookMigration } from "@/hooks/useWorkbookMigration";
+import { usePageLeaveWarning } from "@/hooks/usePageLeaveWarning";
 import {
   useSectionCompletions,
   useMarkSectionComplete,
@@ -3674,6 +3675,14 @@ export default function InteractiveStep({
       });
     },
   });
+
+  // Warn user if they try to leave during any generation process
+  usePageLeaveWarning(
+    regeneratingStrategy ||
+      isGeneratingCore ||
+      isGeneratingTripwire ||
+      generateOfferOutlineMutation.isPending
+  );
 
   // AI-powered intelligent prefill system
   const intelligentPrefillMutation = useMutation({

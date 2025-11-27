@@ -1,6 +1,7 @@
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import MobileSidebar from "./MobileSidebar";
+import ChatWithCoach from "./ChatWithCoach";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,6 +28,9 @@ export default function Layout({ children }: LayoutProps) {
       <div className="lg:hidden">
         <MobileSidebar />
       </div>
+
+      {/* Chat with Coach - Floating button in corner */}
+      <ChatWithCoach />
     </div>
   );
 }

@@ -29,6 +29,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { usePageLeaveWarning } from "@/hooks/usePageLeaveWarning";
 import SalesPageInputField from "@/components/SalesPageInputField";
 import { useSalesPageData } from "@/hooks/useSalesPageData";
 import { Textarea } from "@/components/ui/textarea";
@@ -550,6 +551,9 @@ export default function SalesPageGenerator({
       });
     },
   });
+
+  // Warn user if they try to leave during generation
+  usePageLeaveWarning(generateSalesPageMutation.isPending);
 
   const updateInput = (field: keyof SalesPageInputs, value: string) => {
     setSalesPageInputs((prev) => ({ ...prev, [field]: value }));
