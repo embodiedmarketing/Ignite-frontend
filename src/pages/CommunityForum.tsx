@@ -14,18 +14,24 @@ export default function CommunityForum() {
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ['/api/forum/categories'],
-    queryFn: () => fetch('/api/forum/categories').then(res => res.json())
+    queryFn: () => fetch(`${import.meta.env.VITE_BASE_URL}/api/forum/categories`, {
+      credentials: 'include'
+    }).then(res => res.json())
   });
 
   const { data: recentActivity, isLoading: isLoadingActivity } = useQuery({
     queryKey: ['/api/forum/recent-activity'],
-    queryFn: () => fetch('/api/forum/recent-activity?limit=5').then(res => res.json()),
+    queryFn: () => fetch(`${import.meta.env.VITE_BASE_URL}/api/forum/recent-activity?limit=5`, {
+      credentials: 'include'
+    }).then(res => res.json()),
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
   const { data: accountabilityThread } = useQuery({
     queryKey: ['/api/accountability/active-thread'],
-    queryFn: () => fetch('/api/accountability/active-thread').then(res => res.json()),
+    queryFn: () => fetch(`${import.meta.env.VITE_BASE_URL}/api/accountability/active-thread`, {
+      credentials: 'include'
+    }).then(res => res.json()),
   });
 
   const handleCategorySelect = (categorySlug: string) => {

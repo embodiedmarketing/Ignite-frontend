@@ -37,14 +37,14 @@ import { Textarea } from "@/components/ui/textarea";
 function updateSalesPageSection(
   fullContent: string,
   section: string,
-  newContent: string,
+  newContent: string
 ): string {
   const startMarker = `<!-- ${section.toUpperCase()}_START -->`;
   const endMarker = `<!-- ${section.toUpperCase()}_END -->`;
   const regex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`, "g");
   return fullContent.replace(
     regex,
-    `${startMarker}\n${newContent}\n${endMarker}`,
+    `${startMarker}\n${newContent}\n${endMarker}`
   );
 }
 
@@ -84,7 +84,7 @@ function SalesPagePreview({
     const startIndex = content.indexOf(startMarker);
     const endIndex = content.indexOf(endMarker);
 
-    if (startIndex === -1 || endIndex === -1) return '';
+    if (startIndex === -1 || endIndex === -1) return "";
 
     return content.substring(startIndex + startMarker.length, endIndex).trim();
   };
@@ -99,7 +99,7 @@ function SalesPagePreview({
         const missingSuggestions = missingElements.filter(
           (elem) =>
             elem.section.toLowerCase().includes(section.id) ||
-            elem.field.toLowerCase().includes(section.id),
+            elem.field.toLowerCase().includes(section.id)
         );
 
         return (
@@ -311,11 +311,15 @@ export default function SalesPageGenerator({
   } = useQuery({
     queryKey: ["/api/user-offer-outlines/user", userId, offerNumber],
     queryFn: async () => {
-      const response = await fetch(`/api/user-offer-outlines/user/${userId}`);
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/user-offer-outlines/user/${userId}`
+      );
       if (!response.ok) throw new Error("Failed to fetch offer outlines");
       const outlines = await response.json();
       return outlines.find(
-        (outline: any) => outline.offerNumber === offerNumber,
+        (outline: any) => outline.offerNumber === offerNumber
       );
     },
     enabled: !!userId && !!offerNumber,
@@ -330,7 +334,9 @@ export default function SalesPageGenerator({
     queryKey: ["/api/workbook-responses", userId, offerNumber],
     queryFn: async () => {
       const response = await fetch(
-        `/api/workbook-responses/${userId}?offerNumber=${offerNumber}`,
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/workbook-responses/${userId}?offerNumber=${offerNumber}`
       );
       if (!response.ok) throw new Error("Failed to fetch workbook responses");
       return await response.json();
@@ -347,7 +353,9 @@ export default function SalesPageGenerator({
     queryKey: ["/api/workbook-responses/user", userId, "step", 2],
     queryFn: async () => {
       const response = await fetch(
-        `/api/workbook-responses/user/${userId}/step/2`,
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/workbook-responses/user/${userId}/step/2`
       );
       if (!response.ok)
         throw new Error("Failed to fetch original offer outline");
@@ -371,13 +379,17 @@ export default function SalesPageGenerator({
 
   // Load existing sales page inputs and drafts from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(`salesPageInputs_${userId}_offer${offerNumber}`);
+    const saved = localStorage.getItem(
+      `salesPageInputs_${userId}_offer${offerNumber}`
+    );
     if (saved) {
       setSalesPageInputs(JSON.parse(saved));
     }
 
     // Load drafts
-    const savedDrafts = localStorage.getItem(`salesPageDrafts_${userId}_offer${offerNumber}`);
+    const savedDrafts = localStorage.getItem(
+      `salesPageDrafts_${userId}_offer${offerNumber}`
+    );
     if (savedDrafts) {
       const parsedDrafts = JSON.parse(savedDrafts);
       setDrafts(parsedDrafts);
@@ -387,7 +399,7 @@ export default function SalesPageGenerator({
         const mostRecent = parsedDrafts.sort(
           (a: SalesPageDraft, b: SalesPageDraft) =>
             new Date(b.lastModified).getTime() -
-            new Date(a.lastModified).getTime(),
+            new Date(a.lastModified).getTime()
         )[0];
         setCurrentDraftId(mostRecent.id);
         setGeneratedSalesPage(mostRecent.content);
@@ -396,7 +408,7 @@ export default function SalesPageGenerator({
     } else {
       // Legacy: load old single sales page format for offer 2
       const savedSalesPage = localStorage.getItem(
-        `generatedSalesPage_${userId}_offer${offerNumber}`,
+        `generatedSalesPage_${userId}_offer${offerNumber}`
       );
       if (savedSalesPage) {
         // Migrate to draft format
@@ -411,7 +423,9 @@ export default function SalesPageGenerator({
         setCurrentDraftId(legacyDraft.id);
         setGeneratedSalesPage(savedSalesPage);
         saveDrafts([legacyDraft]);
-        localStorage.removeItem(`generatedSalesPage_${userId}_offer${offerNumber}`); // Clean up old format
+        localStorage.removeItem(
+          `generatedSalesPage_${userId}_offer${offerNumber}`
+        ); // Clean up old format
         calculateCompleteness();
       }
     }
@@ -419,10 +433,10 @@ export default function SalesPageGenerator({
 
   const calculateCompleteness = () => {
     const messagingStrategy = JSON.parse(
-      localStorage.getItem(`messagingStrategy_${userId}`) || "{}",
+      localStorage.getItem(`messagingStrategy_${userId}`) || "{}"
     );
     const offerOutline = JSON.parse(
-      localStorage.getItem(`offerOutline_${userId}`) || "{}",
+      localStorage.getItem(`offerOutline_${userId}`) || "{}"
     );
 
     let calculatedCompleteness = 60; // Base completeness for having a generated page
@@ -440,7 +454,7 @@ export default function SalesPageGenerator({
   const saveDrafts = (updatedDrafts: SalesPageDraft[]) => {
     localStorage.setItem(
       `salesPageDrafts_${userId}_offer${offerNumber}`,
-      JSON.stringify(updatedDrafts),
+      JSON.stringify(updatedDrafts)
     );
     setDrafts(updatedDrafts);
   };
@@ -449,13 +463,17 @@ export default function SalesPageGenerator({
   useEffect(() => {
     localStorage.setItem(
       `salesPageInputs_${userId}_offer${offerNumber}`,
-      JSON.stringify(salesPageInputs),
+      JSON.stringify(salesPageInputs)
     );
   }, [salesPageInputs, userId, offerNumber]);
 
   // Generate sales page mutation - offer-specific
   const generateSalesPageMutation = useMutation({
-    mutationKey: [`generate-sales-page-offer-${offerNumber}`, userId, offerNumber],
+    mutationKey: [
+      `generate-sales-page-offer-${offerNumber}`,
+      userId,
+      offerNumber,
+    ],
     mutationFn: async () => {
       // CRITICAL FIX: Use completely separate data sources for each offer
       let offerData, workbookData;
@@ -472,21 +490,24 @@ export default function SalesPageGenerator({
         hasOfferSpecificResponses: !!offerSpecificResponses,
       });
 
-      const response = await fetch("/api/generate-sales-page", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId,
-          messagingStrategy, // Shared across offers
-          offerOutline: offerData, // Offer-specific outline
-          workbookResponses: workbookData, // Offer-specific responses
-          salesPageInputs,
-          offerNumber, // CRITICAL: Pass offer number for backend differentiation
-          offerType: offerNumber === 2 ? "course" : "program", // Different types for variety
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            messagingStrategy, // Shared across offers
+            offerOutline: offerData, // Offer-specific outline
+            workbookResponses: workbookData, // Offer-specific responses
+            salesPageInputs,
+            offerNumber, // CRITICAL: Pass offer number for backend differentiation
+            offerType: offerNumber === 2 ? "course" : "program", // Different types for variety
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to generate sales page");
@@ -497,7 +518,7 @@ export default function SalesPageGenerator({
     onSuccess: (data) => {
       // Create new draft with offer-specific naming
       const offerDrafts = drafts.filter((draft) =>
-        draft.name.includes(`Offer ${offerNumber}`),
+        draft.name.includes(`Offer ${offerNumber}`)
       );
       const newDraft: SalesPageDraft = {
         id: Date.now().toString(),
@@ -547,7 +568,7 @@ export default function SalesPageGenerator({
     const updatedDrafts = drafts.map((draft) =>
       draft.id === currentDraftId
         ? { ...draft, content, lastModified: new Date().toISOString() }
-        : draft,
+        : draft
     );
     saveDrafts(updatedDrafts);
     setGeneratedSalesPage(content);
@@ -570,7 +591,7 @@ export default function SalesPageGenerator({
             name: newName.trim() || `Draft ${drafts.indexOf(draft) + 1}`,
             lastModified: new Date().toISOString(),
           }
-        : draft,
+        : draft
     );
     saveDrafts(updatedDrafts);
     setRenamingDraftId(null);
@@ -606,7 +627,9 @@ export default function SalesPageGenerator({
 
     toast({
       title: "Draft deleted",
-      description: `"${draftToDelete?.name || "Draft"}" has been removed successfully.`,
+      description: `"${
+        draftToDelete?.name || "Draft"
+      }" has been removed successfully.`,
     });
   };
 
@@ -1005,11 +1028,11 @@ ${generatedSalesPage}
     // Set the sample data
     localStorage.setItem(
       `messagingStrategy_${userId}`,
-      JSON.stringify(sampleMessagingStrategy),
+      JSON.stringify(sampleMessagingStrategy)
     );
     localStorage.setItem(
       `offerOutline_${userId}`,
-      JSON.stringify(sampleOfferOutline),
+      JSON.stringify(sampleOfferOutline)
     );
     setGeneratedSalesPage(sampleSalesPage);
     localStorage.setItem(`generatedSalesPage_${userId}`, sampleSalesPage);
@@ -1067,8 +1090,8 @@ ${generatedSalesPage}
       <Alert className="border-red-200 bg-red-50">
         <AlertTriangle className="h-4 w-4 text-red-600" />
         <AlertDescription className="text-red-700">
-          <strong>Unable to load your messaging strategy.</strong> Please try refreshing the
-          page or complete your messaging strategy section first.
+          <strong>Unable to load your messaging strategy.</strong> Please try
+          refreshing the page or complete your messaging strategy section first.
         </AlertDescription>
       </Alert>
     );
@@ -1083,27 +1106,45 @@ ${generatedSalesPage}
     let hasOfferData = false;
 
     // Check offer-specific data first
-    if (offerSpecificOutline?.content && Object.keys(offerSpecificOutline.content).length > 0) {
+    if (
+      offerSpecificOutline?.content &&
+      Object.keys(offerSpecificOutline.content).length > 0
+    ) {
       hasOfferData = true;
     }
 
     // Also check workbook responses
-    if (offerSpecificResponses && Object.keys(offerSpecificResponses).length > 0) {
+    if (
+      offerSpecificResponses &&
+      Object.keys(offerSpecificResponses).length > 0
+    ) {
       hasOfferData = true;
     }
 
     // Fallback to original offer outline if available (like Offer 1 does)
-    if (!hasOfferData && originalOfferOutline && Object.keys(originalOfferOutline).length > 0) {
+    if (
+      !hasOfferData &&
+      originalOfferOutline &&
+      Object.keys(originalOfferOutline).length > 0
+    ) {
       hasOfferData = true;
     }
 
     console.log(`📊 Data validation for offer ${offerNumber}:`, {
       hasMessaging,
       hasOfferData,
-      messagingKeys: messagingStrategy ? Object.keys(messagingStrategy).length : 0,
-      offerSpecificOutlineKeys: offerSpecificOutline?.content ? Object.keys(offerSpecificOutline.content).length : 0,
-      offerSpecificResponsesKeys: offerSpecificResponses ? Object.keys(offerSpecificResponses).length : 0,
-      originalOfferOutlineKeys: originalOfferOutline ? Object.keys(originalOfferOutline).length : 0,
+      messagingKeys: messagingStrategy
+        ? Object.keys(messagingStrategy).length
+        : 0,
+      offerSpecificOutlineKeys: offerSpecificOutline?.content
+        ? Object.keys(offerSpecificOutline.content).length
+        : 0,
+      offerSpecificResponsesKeys: offerSpecificResponses
+        ? Object.keys(offerSpecificResponses).length
+        : 0,
+      originalOfferOutlineKeys: originalOfferOutline
+        ? Object.keys(originalOfferOutline).length
+        : 0,
     });
 
     return hasMessaging && hasOfferData;
@@ -1122,7 +1163,9 @@ ${generatedSalesPage}
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-slate-600">
-              We'll create your sales page using your messaging strategy and offer outline. You can then customize and improve specific sections.
+              We'll create your sales page using your messaging strategy and
+              offer outline. You can then customize and improve specific
+              sections.
             </p>
 
             {/* Show data source status */}
@@ -1130,19 +1173,41 @@ ${generatedSalesPage}
               <div className="bg-blue-50 p-3 rounded-lg text-sm">
                 <div className="flex items-center text-blue-700 mb-2">
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  <span className="font-medium">Data Sources Ready for Offer {offerNumber}:</span>
+                  <span className="font-medium">
+                    Data Sources Ready for Offer {offerNumber}:
+                  </span>
                 </div>
                 <div className="space-y-1 text-blue-600">
-                  <p>✓ Messaging Strategy: {messagingStrategy ? Object.keys(messagingStrategy).length : 0} responses loaded</p>
+                  <p>
+                    ✓ Messaging Strategy:{" "}
+                    {messagingStrategy
+                      ? Object.keys(messagingStrategy).length
+                      : 0}{" "}
+                    responses loaded
+                  </p>
                   {offerNumber === 1 ? (
-                    <p>✓ Offer 1 Outline: {originalOfferOutline ? Object.keys(originalOfferOutline).length : 0} responses loaded</p>
+                    <p>
+                      ✓ Offer 1 Outline:{" "}
+                      {originalOfferOutline
+                        ? Object.keys(originalOfferOutline).length
+                        : 0}{" "}
+                      responses loaded
+                    </p>
                   ) : (
                     <>
                       {offerSpecificOutline?.content && (
-                        <p>✓ Offer 2 Outline: {Object.keys(offerSpecificOutline.content).length} responses loaded</p>
+                        <p>
+                          ✓ Offer 2 Outline:{" "}
+                          {Object.keys(offerSpecificOutline.content).length}{" "}
+                          responses loaded
+                        </p>
                       )}
                       {offerSpecificResponses && (
-                        <p>✓ Offer 2 Workbook: {Object.keys(offerSpecificResponses).length} responses loaded</p>
+                        <p>
+                          ✓ Offer 2 Workbook:{" "}
+                          {Object.keys(offerSpecificResponses).length} responses
+                          loaded
+                        </p>
                       )}
                     </>
                   )}
@@ -1154,20 +1219,26 @@ ${generatedSalesPage}
               <Alert className="border-yellow-200 bg-yellow-50">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
                 <AlertDescription className="text-yellow-700">
-                  <strong>Complete your workbook first.</strong> Please complete your messaging strategy and offer creation sections to generate your sales page.
+                  <strong>Complete your workbook first.</strong> Please complete
+                  your messaging strategy and offer creation sections to
+                  generate your sales page.
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="text-center">
-              <Button 
+              <Button
                 onClick={() => generateSalesPageMutation.mutate()}
-                disabled={generateSalesPageMutation.isPending || !hasMinimumData}
+                disabled={
+                  generateSalesPageMutation.isPending || !hasMinimumData
+                }
                 size="lg"
                 className="w-full max-w-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Wand2 className="w-4 h-4 mr-2" />
-                {generateSalesPageMutation.isPending ? `Generating Offer ${offerNumber} Sales Page...` : `Generate Offer ${offerNumber} Sales Page`}
+                {generateSalesPageMutation.isPending
+                  ? `Generating Offer ${offerNumber} Sales Page...`
+                  : `Generate Offer ${offerNumber} Sales Page`}
               </Button>
             </div>
           </CardContent>
@@ -1251,7 +1322,7 @@ ${generatedSalesPage}
                               </h4>
                               <p className="text-xs text-slate-500">
                                 {new Date(
-                                  draft.lastModified,
+                                  draft.lastModified
                                 ).toLocaleDateString()}
                               </p>
                             </div>
@@ -1343,7 +1414,9 @@ ${generatedSalesPage}
                 className="bg-white hover:bg-gray-50 border-gray-300"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
-                {generateSalesPageMutation.isPending ? 'Regenerating...' : 'Regenerate'}
+                {generateSalesPageMutation.isPending
+                  ? "Regenerating..."
+                  : "Regenerate"}
               </Button>
 
               <Button
@@ -1353,11 +1426,16 @@ ${generatedSalesPage}
                   setCurrentDraftId(null);
                   setGeneratedSalesPage("");
                   setCompleteness(0);
-                  localStorage.removeItem(`salesPageDrafts_${userId}_offer${offerNumber}`);
-                  localStorage.removeItem(`generatedSalesPage_${userId}_offer${offerNumber}`);
+                  localStorage.removeItem(
+                    `salesPageDrafts_${userId}_offer${offerNumber}`
+                  );
+                  localStorage.removeItem(
+                    `generatedSalesPage_${userId}_offer${offerNumber}`
+                  );
                   toast({
                     title: "Sales Page Reset",
-                    description: "All drafts and generated content have been cleared.",
+                    description:
+                      "All drafts and generated content have been cleared.",
                   });
                 }}
                 variant="outline"
@@ -1374,8 +1452,13 @@ ${generatedSalesPage}
           <Alert className="border-blue-200 bg-blue-50">
             <AlertTriangle className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-700">
-              <strong>Important: Human Touch Required</strong><br />
-              AI has generated this sales page based on your messaging strategy & offer outline, but a truly great sales page needs your human heart and touch. Please thoroughly read through this copy and add any relevant information, refine the language to match your voice, and ensure every detail accurately represents your offer.
+              <strong>Important: Human Touch Required</strong>
+              <br />
+              AI has generated this sales page based on your messaging strategy
+              & offer outline, but a truly great sales page needs your human
+              heart and touch. Please thoroughly read through this copy and add
+              any relevant information, refine the language to match your voice,
+              and ensure every detail accurately represents your offer.
             </AlertDescription>
           </Alert>
 
@@ -1404,7 +1487,11 @@ ${generatedSalesPage}
                     <div
                       contentEditable={true}
                       suppressContentEditableWarning={true}
-                      dangerouslySetInnerHTML={{ __html: generatedSalesPage || "<p>No content to edit. Please generate a sales page first.</p>" }}
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          generatedSalesPage ||
+                          "<p>No content to edit. Please generate a sales page first.</p>",
+                      }}
                       onBlur={(e) => {
                         const updatedContent = e.currentTarget.innerHTML;
                         setGeneratedSalesPage(updatedContent);
@@ -1412,7 +1499,8 @@ ${generatedSalesPage}
                       }}
                       className="prose prose-lg max-w-none focus:outline-none"
                       style={{
-                        fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+                        fontFamily:
+                          "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
                         lineHeight: "1.6",
                         color: "#333",
                         whiteSpace: "pre-wrap",
@@ -1446,78 +1534,88 @@ ${generatedSalesPage}
 
                   {/* Sales Page Preview with proper formatting */}
                   <div className="bg-white rounded-lg border p-6 max-w-4xl mx-auto">
-                    <div 
+                    <div
                       className="prose prose-lg max-w-none"
                       style={{
-                        fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-                        lineHeight: '1.6',
-                        color: '#333'
+                        fontFamily:
+                          "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+                        lineHeight: "1.6",
+                        color: "#333",
                       }}
                     >
-                      {generatedSalesPage.includes('<') ? (
+                      {generatedSalesPage.includes("<") ? (
                         // HTML content
-                        <div dangerouslySetInnerHTML={{ __html: generatedSalesPage }} />
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: generatedSalesPage,
+                          }}
+                        />
                       ) : (
                         // Plain text content - format it nicely
                         <div>
-                          {generatedSalesPage.split('\n').map((line, index) => {
+                          {generatedSalesPage.split("\n").map((line, index) => {
                             // Handle different types of content
                             if (!line.trim()) {
                               return <br key={index} />;
                             }
-                            
+
                             // Questions (lines starting with ###)
-                            if (line.startsWith('###')) {
+                            if (line.startsWith("###")) {
                               return (
-                                <h3 
-                                  key={index} 
+                                <h3
+                                  key={index}
                                   className="text-xl font-semibold text-blue-600 mt-6 mb-3 border-l-4 border-blue-500 pl-4"
                                 >
-                                  {line.replace('###', '').trim()}
+                                  {line.replace("###", "").trim()}
                                 </h3>
                               );
                             }
-                            
+
                             // Section headers (lines starting with ##)
-                            if (line.startsWith('##')) {
+                            if (line.startsWith("##")) {
                               return (
-                                <h2 
-                                  key={index} 
+                                <h2
+                                  key={index}
                                   className="text-2xl font-bold text-slate-800 mt-8 mb-4"
                                 >
-                                  {line.replace('##', '').trim()}
+                                  {line.replace("##", "").trim()}
                                 </h2>
                               );
                             }
-                            
+
                             // Main headers (lines starting with #)
-                            if (line.startsWith('#')) {
+                            if (line.startsWith("#")) {
                               return (
-                                <h1 
-                                  key={index} 
+                                <h1
+                                  key={index}
                                   className="text-3xl font-bold text-slate-900 mt-10 mb-6 text-center border-b-2 border-blue-200 pb-3"
                                 >
-                                  {line.replace('#', '').trim()}
+                                  {line.replace("#", "").trim()}
                                 </h1>
                               );
                             }
-                            
+
                             // Bold text (lines with **)
-                            if (line.includes('**')) {
-                              const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
+                            if (line.includes("**")) {
+                              const formattedLine = line.replace(
+                                /\*\*(.*?)\*\*/g,
+                                '<strong class="font-semibold text-slate-900">$1</strong>'
+                              );
                               return (
-                                <p 
-                                  key={index} 
-                                  className="text-lg leading-relaxed mb-4 text-slate-700" 
-                                  dangerouslySetInnerHTML={{ __html: formattedLine }} 
+                                <p
+                                  key={index}
+                                  className="text-lg leading-relaxed mb-4 text-slate-700"
+                                  dangerouslySetInnerHTML={{
+                                    __html: formattedLine,
+                                  }}
                                 />
                               );
                             }
-                            
+
                             // Regular paragraphs
                             return (
-                              <p 
-                                key={index} 
+                              <p
+                                key={index}
                                 className="text-lg leading-relaxed mb-4 text-slate-700"
                               >
                                 {line}

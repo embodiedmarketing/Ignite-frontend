@@ -15,30 +15,37 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { 
-  FileText, 
-  Wand2, 
-  AlertTriangle, 
-  CheckCircle, 
-  Copy, 
+import {
+  FileText,
+  Wand2,
+  AlertTriangle,
+  CheckCircle,
+  Copy,
   Download,
   Target,
   Edit,
   ExternalLink,
   HelpCircle,
   Trash,
-  RefreshCw
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import SalesPageInputField from "@/components/SalesPageInputField";
 import { useSalesPageData } from "@/hooks/useSalesPageData";
 
 // Helper function to update specific sections of the sales page
-function updateSalesPageSection(fullContent: string, section: string, newContent: string): string {
+function updateSalesPageSection(
+  fullContent: string,
+  section: string,
+  newContent: string
+): string {
   const startMarker = `<!-- ${section.toUpperCase()}_START -->`;
   const endMarker = `<!-- ${section.toUpperCase()}_END -->`;
-  const regex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`, 'g');
-  return fullContent.replace(regex, `${startMarker}\n${newContent}\n${endMarker}`);
+  const regex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`, "g");
+  return fullContent.replace(
+    regex,
+    `${startMarker}\n${newContent}\n${endMarker}`
+  );
 }
 
 // Helper function to extract offer number from draft name
@@ -48,27 +55,27 @@ function extractOfferNumber(draftName: string): number | null {
 }
 
 // Component for displaying sales page with inline editing and suggestions
-function SalesPagePreview({ 
-  content, 
-  missingElements, 
-  onSectionEdit 
-}: { 
-  content: string; 
-  missingElements: MissingElement[]; 
+function SalesPagePreview({
+  content,
+  missingElements,
+  onSectionEdit,
+}: {
+  content: string;
+  missingElements: MissingElement[];
   onSectionEdit: (section: string, content: string) => void;
 }) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [editContent, setEditContent] = useState<string>('');
+  const [editContent, setEditContent] = useState<string>("");
 
   const sections = [
-    { id: 'headline', label: 'Headline' },
-    { id: 'problem', label: 'Problem Statement' },
-    { id: 'solution', label: 'Solution' },
-    { id: 'benefits', label: 'Benefits' },
-    { id: 'testimonials', label: 'Testimonials' },
-    { id: 'pricing', label: 'Pricing' },
-    { id: 'guarantee', label: 'Guarantee' },
-    { id: 'cta', label: 'Call to Action' }
+    { id: "headline", label: "Headline" },
+    { id: "problem", label: "Problem Statement" },
+    { id: "solution", label: "Solution" },
+    { id: "benefits", label: "Benefits" },
+    { id: "testimonials", label: "Testimonials" },
+    { id: "pricing", label: "Pricing" },
+    { id: "guarantee", label: "Guarantee" },
+    { id: "cta", label: "Call to Action" },
   ];
 
   const extractSectionContent = (sectionId: string): string => {
@@ -77,25 +84,31 @@ function SalesPagePreview({
     const startIndex = content.indexOf(startMarker);
     const endIndex = content.indexOf(endMarker);
 
-    if (startIndex === -1 || endIndex === -1) return '';
+    if (startIndex === -1 || endIndex === -1) return "";
 
     return content.substring(startIndex + startMarker.length, endIndex).trim();
   };
 
   return (
-    <div className="bg-white rounded-lg border p-4" style={{ maxWidth: '800px', margin: '0 auto' }}>
-      {sections.map(section => {
+    <div
+      className="bg-white rounded-lg border p-4"
+      style={{ maxWidth: "800px", margin: "0 auto" }}
+    >
+      {sections.map((section) => {
         const sectionContent = extractSectionContent(section.id);
-        const missingSuggestions = missingElements.filter(elem => 
-          elem.section.toLowerCase().includes(section.id) || 
-          elem.field.toLowerCase().includes(section.id)
+        const missingSuggestions = missingElements.filter(
+          (elem) =>
+            elem.section.toLowerCase().includes(section.id) ||
+            elem.field.toLowerCase().includes(section.id)
         );
 
         return (
           <div key={section.id} className="relative group mb-1">
             {/* Compact Section Header with Edit Button */}
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">{section.label}</span>
+              <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                {section.label}
+              </span>
               <Button
                 onClick={() => {
                   setEditingSection(section.id);
@@ -115,19 +128,32 @@ function SalesPagePreview({
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                   <div className="text-sm text-orange-700">
-                    <div className="font-semibold mb-2">Why this section is highlighted:</div>
+                    <div className="font-semibold mb-2">
+                      Why this section is highlighted:
+                    </div>
                     <div className="space-y-2">
                       {missingSuggestions.map((suggestion, idx) => (
-                        <div key={idx} className="bg-white rounded p-2 border border-orange-100">
-                          <div className="font-medium text-orange-800 mb-1">{suggestion.section}</div>
-                          <div className="text-xs mb-2">{suggestion.description}</div>
+                        <div
+                          key={idx}
+                          className="bg-white rounded p-2 border border-orange-100"
+                        >
+                          <div className="font-medium text-orange-800 mb-1">
+                            {suggestion.section}
+                          </div>
+                          <div className="text-xs mb-2">
+                            {suggestion.description}
+                          </div>
                           {suggestion.suggestions.length > 0 && (
                             <div className="text-xs">
-                              <div className="font-medium mb-1">Specific improvements:</div>
+                              <div className="font-medium mb-1">
+                                Specific improvements:
+                              </div>
                               <ul className="list-disc list-inside space-y-1 text-orange-600">
-                                {suggestion.suggestions.slice(0, 3).map((tip, tipIdx) => (
-                                  <li key={tipIdx}>{tip}</li>
-                                ))}
+                                {suggestion.suggestions
+                                  .slice(0, 3)
+                                  .map((tip, tipIdx) => (
+                                    <li key={tipIdx}>{tip}</li>
+                                  ))}
                               </ul>
                             </div>
                           )}
@@ -136,7 +162,8 @@ function SalesPagePreview({
                     </div>
                     <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
                       <div className="text-xs text-blue-700 font-medium">
-                        💡 Click the edit button above to make these improvements
+                        💡 Click the edit button above to make these
+                        improvements
                       </div>
                     </div>
                   </div>
@@ -147,20 +174,24 @@ function SalesPagePreview({
             {/* In-Place Editable Content */}
             {editingSection === section.id ? (
               <div className="space-y-2 mb-3">
-                <div 
+                <div
                   className="prose prose-sm max-w-none text-sm leading-relaxed border-2 border-blue-300 rounded p-3 bg-blue-50"
-                  style={{ marginBottom: '0.5rem' }}
+                  style={{ marginBottom: "0.5rem" }}
                 >
                   <div
                     contentEditable
                     suppressContentEditableWarning={true}
-                    onBlur={(e) => setEditContent(e.currentTarget.textContent || '')}
-                    onInput={(e) => setEditContent(e.currentTarget.textContent || '')}
+                    onBlur={(e) =>
+                      setEditContent(e.currentTarget.textContent || "")
+                    }
+                    onInput={(e) =>
+                      setEditContent(e.currentTarget.textContent || "")
+                    }
                     className="outline-none focus:outline-none min-h-[100px] whitespace-pre-wrap"
                     style={{
-                      fontSize: '14px',
-                      lineHeight: '1.6',
-                      fontFamily: 'inherit'
+                      fontSize: "14px",
+                      lineHeight: "1.6",
+                      fontFamily: "inherit",
                     }}
                     dangerouslySetInnerHTML={{ __html: editContent }}
                     spellCheck={true}
@@ -187,15 +218,17 @@ function SalesPagePreview({
                 </div>
               </div>
             ) : (
-              <div 
+              <div
                 className={`prose prose-sm max-w-none text-sm leading-relaxed ${
-                  missingSuggestions.length > 0 
-                    ? 'ring-1 ring-orange-200 ring-opacity-50' 
-                    : ''
+                  missingSuggestions.length > 0
+                    ? "ring-1 ring-orange-200 ring-opacity-50"
+                    : ""
                 }`}
-                style={{ marginBottom: '0.75rem' }}
-                dangerouslySetInnerHTML={{ 
-                  __html: sectionContent || `<div class="text-slate-400 italic text-xs p-3 bg-slate-50 rounded border border-dashed border-slate-200">Click to add ${section.label.toLowerCase()}</div>` 
+                style={{ marginBottom: "0.75rem" }}
+                dangerouslySetInnerHTML={{
+                  __html:
+                    sectionContent ||
+                    `<div class="text-slate-400 italic text-xs p-3 bg-slate-50 rounded border border-dashed border-slate-200">Click to add ${section.label.toLowerCase()}</div>`,
                 }}
               />
             )}
@@ -243,7 +276,10 @@ interface SalesPageDraft {
   lastModified: string;
 }
 
-export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPageGeneratorProps) {
+export default function SalesPageGenerator({
+  userId,
+  offerNumber = 1,
+}: SalesPageGeneratorProps) {
   const [salesPageInputs, setSalesPageInputs] = useState<SalesPageInputs>({});
   const [generatedSalesPage, setGeneratedSalesPage] = useState<string>("");
   const [missingElements, setMissingElements] = useState<MissingElement[]>([]);
@@ -253,44 +289,73 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
   const [showDraftManager, setShowDraftManager] = useState(false);
   const [renamingDraftId, setRenamingDraftId] = useState<string | null>(null);
-  const [renameDraftText, setRenameDraftText] = useState<string>('');
+  const [renameDraftText, setRenameDraftText] = useState<string>("");
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const { toast } = useToast();
 
-
-
   // Get shared messaging strategy (used by both offers)
-  const { messagingStrategy, isLoading: messagingLoading, error: messagingError } = useSalesPageData(userId.toString());
+  const {
+    messagingStrategy,
+    isLoading: messagingLoading,
+    error: messagingError,
+  } = useSalesPageData(userId.toString());
 
   // Get offer-specific data based on offer number
-  const { data: offerSpecificOutline, isLoading: outlineLoading, error: outlineError } = useQuery({
-    queryKey: ['/api/user-offer-outlines/user', userId, offerNumber],
+  const {
+    data: offerSpecificOutline,
+    isLoading: outlineLoading,
+    error: outlineError,
+  } = useQuery({
+    queryKey: ["/api/user-offer-outlines/user", userId, offerNumber],
     queryFn: async () => {
-      const response = await fetch(`/api/user-offer-outlines/user/${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch offer outlines');
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/user-offer-outlines/user/${userId}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch offer outlines");
       const outlines = await response.json();
-      return outlines.find((outline: any) => outline.offerNumber === offerNumber);
+      return outlines.find(
+        (outline: any) => outline.offerNumber === offerNumber
+      );
     },
     enabled: !!userId && !!offerNumber,
   });
 
   // Get offer-specific workbook responses (only for offer 2)
-  const { data: offerSpecificResponses, isLoading: responsesLoading, error: responsesError } = useQuery({
-    queryKey: ['/api/workbook-responses', userId, offerNumber],
+  const {
+    data: offerSpecificResponses,
+    isLoading: responsesLoading,
+    error: responsesError,
+  } = useQuery({
+    queryKey: ["/api/workbook-responses", userId, offerNumber],
     queryFn: async () => {
-      const response = await fetch(`/api/workbook-responses/${userId}?offerNumber=${offerNumber}`);
-      if (!response.ok) throw new Error('Failed to fetch workbook responses');
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/workbook-responses/${userId}?offerNumber=${offerNumber}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch workbook responses");
       return await response.json();
     },
     enabled: !!userId && !!offerNumber && offerNumber === 2, // Only fetch for offer 2
   });
 
   // Get original offer outline for offer 1
-  const { data: originalOfferOutline, isLoading: originalOutlineLoading, error: originalOutlineError } = useQuery({
-    queryKey: ['/api/workbook-responses/user', userId, 'step', 2],
+  const {
+    data: originalOfferOutline,
+    isLoading: originalOutlineLoading,
+    error: originalOutlineError,
+  } = useQuery({
+    queryKey: ["/api/workbook-responses/user", userId, "step", 2],
     queryFn: async () => {
-      const response = await fetch(`/api/workbook-responses/user/${userId}/step/2`);
-      if (!response.ok) throw new Error('Failed to fetch original offer outline');
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/workbook-responses/user/${userId}/step/2`
+      );
+      if (!response.ok)
+        throw new Error("Failed to fetch original offer outline");
       const responses = await response.json();
       return responses.reduce((acc: any, item: any) => {
         acc[item.questionKey] = item.responseText;
@@ -301,26 +366,37 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
   });
 
   // Combine loading states
-  const dataLoading = messagingLoading || outlineLoading || responsesLoading || originalOutlineLoading;
-  const dataError = messagingError || outlineError || responsesError || originalOutlineError;
+  const dataLoading =
+    messagingLoading ||
+    outlineLoading ||
+    responsesLoading ||
+    originalOutlineLoading;
+  const dataError =
+    messagingError || outlineError || responsesError || originalOutlineError;
 
   // Load existing sales page inputs and drafts from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem(`salesPageInputs_${userId}_offer${offerNumber}`);
+    const saved = localStorage.getItem(
+      `salesPageInputs_${userId}_offer${offerNumber}`
+    );
     if (saved) {
       setSalesPageInputs(JSON.parse(saved));
     }
 
     // Load drafts
-    const savedDrafts = localStorage.getItem(`salesPageDrafts_${userId}_offer${offerNumber}`);
+    const savedDrafts = localStorage.getItem(
+      `salesPageDrafts_${userId}_offer${offerNumber}`
+    );
     if (savedDrafts) {
       const parsedDrafts = JSON.parse(savedDrafts);
       setDrafts(parsedDrafts);
 
       // Load the most recent draft if no current draft is selected
       if (parsedDrafts.length > 0) {
-        const mostRecent = parsedDrafts.sort((a: SalesPageDraft, b: SalesPageDraft) => 
-          new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+        const mostRecent = parsedDrafts.sort(
+          (a: SalesPageDraft, b: SalesPageDraft) =>
+            new Date(b.lastModified).getTime() -
+            new Date(a.lastModified).getTime()
         )[0];
         setCurrentDraftId(mostRecent.id);
         setGeneratedSalesPage(mostRecent.content);
@@ -328,7 +404,9 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
       }
     } else {
       // Legacy: load old single sales page format
-      const savedSalesPage = localStorage.getItem(`generatedSalesPage_${userId}`);
+      const savedSalesPage = localStorage.getItem(
+        `generatedSalesPage_${userId}`
+      );
       if (savedSalesPage) {
         // Migrate to draft format
         const legacyDraft: SalesPageDraft = {
@@ -336,7 +414,7 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
           name: "Sales Page Draft 1",
           content: savedSalesPage,
           createdAt: new Date().toISOString(),
-          lastModified: new Date().toISOString()
+          lastModified: new Date().toISOString(),
         };
         setDrafts([legacyDraft]);
         setCurrentDraftId(legacyDraft.id);
@@ -349,32 +427,48 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
   }, [userId]);
 
   const calculateCompleteness = () => {
-    const messagingStrategy = JSON.parse(localStorage.getItem(`messagingStrategy_${userId}`) || '{}');
-    const offerOutline = JSON.parse(localStorage.getItem(`offerOutline_${userId}`) || '{}');
+    const messagingStrategy = JSON.parse(
+      localStorage.getItem(`messagingStrategy_${userId}`) || "{}"
+    );
+    const offerOutline = JSON.parse(
+      localStorage.getItem(`offerOutline_${userId}`) || "{}"
+    );
 
     let calculatedCompleteness = 60; // Base completeness for having a generated page
 
     if (Object.keys(messagingStrategy).length > 3) calculatedCompleteness += 15;
     if (Object.keys(offerOutline).length > 3) calculatedCompleteness += 15;
-    if (messagingStrategy.customerAvatar || messagingStrategy.avatar) calculatedCompleteness += 5;
-    if (offerOutline.transformation || offerOutline.outcome) calculatedCompleteness += 5;
+    if (messagingStrategy.customerAvatar || messagingStrategy.avatar)
+      calculatedCompleteness += 5;
+    if (offerOutline.transformation || offerOutline.outcome)
+      calculatedCompleteness += 5;
 
     setCompleteness(Math.min(calculatedCompleteness, 100));
   };
 
   const saveDrafts = (updatedDrafts: SalesPageDraft[]) => {
-    localStorage.setItem(`salesPageDrafts_${userId}_offer${offerNumber}`, JSON.stringify(updatedDrafts));
+    localStorage.setItem(
+      `salesPageDrafts_${userId}_offer${offerNumber}`,
+      JSON.stringify(updatedDrafts)
+    );
     setDrafts(updatedDrafts);
   };
 
   // Auto-save inputs to localStorage
   useEffect(() => {
-    localStorage.setItem(`salesPageInputs_${userId}_offer${offerNumber}`, JSON.stringify(salesPageInputs));
+    localStorage.setItem(
+      `salesPageInputs_${userId}_offer${offerNumber}`,
+      JSON.stringify(salesPageInputs)
+    );
   }, [salesPageInputs, userId, offerNumber]);
 
   // Generate sales page mutation - offer-specific
   const generateSalesPageMutation = useMutation({
-    mutationKey: [`generate-sales-page-offer-${offerNumber}`, userId, offerNumber],
+    mutationKey: [
+      `generate-sales-page-offer-${offerNumber}`,
+      userId,
+      offerNumber,
+    ],
     mutationFn: async () => {
       // CRITICAL FIX: Use completely separate data sources for each offer
       let offerData, workbookData;
@@ -394,40 +488,45 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
         workbookDataKeys: Object.keys(workbookData).length,
         offerNumber,
         hasOfferSpecificOutline: !!offerSpecificOutline,
-        hasOfferSpecificResponses: !!offerSpecificResponses
+        hasOfferSpecificResponses: !!offerSpecificResponses,
       });
 
-      const response = await fetch('/api/generate-sales-page', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          messagingStrategy, // Shared across offers
-          offerOutline: offerData, // Offer-specific outline
-          workbookResponses: workbookData, // Offer-specific responses
-          salesPageInputs,
-          offerNumber, // CRITICAL: Pass offer number for backend differentiation
-          offerType: offerNumber === 1 ? 'course' : 'program' // Different types for variety
-        })
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            messagingStrategy, // Shared across offers
+            offerOutline: offerData, // Offer-specific outline
+            workbookResponses: workbookData, // Offer-specific responses
+            salesPageInputs,
+            offerNumber, // CRITICAL: Pass offer number for backend differentiation
+            offerType: offerNumber === 1 ? "course" : "program", // Different types for variety
+          }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to generate sales page');
+        throw new Error("Failed to generate sales page");
       }
 
       return response.json();
     },
     onSuccess: (data) => {
       // Create new draft with offer-specific naming
-      const offerDrafts = drafts.filter(draft => draft.name.includes(`Offer ${offerNumber}`));
+      const offerDrafts = drafts.filter((draft) =>
+        draft.name.includes(`Offer ${offerNumber}`)
+      );
       const newDraft: SalesPageDraft = {
         id: Date.now().toString(),
         name: `Offer ${offerNumber} - Draft ${offerDrafts.length + 1}`,
         content: data.salesPageContent,
         createdAt: new Date().toISOString(),
-        lastModified: new Date().toISOString()
+        lastModified: new Date().toISOString(),
       };
 
       const updatedDrafts = [...drafts, newDraft];
@@ -438,35 +537,40 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
         newDraftId: newDraft.id,
         newDraftName: newDraft.name,
         totalDrafts: updatedDrafts.length,
-        uiWillNotUpdate: true
+        uiWillNotUpdate: true,
       });
 
       // NO UI UPDATES - User must manually select new draft to view it
-      console.log(`📝 Draft saved but UI unchanged - user must manually switch to new draft`);
+      console.log(
+        `📝 Draft saved but UI unchanged - user must manually switch to new draft`
+      );
 
       toast({
         title: `New Sales Page Draft Created for Offer ${offerNumber}!`,
-        description: `Draft ${offerDrafts.length + 1} is ready. Switch to it from the drafts panel to view.`,
+        description: `Draft ${
+          offerDrafts.length + 1
+        } is ready. Switch to it from the drafts panel to view.`,
       });
     },
     onError: (error) => {
       toast({
         title: "Generation Failed",
-        description: "Please try again or complete more workbook sections first.",
-        variant: "destructive"
+        description:
+          "Please try again or complete more workbook sections first.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   const updateInput = (field: keyof SalesPageInputs, value: string) => {
-    setSalesPageInputs(prev => ({ ...prev, [field]: value }));
+    setSalesPageInputs((prev) => ({ ...prev, [field]: value }));
   };
 
   const saveDraft = (content: string) => {
     if (!currentDraftId) return;
 
-    const updatedDrafts = drafts.map(draft => 
-      draft.id === currentDraftId 
+    const updatedDrafts = drafts.map((draft) =>
+      draft.id === currentDraftId
         ? { ...draft, content, lastModified: new Date().toISOString() }
         : draft
     );
@@ -475,7 +579,7 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
   };
 
   const switchDraft = (draftId: string) => {
-    const draft = drafts.find(d => d.id === draftId);
+    const draft = drafts.find((d) => d.id === draftId);
     if (draft) {
       setCurrentDraftId(draftId);
       setGeneratedSalesPage(draft.content);
@@ -484,18 +588,22 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
   };
 
   const renameDraft = (draftId: string, newName: string) => {
-    const updatedDrafts = drafts.map(draft => 
-      draft.id === draftId 
-        ? { ...draft, name: newName.trim() || `Draft ${drafts.indexOf(draft) + 1}`, lastModified: new Date().toISOString() }
+    const updatedDrafts = drafts.map((draft) =>
+      draft.id === draftId
+        ? {
+            ...draft,
+            name: newName.trim() || `Draft ${drafts.indexOf(draft) + 1}`,
+            lastModified: new Date().toISOString(),
+          }
         : draft
     );
     saveDrafts(updatedDrafts);
     setRenamingDraftId(null);
-    setRenameDraftText('');
+    setRenameDraftText("");
 
     toast({
       title: "Draft renamed",
-      description: `Renamed to "${newName.trim()}"`
+      description: `Renamed to "${newName.trim()}"`,
     });
   };
 
@@ -505,8 +613,8 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
   };
 
   const deleteDraft = (draftId: string) => {
-    const draftToDelete = drafts.find(d => d.id === draftId);
-    const updatedDrafts = drafts.filter(d => d.id !== draftId);
+    const draftToDelete = drafts.find((d) => d.id === draftId);
+    const updatedDrafts = drafts.filter((d) => d.id !== draftId);
     saveDrafts(updatedDrafts);
 
     if (currentDraftId === draftId) {
@@ -523,7 +631,9 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
 
     toast({
       title: "Draft deleted",
-      description: `"${draftToDelete?.name || 'Draft'}" has been removed successfully.`
+      description: `"${
+        draftToDelete?.name || "Draft"
+      }" has been removed successfully.`,
     });
   };
 
@@ -532,13 +642,13 @@ export default function SalesPageGenerator({ userId, offerNumber = 1 }: SalesPag
       await navigator.clipboard.writeText(text);
       toast({
         title: "Copied!",
-        description: "Sales page content copied to clipboard."
+        description: "Sales page content copied to clipboard.",
       });
     } catch (err) {
       toast({
         title: "Copy Failed",
         description: "Please select and copy the text manually.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -654,14 +764,14 @@ ${generatedSalesPage}
 </html>`;
 
     // Create Word document blob with proper HTML formatting
-    const blob = new Blob([htmlContent], { 
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    const blob = new Blob([htmlContent], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
 
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'sales-page-copy.docx';
+    a.download = "sales-page-copy.docx";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -669,22 +779,23 @@ ${generatedSalesPage}
 
     toast({
       title: "Word Document Downloaded!",
-      description: "Sales page formatted for landing page builders like GoHighLevel",
+      description:
+        "Sales page formatted for landing page builders like GoHighLevel",
     });
   };
 
   const createGoogleDoc = () => {
     // Convert HTML to clean, formatted text for Google Docs
-    const tempDiv = document.createElement('div');
+    const tempDiv = document.createElement("div");
     tempDiv.innerHTML = generatedSalesPage;
-    let textContent = tempDiv.textContent || tempDiv.innerText || '';
+    let textContent = tempDiv.textContent || tempDiv.innerText || "";
 
     // Format the content better for Google Docs with proper spacing and structure
     textContent = textContent
-      .replace(/\n\s*\n/g, '\n\n') // Clean up multiple line breaks
-      .replace(/^\s+|\s+$/g, '') // Trim whitespace
-      .replace(/([.!?])\s*\n/g, '$1\n\n') // Add spacing after sentences
-      .replace(/^([A-Z][^.!?]*[.!?])/gm, '\n$1') // Add spacing before new sections
+      .replace(/\n\s*\n/g, "\n\n") // Clean up multiple line breaks
+      .replace(/^\s+|\s+$/g, "") // Trim whitespace
+      .replace(/([.!?])\s*\n/g, "$1\n\n") // Add spacing after sentences
+      .replace(/^([A-Z][^.!?]*[.!?])/gm, "\n$1") // Add spacing before new sections
       .trim();
 
     // Add document title and formatting note
@@ -694,63 +805,75 @@ ${generatedSalesPage}
     const googleDocsUrl = `https://docs.google.com/document/u/0/create?usp=docs_web&title=Sales%20Page%20Copy`;
 
     // Copy content to clipboard and open Google Docs with enhanced user experience
-    navigator.clipboard.writeText(formattedContent).then(() => {
-      window.open(googleDocsUrl, '_blank');
+    navigator.clipboard
+      .writeText(formattedContent)
+      .then(() => {
+        window.open(googleDocsUrl, "_blank");
 
-      // Show helpful toast with instructions
-      toast({
-        title: "Google Docs Opening!",
-        description: "Your sales page copy is ready to paste (Ctrl+V or Cmd+V)",
-        duration: 6000,
-      });
-
-      // Show a follow-up notification after a delay
-      setTimeout(() => {
+        // Show helpful toast with instructions
         toast({
-          title: "💡 Pro Tip",
-          description: "Once pasted, use Google Docs formatting tools to style your sales page",
-          duration: 4000,
+          title: "Google Docs Opening!",
+          description:
+            "Your sales page copy is ready to paste (Ctrl+V or Cmd+V)",
+          duration: 6000,
         });
-      }, 2000);
 
-    }).catch(() => {
-      // Fallback for browsers that don't support clipboard API
-      window.open(googleDocsUrl, '_blank');
+        // Show a follow-up notification after a delay
+        setTimeout(() => {
+          toast({
+            title: "💡 Pro Tip",
+            description:
+              "Once pasted, use Google Docs formatting tools to style your sales page",
+            duration: 4000,
+          });
+        }, 2000);
+      })
+      .catch(() => {
+        // Fallback for browsers that don't support clipboard API
+        window.open(googleDocsUrl, "_blank");
 
-      // Create a temporary textarea for manual copying
-      const textarea = document.createElement('textarea');
-      textarea.value = formattedContent;
-      document.body.appendChild(textarea);
-      textarea.select();
+        // Create a temporary textarea for manual copying
+        const textarea = document.createElement("textarea");
+        textarea.value = formattedContent;
+        document.body.appendChild(textarea);
+        textarea.select();
 
-      toast({
-        title: "Google Docs opened",
-        description: "Copy the selected text below and paste it into your new document",
-        duration: 8000,
+        toast({
+          title: "Google Docs opened",
+          description:
+            "Copy the selected text below and paste it into your new document",
+          duration: 8000,
+        });
+
+        // Clean up after a delay
+        setTimeout(() => {
+          document.body.removeChild(textarea);
+        }, 10000);
       });
-
-      // Clean up after a delay
-      setTimeout(() => {
-        document.body.removeChild(textarea);
-      }, 10000);
-    });
   };
 
   const generateSampleData = () => {
     // Sample messaging strategy
     const sampleMessagingStrategy = {
-      uniquePositioning: "I help overwhelmed business owners who are tired of working 60+ hour weeks but making inconsistent income. After 10 years of building and selling 3 successful businesses, I've cracked the code on creating predictable revenue streams while working less than 30 hours per week.",
-      brandVoice: "Direct, no-nonsense, and empathetic. I speak like a trusted friend who's been through the struggle and found the way out. I use simple language, real examples, and I'm not afraid to call out the BS in the industry.",
-      customerAvatar: "Sarah is a 38-year-old entrepreneur running a service-based business. She's making $150k annually but working 65 hours a week. She's exhausted, her family time is suffering, and her income fluctuates wildly month to month. She's tried hiring VAs and using productivity apps, but nothing has created the freedom she started her business for.",
-      coreMessage: "You don't need to work harder to make more money. You need a proven system that creates predictable revenue while giving you your life back."
+      uniquePositioning:
+        "I help overwhelmed business owners who are tired of working 60+ hour weeks but making inconsistent income. After 10 years of building and selling 3 successful businesses, I've cracked the code on creating predictable revenue streams while working less than 30 hours per week.",
+      brandVoice:
+        "Direct, no-nonsense, and empathetic. I speak like a trusted friend who's been through the struggle and found the way out. I use simple language, real examples, and I'm not afraid to call out the BS in the industry.",
+      customerAvatar:
+        "Sarah is a 38-year-old entrepreneur running a service-based business. She's making $150k annually but working 65 hours a week. She's exhausted, her family time is suffering, and her income fluctuates wildly month to month. She's tried hiring VAs and using productivity apps, but nothing has created the freedom she started her business for.",
+      coreMessage:
+        "You don't need to work harder to make more money. You need a proven system that creates predictable revenue while giving you your life back.",
     };
 
     // Sample offer outline
     const sampleOfferOutline = {
-      transformation: "Transform your chaotic, time-consuming business into a predictable revenue machine that runs without you in 90 days",
-      components: "Week 1-2: Revenue Audit & Profit Optimization, Week 3-4: Systems & Automation Setup, Week 5-6: Team Building & Delegation, Week 7-8: Marketing Machine Creation, Week 9-12: Scaling & Optimization",
+      transformation:
+        "Transform your chaotic, time-consuming business into a predictable revenue machine that runs without you in 90 days",
+      components:
+        "Week 1-2: Revenue Audit & Profit Optimization, Week 3-4: Systems & Automation Setup, Week 5-6: Team Building & Delegation, Week 7-8: Marketing Machine Creation, Week 9-12: Scaling & Optimization",
       pricing: "$3,997 one-time payment or 3 payments of $1,497",
-      timeline: "12-week intensive program with weekly group calls and daily implementation support"
+      timeline:
+        "12-week intensive program with weekly group calls and daily implementation support",
     };
 
     // Sample sales page content with proper HTML formatting and section markers
@@ -907,8 +1030,14 @@ ${generatedSalesPage}
 </html>`;
 
     // Set the sample data
-    localStorage.setItem(`messagingStrategy_${userId}`, JSON.stringify(sampleMessagingStrategy));
-    localStorage.setItem(`offerOutline_${userId}`, JSON.stringify(sampleOfferOutline));
+    localStorage.setItem(
+      `messagingStrategy_${userId}`,
+      JSON.stringify(sampleMessagingStrategy)
+    );
+    localStorage.setItem(
+      `offerOutline_${userId}`,
+      JSON.stringify(sampleOfferOutline)
+    );
     setGeneratedSalesPage(sampleSalesPage);
     localStorage.setItem(`generatedSalesPage_${userId}`, sampleSalesPage);
 
@@ -919,22 +1048,31 @@ ${generatedSalesPage}
         field: "testimonials",
         description: "Add customer testimonials and success stories",
         priority: "high" as const,
-        suggestions: ["Include specific results and transformations", "Add before/after comparisons", "Use real names and photos when possible"]
+        suggestions: [
+          "Include specific results and transformations",
+          "Add before/after comparisons",
+          "Use real names and photos when possible",
+        ],
       },
       {
         section: "Risk Reversal",
         field: "guarantee",
         description: "Strengthen your guarantee to reduce purchase anxiety",
         priority: "medium" as const,
-        suggestions: ["Make it more specific", "Extend the timeframe", "Add additional assurances"]
-      }
+        suggestions: [
+          "Make it more specific",
+          "Extend the timeframe",
+          "Add additional assurances",
+        ],
+      },
     ]);
 
     setCompleteness(85);
 
     toast({
       title: "Sample Data Generated!",
-      description: "You can now see how the editing interface works with realistic content."
+      description:
+        "You can now see how the editing interface works with realistic content.",
     });
   };
 
@@ -955,7 +1093,8 @@ ${generatedSalesPage}
       <Alert className="border-red-200 bg-red-50">
         <AlertTriangle className="h-4 w-4 text-red-600" />
         <AlertDescription className="text-red-700">
-          <strong>Unable to load your data.</strong> Please try refreshing the page or complete your workbook sections first.
+          <strong>Unable to load your data.</strong> Please try refreshing the
+          page or complete your workbook sections first.
         </AlertDescription>
       </Alert>
     );
@@ -963,34 +1102,47 @@ ${generatedSalesPage}
 
   // Check if user has sufficient data for sales page generation
   const hasMinimumData = (() => {
-    const hasMessaging = messagingStrategy && Object.keys(messagingStrategy).length > 0;
+    const hasMessaging =
+      messagingStrategy && Object.keys(messagingStrategy).length > 0;
 
     let hasOfferData = false;
     let offerDataInfo = {};
 
     if (offerNumber === 1) {
       // For offer 1: use original offer outline from step 2
-      hasOfferData = originalOfferOutline && Object.keys(originalOfferOutline).length > 0;
+      hasOfferData =
+        originalOfferOutline && Object.keys(originalOfferOutline).length > 0;
       offerDataInfo = {
-        source: 'original_offer_outline',
-        keys: originalOfferOutline ? Object.keys(originalOfferOutline).length : 0
+        source: "original_offer_outline",
+        keys: originalOfferOutline
+          ? Object.keys(originalOfferOutline).length
+          : 0,
       };
     } else {
       // For offer 2: use offer-specific outline or workbook responses
-      hasOfferData = (offerSpecificOutline?.content && Object.keys(offerSpecificOutline.content).length > 0) || 
-                    (offerSpecificResponses && Object.keys(offerSpecificResponses).length > 0);
+      hasOfferData =
+        (offerSpecificOutline?.content &&
+          Object.keys(offerSpecificOutline.content).length > 0) ||
+        (offerSpecificResponses &&
+          Object.keys(offerSpecificResponses).length > 0);
       offerDataInfo = {
-        source: 'offer_specific_data',
-        outlineKeys: offerSpecificOutline?.content ? Object.keys(offerSpecificOutline.content).length : 0,
-        responseKeys: offerSpecificResponses ? Object.keys(offerSpecificResponses).length : 0
+        source: "offer_specific_data",
+        outlineKeys: offerSpecificOutline?.content
+          ? Object.keys(offerSpecificOutline.content).length
+          : 0,
+        responseKeys: offerSpecificResponses
+          ? Object.keys(offerSpecificResponses).length
+          : 0,
       };
     }
 
     console.log(`📊 Data validation for offer ${offerNumber}:`, {
       hasMessaging,
       hasOfferData,
-      messagingKeys: messagingStrategy ? Object.keys(messagingStrategy).length : 0,
-      offerDataInfo
+      messagingKeys: messagingStrategy
+        ? Object.keys(messagingStrategy).length
+        : 0,
+      offerDataInfo,
     });
 
     return hasMessaging && hasOfferData;
@@ -998,7 +1150,6 @@ ${generatedSalesPage}
 
   return (
     <div className="space-y-6">
-
       {!generatedSalesPage ? (
         // Initial Generation Section
         <Card className="border-2 border-blue-200">
@@ -1010,7 +1161,9 @@ ${generatedSalesPage}
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-slate-600">
-              We'll create your sales page using your messaging strategy and offer outline. You can then customize and improve specific sections.
+              We'll create your sales page using your messaging strategy and
+              offer outline. You can then customize and improve specific
+              sections.
             </p>
 
             {/* Show data source status */}
@@ -1018,19 +1171,41 @@ ${generatedSalesPage}
               <div className="bg-blue-50 p-3 rounded-lg text-sm">
                 <div className="flex items-center text-blue-700 mb-2">
                   <CheckCircle className="w-4 h-4 mr-2" />
-                  <span className="font-medium">Data Sources Ready for Offer {offerNumber}:</span>
+                  <span className="font-medium">
+                    Data Sources Ready for Offer {offerNumber}:
+                  </span>
                 </div>
                 <div className="space-y-1 text-blue-600">
-                  <p>✓ Messaging Strategy: {messagingStrategy ? Object.keys(messagingStrategy).length : 0} responses loaded</p>
+                  <p>
+                    ✓ Messaging Strategy:{" "}
+                    {messagingStrategy
+                      ? Object.keys(messagingStrategy).length
+                      : 0}{" "}
+                    responses loaded
+                  </p>
                   {offerNumber === 1 ? (
-                    <p>✓ Offer 1 Outline: {originalOfferOutline ? Object.keys(originalOfferOutline).length : 0} responses loaded</p>
+                    <p>
+                      ✓ Offer 1 Outline:{" "}
+                      {originalOfferOutline
+                        ? Object.keys(originalOfferOutline).length
+                        : 0}{" "}
+                      responses loaded
+                    </p>
                   ) : (
                     <>
                       {offerSpecificOutline?.content && (
-                        <p>✓ Offer 2 Outline: {Object.keys(offerSpecificOutline.content).length} responses loaded</p>
+                        <p>
+                          ✓ Offer 2 Outline:{" "}
+                          {Object.keys(offerSpecificOutline.content).length}{" "}
+                          responses loaded
+                        </p>
                       )}
                       {offerSpecificResponses && (
-                        <p>✓ Offer 2 Workbook: {Object.keys(offerSpecificResponses).length} responses loaded</p>
+                        <p>
+                          ✓ Offer 2 Workbook:{" "}
+                          {Object.keys(offerSpecificResponses).length} responses
+                          loaded
+                        </p>
                       )}
                     </>
                   )}
@@ -1042,25 +1217,31 @@ ${generatedSalesPage}
               <Alert className="border-yellow-200 bg-yellow-50">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
                 <AlertDescription className="text-yellow-700">
-                  <strong>Complete your workbook first.</strong> Please complete your messaging strategy and offer creation sections to generate your sales page.
+                  <strong>Complete your workbook first.</strong> Please complete
+                  your messaging strategy and offer creation sections to
+                  generate your sales page.
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="text-center space-y-3">
-              <Button 
+              <Button
                 onClick={() => generateSalesPageMutation.mutate()}
-                disabled={generateSalesPageMutation.isPending || !hasMinimumData}
+                disabled={
+                  generateSalesPageMutation.isPending || !hasMinimumData
+                }
                 size="lg"
                 className="w-full max-w-md bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Wand2 className="w-4 h-4 mr-2" />
-                {generateSalesPageMutation.isPending ? "Generating Your Sales Page..." : "Generate Sales Page"}
+                {generateSalesPageMutation.isPending
+                  ? "Generating Your Sales Page..."
+                  : "Generate Sales Page"}
               </Button>
 
               <div className="text-slate-500 text-sm">or</div>
 
-              <Button 
+              <Button
                 onClick={generateSampleData}
                 variant="outline"
                 size="lg"
@@ -1084,7 +1265,9 @@ ${generatedSalesPage}
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center">
                   <FileText className="w-4 h-4 mr-2 text-slate-600" />
-                  <span className="text-sm font-medium text-slate-800">Drafts ({drafts.length})</span>
+                  <span className="text-sm font-medium text-slate-800">
+                    Drafts ({drafts.length})
+                  </span>
                 </div>
                 <Button
                   onClick={() => setShowDraftManager(!showDraftManager)}
@@ -1114,13 +1297,15 @@ ${generatedSalesPage}
                               <input
                                 type="text"
                                 value={renameDraftText}
-                                onChange={(e) => setRenameDraftText(e.target.value)}
+                                onChange={(e) =>
+                                  setRenameDraftText(e.target.value)
+                                }
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
+                                  if (e.key === "Enter") {
                                     renameDraft(draft.id, renameDraftText);
-                                  } else if (e.key === 'Escape') {
+                                  } else if (e.key === "Escape") {
                                     setRenamingDraftId(null);
-                                    setRenameDraftText('');
+                                    setRenameDraftText("");
                                   }
                                 }}
                                 onBlur={() => {
@@ -1128,7 +1313,7 @@ ${generatedSalesPage}
                                     renameDraft(draft.id, renameDraftText);
                                   } else {
                                     setRenamingDraftId(null);
-                                    setRenameDraftText('');
+                                    setRenameDraftText("");
                                   }
                                 }}
                                 className="text-sm font-medium bg-white border border-blue-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 w-full"
@@ -1138,7 +1323,7 @@ ${generatedSalesPage}
                             </div>
                           ) : (
                             <div>
-                              <h4 
+                              <h4
                                 className="text-sm font-medium text-slate-800 cursor-pointer hover:text-blue-600 transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1149,14 +1334,18 @@ ${generatedSalesPage}
                                 {draft.name}
                               </h4>
                               <p className="text-xs text-slate-500">
-                                {new Date(draft.lastModified).toLocaleDateString()}
+                                {new Date(
+                                  draft.lastModified
+                                ).toLocaleDateString()}
                               </p>
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1">
                           {currentDraftId === draft.id && (
-                            <Badge variant="secondary" className="text-xs h-4">Current</Badge>
+                            <Badge variant="secondary" className="text-xs h-4">
+                              Current
+                            </Badge>
                           )}
                           {renamingDraftId !== draft.id && (
                             <Button
@@ -1200,7 +1389,9 @@ ${generatedSalesPage}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center">
                 <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                <span className="text-sm font-medium text-green-800">Sales Page Ready ({completeness}%)</span>
+                <span className="text-sm font-medium text-green-800">
+                  Sales Page Ready ({completeness}%)
+                </span>
               </div>
               <Button
                 onClick={() => generateSalesPageMutation.mutate()}
@@ -1210,31 +1401,35 @@ ${generatedSalesPage}
                 className="h-8"
               >
                 <Wand2 className="w-3 h-3 mr-1" />
-                {generateSalesPageMutation.isPending ? "Creating..." : "New Draft"}
+                {generateSalesPageMutation.isPending
+                  ? "Creating..."
+                  : "New Draft"}
               </Button>
             </div>
 
             <div className="flex items-center space-x-3">
               <div className="flex-1 bg-white rounded-full h-2">
-                <div 
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                <div
+                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${completeness}%` }}
                 ></div>
               </div>
-              <span className="text-xs font-medium text-green-700">{completeness}%</span>
+              <span className="text-xs font-medium text-green-700">
+                {completeness}%
+              </span>
             </div>
 
             {false && missingElements.length > 0 && (
               <div className="mt-3 p-2 rounded border border-orange-200 bg-orange-50">
                 <div className="flex items-center text-xs text-orange-700">
                   <AlertTriangle className="h-3 w-3 mr-1 flex-shrink-0" />
-                  <span>Complete highlighted sections below for maximum impact</span>
+                  <span>
+                    Complete highlighted sections below for maximum impact
+                  </span>
                 </div>
               </div>
             )}
           </div>
-
-
 
           {/* Generated Sales Page Preview */}
           <Card>
@@ -1268,10 +1463,11 @@ ${generatedSalesPage}
                       }}
                       className="prose prose-lg max-w-none focus:outline-none"
                       style={{
-                        fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-                        lineHeight: '1.6',
-                        color: '#333',
-                        whiteSpace: 'pre-wrap',
+                        fontFamily:
+                          "Segoe UI, Tahoma, Geneva, Verdana, sans-serif",
+                        lineHeight: "1.6",
+                        color: "#333",
+                        whiteSpace: "pre-wrap",
                       }}
                       spellCheck={true}
                     />
@@ -1301,7 +1497,9 @@ ${generatedSalesPage}
                   {/* Sticky Action Toolbar */}
                   <div className="sticky top-4 z-10 bg-white border rounded-lg shadow-sm p-3 mb-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-slate-700">Sales Page Actions</h3>
+                      <h3 className="font-medium text-slate-700">
+                        Sales Page Actions
+                      </h3>
                       <div className="flex gap-2 flex-wrap">
                         <Button
                           onClick={() => setIsEditing(true)}
@@ -1343,12 +1541,16 @@ ${generatedSalesPage}
                   </div>
 
                   {/* Sales Page Preview */}
-                  <SalesPagePreview 
+                  <SalesPagePreview
                     content={generatedSalesPage}
                     missingElements={missingElements}
                     onSectionEdit={(section, content) => {
                       // Handle inline section editing with draft system
-                      const updatedPage = updateSalesPageSection(generatedSalesPage, section, content);
+                      const updatedPage = updateSalesPageSection(
+                        generatedSalesPage,
+                        section,
+                        content
+                      );
                       setGeneratedSalesPage(updatedPage);
                       saveDraft(updatedPage);
                     }}
@@ -1361,13 +1563,18 @@ ${generatedSalesPage}
       )}
 
       {/* Delete Draft Confirmation Dialog */}
-      <AlertDialog open={!!deletingDraftId} onOpenChange={() => setDeletingDraftId(null)}>
+      <AlertDialog
+        open={!!deletingDraftId}
+        onOpenChange={() => setDeletingDraftId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Draft</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{drafts.find(d => d.id === deletingDraftId)?.name || 'this draft'}"? 
-              This action cannot be undone.
+              Are you sure you want to delete "
+              {drafts.find((d) => d.id === deletingDraftId)?.name ||
+                "this draft"}
+              "? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -15,19 +15,19 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useMutation } from "@tanstack/react-query";
-import { 
-  FileText, 
-  Wand2, 
-  AlertTriangle, 
-  CheckCircle, 
-  Copy, 
+import {
+  FileText,
+  Wand2,
+  AlertTriangle,
+  CheckCircle,
+  Copy,
   Download,
   Trash2,
   Heart,
   Save,
   FolderOpen,
   Plus,
-  Eye
+  Eye,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSalesPageData } from "@/hooks/useSalesPageData";
@@ -53,7 +53,9 @@ interface SalesPageDraft {
   updatedAt: string;
 }
 
-export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPageGeneratorProps) {
+export default function EmotionalSalesPageGenerator({
+  userId,
+}: EmotionalSalesPageGeneratorProps) {
   const [generatedSalesPage, setGeneratedSalesPage] = useState<string>("");
   const [missingElements, setMissingElements] = useState<MissingElement[]>([]);
   const [completeness, setCompleteness] = useState<number>(0);
@@ -65,9 +67,14 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
   const [showDraftsPanel, setShowDraftsPanel] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
   const { toast } = useToast();
-  
+
   // Load workbook data from database instead of localStorage
-  const { messagingStrategy, offerOutline, isLoading: dataLoading, error: dataError } = useSalesPageData(userId.toString());
+  const {
+    messagingStrategy,
+    offerOutline,
+    isLoading: dataLoading,
+    error: dataError,
+  } = useSalesPageData(userId.toString());
 
   // Load existing sales page and drafts from localStorage
   useEffect(() => {
@@ -75,7 +82,7 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
     if (saved) {
       setGeneratedSalesPage(saved);
     }
-    
+
     // Load saved drafts
     const drafts = localStorage.getItem(`salesPageDrafts_${userId}`);
     if (drafts) {
@@ -105,13 +112,16 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
 
     const updatedDrafts = [...savedDrafts, newDraft];
     setSavedDrafts(updatedDrafts);
-    localStorage.setItem(`salesPageDrafts_${userId}`, JSON.stringify(updatedDrafts));
-    
+    localStorage.setItem(
+      `salesPageDrafts_${userId}`,
+      JSON.stringify(updatedDrafts)
+    );
+
     toast({
       title: "Draft Saved",
       description: `"${newDraft.title}" has been saved successfully.`,
     });
-    
+
     setShowSaveDialog(false);
     setCurrentDraftTitle("");
   };
@@ -121,7 +131,7 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
     setCurrentDraftId(draft.id);
     localStorage.setItem(`emotionalSalesPage_${userId}`, draft.content);
     setShowDraftsPanel(false);
-    
+
     toast({
       title: "Draft Loaded",
       description: `"${draft.title}" has been loaded for editing.`,
@@ -129,16 +139,19 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
   };
 
   const deleteDraft = (draftId: string) => {
-    const updatedDrafts = savedDrafts.filter(draft => draft.id !== draftId);
+    const updatedDrafts = savedDrafts.filter((draft) => draft.id !== draftId);
     setSavedDrafts(updatedDrafts);
-    localStorage.setItem(`salesPageDrafts_${userId}`, JSON.stringify(updatedDrafts));
-    
-    const deletedDraft = savedDrafts.find(d => d.id === draftId);
+    localStorage.setItem(
+      `salesPageDrafts_${userId}`,
+      JSON.stringify(updatedDrafts)
+    );
+
+    const deletedDraft = savedDrafts.find((d) => d.id === draftId);
     toast({
       title: "Draft Deleted",
       description: `"${deletedDraft?.title}" has been deleted.`,
     });
-    
+
     setDraftToDelete(null);
   };
 
@@ -150,38 +163,44 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
         { messagingStrategy: true, offerOutline: true },
         { messagingStrategy, offerOutline }
       );
-      
+
       if (!isValid) {
         throw new Error("Missing prerequisites");
       }
-      
-      const response = await fetch('/api/generate-sales-page', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          messagingStrategy,
-          offerOutline,
-          offerType: "program"
-        })
-      });
-      
+
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            messagingStrategy,
+            offerOutline,
+            offerType: "program",
+          }),
+        }
+      );
+
       if (!response.ok) {
-        throw new Error('Failed to generate sales page');
+        throw new Error("Failed to generate sales page");
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
       setGeneratedSalesPage(data.salesPageContent);
       setMissingElements(data.missingElements || []);
       setCompleteness(data.completeness || 0);
-      localStorage.setItem(`emotionalSalesPage_${userId}`, data.salesPageContent);
+      localStorage.setItem(
+        `emotionalSalesPage_${userId}`,
+        data.salesPageContent
+      );
       toast({
         title: "Sales Page Generated!",
-        description: `Your emotionally compelling sales page is ready for customization.`
+        description: `Your emotionally compelling sales page is ready for customization.`,
       });
     },
     onError: (error: any) => {
@@ -191,10 +210,11 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
       }
       toast({
         title: "Generation Failed",
-        description: "Please try again or complete more workbook sections first.",
-        variant: "destructive"
+        description:
+          "Please try again or complete more workbook sections first.",
+        variant: "destructive",
       });
-    }
+    },
   });
 
   // Delete all drafts function
@@ -203,12 +223,12 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
       setGeneratedSalesPage("");
       setMissingElements([]);
       setCompleteness(0);
-      
+
       localStorage.removeItem(`emotionalSalesPage_${userId}`);
-      
+
       toast({
         title: "Sales Page Reset",
-        description: "You can now generate a fresh sales page."
+        description: "You can now generate a fresh sales page.",
       });
     } catch (error) {
       toast({
@@ -223,144 +243,152 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
       await navigator.clipboard.writeText(text);
       toast({
         title: "Copied!",
-        description: "Sales page content copied to clipboard."
+        description: "Sales page content copied to clipboard.",
       });
     } catch (err) {
       toast({
         title: "Copy Failed",
         description: "Please select and copy the text manually.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const downloadSalesPage = () => {
-    const blob = new Blob([generatedSalesPage], { type: 'text/markdown' });
+    const blob = new Blob([generatedSalesPage], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'emotional-sales-page.md';
+    a.download = "emotional-sales-page.md";
     a.click();
     URL.revokeObjectURL(url);
   };
 
   // Component to render formatted sales page
-  function EditableFormattedSalesPage({ content, onContentChange, onSave, onCancel }: {
+  function EditableFormattedSalesPage({
+    content,
+    onContentChange,
+    onSave,
+    onCancel,
+  }: {
     content: string;
     onContentChange: (newContent: string) => void;
     onSave: () => void;
     onCancel: () => void;
   }) {
     const formatEditableContent = (text: string) => {
-      return text.split('\n').map((line, index) => {
+      return text.split("\n").map((line, index) => {
         // Main headers (# Header)
-        if (line.startsWith('# ')) {
+        if (line.startsWith("# ")) {
           return (
-            <h1 
-              key={index} 
+            <h1
+              key={index}
               className="text-4xl font-bold text-slate-900 mt-12 mb-6 pb-3 border-b-2 border-blue-200 text-center focus:outline-none focus:ring-2 focus:ring-blue-300 rounded p-2"
               contentEditable={true}
               suppressContentEditableWarning={true}
               onBlur={(e) => {
-                const newText = e.currentTarget.textContent || '';
+                const newText = e.currentTarget.textContent || "";
                 const updatedContent = content.replace(line, `# ${newText}`);
                 onContentChange(updatedContent);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   onSave();
                 }
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   onCancel();
                 }
               }}
               spellCheck={true}
             >
-              {line.replace('# ', '')}
+              {line.replace("# ", "")}
             </h1>
           );
         }
-        
+
         // Subheaders (## Header)
-        if (line.startsWith('## ')) {
+        if (line.startsWith("## ")) {
           return (
-            <h2 
-              key={index} 
+            <h2
+              key={index}
               className="text-2xl font-semibold text-blue-600 mt-10 mb-4 text-center focus:outline-none focus:ring-2 focus:ring-blue-300 rounded p-2"
               contentEditable={true}
               suppressContentEditableWarning={true}
               onBlur={(e) => {
-                const newText = e.currentTarget.textContent || '';
+                const newText = e.currentTarget.textContent || "";
                 const updatedContent = content.replace(line, `## ${newText}`);
                 onContentChange(updatedContent);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   onSave();
                 }
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   onCancel();
                 }
               }}
               spellCheck={true}
             >
-              {line.replace('## ', '')}
+              {line.replace("## ", "")}
             </h2>
           );
         }
-        
+
         // Section headers (### Header)
-        if (line.startsWith('### ')) {
+        if (line.startsWith("### ")) {
           return (
-            <h3 
-              key={index} 
+            <h3
+              key={index}
               className="text-xl font-semibold text-slate-800 mt-8 mb-4 border-l-4 border-blue-500 pl-4 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded p-2"
               contentEditable={true}
               suppressContentEditableWarning={true}
               onBlur={(e) => {
-                const newText = e.currentTarget.textContent || '';
+                const newText = e.currentTarget.textContent || "";
                 const updatedContent = content.replace(line, `### ${newText}`);
                 onContentChange(updatedContent);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   onSave();
                 }
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   onCancel();
                 }
               }}
               spellCheck={true}
             >
-              {line.replace('### ', '')}
+              {line.replace("### ", "")}
             </h3>
           );
         }
-        
+
         // Bold text (**text**)
-        if (line.includes('**') && !line.startsWith('#')) {
-          const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
+        if (line.includes("**") && !line.startsWith("#")) {
+          const formattedLine = line.replace(
+            /\*\*(.*?)\*\*/g,
+            '<strong class="font-semibold text-slate-900">$1</strong>'
+          );
           return (
-            <p 
-              key={index} 
+            <p
+              key={index}
               className="text-lg leading-relaxed mb-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded p-2"
               contentEditable={true}
               suppressContentEditableWarning={true}
               dangerouslySetInnerHTML={{ __html: formattedLine }}
               onBlur={(e) => {
-                const newText = e.currentTarget.textContent || '';
+                const newText = e.currentTarget.textContent || "";
                 const updatedContent = content.replace(line, newText);
                 onContentChange(updatedContent);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                   e.preventDefault();
                   onSave();
                 }
-                if (e.key === 'Escape') {
+                if (e.key === "Escape") {
                   onCancel();
                 }
               }}
@@ -368,30 +396,30 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
             />
           );
         }
-        
+
         // Empty lines
-        if (line.trim() === '') {
+        if (line.trim() === "") {
           return <div key={index} className="mb-4"></div>;
         }
-        
+
         // Regular paragraphs
         return (
-          <p 
-            key={index} 
+          <p
+            key={index}
             className="text-lg leading-relaxed mb-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded p-2"
             contentEditable={true}
             suppressContentEditableWarning={true}
             onBlur={(e) => {
-              const newText = e.currentTarget.textContent || '';
+              const newText = e.currentTarget.textContent || "";
               const updatedContent = content.replace(line, newText);
               onContentChange(updatedContent);
             }}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 onSave();
               }
-              if (e.key === 'Escape') {
+              if (e.key === "Escape") {
                 onCancel();
               }
             }}
@@ -408,10 +436,10 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
         <div className="prose prose-lg max-w-none">
           {formatEditableContent(content)}
         </div>
-        
+
         {/* Call to Action Button - Editable */}
         <div className="text-center mt-12 p-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-          <button 
+          <button
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg transform hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
             contentEditable={true}
             suppressContentEditableWarning={true}
@@ -419,7 +447,7 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
           >
             GET INSTANT ACCESS NOW
           </button>
-          <p 
+          <p
             className="text-sm text-slate-600 mt-4 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded p-1"
             contentEditable={true}
             suppressContentEditableWarning={true}
@@ -434,60 +462,83 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
 
   function FormattedSalesPage({ content }: { content: string }) {
     const formatContent = (text: string) => {
-      return text.split('\n').map((line, index) => {
+      return text.split("\n").map((line, index) => {
         // Main headers (# Header)
-        if (line.startsWith('# ')) {
+        if (line.startsWith("# ")) {
           return (
-            <h1 key={index} className="text-4xl font-bold text-slate-900 mt-12 mb-6 pb-3 border-b-2 border-blue-200 text-center">
-              {line.replace('# ', '')}
+            <h1
+              key={index}
+              className="text-4xl font-bold text-slate-900 mt-12 mb-6 pb-3 border-b-2 border-blue-200 text-center"
+            >
+              {line.replace("# ", "")}
             </h1>
           );
         }
-        
+
         // Subheaders (## Header)
-        if (line.startsWith('## ')) {
+        if (line.startsWith("## ")) {
           return (
-            <h2 key={index} className="text-2xl font-semibold text-blue-600 mt-10 mb-4 text-center">
-              {line.replace('## ', '')}
+            <h2
+              key={index}
+              className="text-2xl font-semibold text-blue-600 mt-10 mb-4 text-center"
+            >
+              {line.replace("## ", "")}
             </h2>
           );
         }
-        
+
         // Section headers (### Header)
-        if (line.startsWith('### ')) {
+        if (line.startsWith("### ")) {
           return (
-            <h3 key={index} className="text-xl font-semibold text-slate-800 mt-8 mb-4 border-l-4 border-blue-500 pl-4">
-              {line.replace('### ', '')}
+            <h3
+              key={index}
+              className="text-xl font-semibold text-slate-800 mt-8 mb-4 border-l-4 border-blue-500 pl-4"
+            >
+              {line.replace("### ", "")}
             </h3>
           );
         }
-        
+
         // Bold text (**text**)
-        if (line.includes('**') && !line.startsWith('#')) {
-          const formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
+        if (line.includes("**") && !line.startsWith("#")) {
+          const formattedLine = line.replace(
+            /\*\*(.*?)\*\*/g,
+            '<strong class="font-semibold text-slate-900">$1</strong>'
+          );
           return (
-            <p key={index} className="text-lg leading-relaxed mb-4 text-slate-700" dangerouslySetInnerHTML={{ __html: formattedLine }} />
+            <p
+              key={index}
+              className="text-lg leading-relaxed mb-4 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: formattedLine }}
+            />
           );
         }
-        
+
         // Questions (Q:)
-        if (line.startsWith('**Q:')) {
+        if (line.startsWith("**Q:")) {
           return (
-            <div key={index} className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded-r-lg">
-              <p className="font-semibold text-blue-900 mb-2">{line.replace(/\*\*/g, '')}</p>
+            <div
+              key={index}
+              className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4 rounded-r-lg"
+            >
+              <p className="font-semibold text-blue-900 mb-2">
+                {line.replace(/\*\*/g, "")}
+              </p>
             </div>
           );
         }
-        
+
         // Answers (A:)
-        if (line.startsWith('A:')) {
+        if (line.startsWith("A:")) {
           return (
             <div key={index} className="ml-4 mb-6">
-              <p className="text-slate-700 leading-relaxed">{line.replace('A: ', '')}</p>
+              <p className="text-slate-700 leading-relaxed">
+                {line.replace("A: ", "")}
+              </p>
             </div>
           );
         }
-        
+
         // Numbered lists
         if (/^\d+\./.test(line.trim())) {
           return (
@@ -496,15 +547,18 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
             </div>
           );
         }
-        
+
         // Empty lines
-        if (line.trim() === '') {
+        if (line.trim() === "") {
           return <div key={index} className="mb-4"></div>;
         }
-        
+
         // Regular paragraphs
         return (
-          <p key={index} className="text-lg leading-relaxed mb-4 text-slate-700">
+          <p
+            key={index}
+            className="text-lg leading-relaxed mb-4 text-slate-700"
+          >
             {line}
           </p>
         );
@@ -516,13 +570,15 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
         <div className="prose prose-lg max-w-none">
           {formatContent(content)}
         </div>
-        
+
         {/* Call to Action Button */}
         <div className="text-center mt-12 p-8 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
           <button className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-xl shadow-lg transform hover:scale-105 transition-all duration-200">
             GET INSTANT ACCESS NOW
           </button>
-          <p className="text-sm text-slate-600 mt-4">Your transformation starts today</p>
+          <p className="text-sm text-slate-600 mt-4">
+            Your transformation starts today
+          </p>
         </div>
       </div>
     );
@@ -540,7 +596,8 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
         </CardHeader>
         <CardContent>
           <p className="text-slate-600 mb-4">
-            Generate a converting sales page using your messaging strategy and offer outline that drives conversions.
+            Generate a converting sales page using your messaging strategy and
+            offer outline that drives conversions.
           </p>
         </CardContent>
       </Card>
@@ -555,16 +612,17 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-
             <div className="text-center">
-              <Button 
+              <Button
                 onClick={() => generateSalesPageMutation.mutate()}
                 disabled={generateSalesPageMutation.isPending}
                 size="lg"
                 className="w-full max-w-md bg-blue-600 hover:bg-blue-700"
               >
                 <Wand2 className="w-4 h-4 mr-2" />
-                {generateSalesPageMutation.isPending ? "Creating Your Sales Page..." : "Generate Sales Page"}
+                {generateSalesPageMutation.isPending
+                  ? "Creating Your Sales Page..."
+                  : "Generate Sales Page"}
               </Button>
             </div>
           </CardContent>
@@ -583,14 +641,16 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
             <CardContent>
               <div className="flex items-center space-x-4 mb-4">
                 <div className="flex-1 bg-white rounded-full h-3">
-                  <div 
-                    className="bg-green-500 h-3 rounded-full transition-all duration-300" 
+                  <div
+                    className="bg-green-500 h-3 rounded-full transition-all duration-300"
                     style={{ width: `${completeness}%` }}
                   ></div>
                 </div>
-                <span className="text-sm font-medium text-green-700">{completeness}%</span>
+                <span className="text-sm font-medium text-green-700">
+                  {completeness}%
+                </span>
               </div>
-              
+
               <div className="flex gap-2">
                 <Button
                   onClick={() => copyToClipboard(generatedSalesPage)}
@@ -600,11 +660,7 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
                   <Copy className="w-4 h-4 mr-1" />
                   Copy Page
                 </Button>
-                <Button
-                  onClick={downloadSalesPage}
-                  variant="outline"
-                  size="sm"
-                >
+                <Button onClick={downloadSalesPage} variant="outline" size="sm">
                   <Download className="w-4 h-4 mr-1" />
                   Download
                 </Button>
@@ -654,8 +710,11 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
           <Alert className="border-red-200 bg-red-50">
             <Heart className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-700">
-              <strong>Important: Human Heart Required</strong><br />
-              This sales page provides a powerful foundation, but your authentic voice will make it truly compelling. Review this copy thoroughly and add in what AI doesn't have - a heart and emotions!
+              <strong>Important: Human Heart Required</strong>
+              <br />
+              This sales page provides a powerful foundation, but your authentic
+              voice will make it truly compelling. Review this copy thoroughly
+              and add in what AI doesn't have - a heart and emotions!
             </AlertDescription>
           </Alert>
 
@@ -670,11 +729,15 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-blue-700 mb-4">
-                  Your sales page is using placeholder content in some areas. Complete these specific sections to make it more compelling:
+                  Your sales page is using placeholder content in some areas.
+                  Complete these specific sections to make it more compelling:
                 </p>
                 <div className="space-y-4">
                   {missingElements.map((element, index) => (
-                    <div key={index} className="border border-blue-200 rounded-lg p-4 bg-white">
+                    <div
+                      key={index}
+                      className="border border-blue-200 rounded-lg p-4 bg-white"
+                    >
                       <div className="flex items-start gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
@@ -686,38 +749,57 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
                               Sales Page Section
                             </span>
                           </div>
-                          
+
                           <h4 className="font-medium text-slate-800 mb-1">
-                            Complete "{element.field}" to enhance your sales copy
+                            Complete "{element.field}" to enhance your sales
+                            copy
                           </h4>
-                          
+
                           <p className="text-sm text-slate-600 mb-2">
                             {element.description}
                           </p>
-                          
+
                           <div className="bg-slate-50 border-l-4 border-slate-300 p-3 rounded-r">
-                            <p className="text-xs text-slate-500 mb-1">Your current content needs:</p>
+                            <p className="text-xs text-slate-500 mb-1">
+                              Your current content needs:
+                            </p>
                             <ul className="text-sm text-slate-700">
-                              {element.suggestions.slice(0, 2).map((suggestion, i) => (
-                                <li key={i} className="mb-1">• {suggestion}</li>
-                              ))}
+                              {element.suggestions
+                                .slice(0, 2)
+                                .map((suggestion, i) => (
+                                  <li key={i} className="mb-1">
+                                    • {suggestion}
+                                  </li>
+                                ))}
                             </ul>
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
-                  
+
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-800 mb-2">Quick Action</h4>
+                    <h4 className="font-medium text-blue-800 mb-2">
+                      Quick Action
+                    </h4>
                     <p className="text-sm text-blue-700 mb-3">
-                      Complete these sections in your messaging strategy and offer outline, then regenerate your sales page to see the improvements.
+                      Complete these sections in your messaging strategy and
+                      offer outline, then regenerate your sales page to see the
+                      improvements.
                     </p>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-blue-600 border-blue-200"
+                      >
                         Go to Messaging Strategy
                       </Button>
-                      <Button size="sm" variant="outline" className="text-blue-600 border-blue-200">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-blue-600 border-blue-200"
+                      >
                         Go to Offer Outline
                       </Button>
                     </div>
@@ -747,22 +829,33 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
             <CardContent>
               {isEditing ? (
                 <div className="space-y-4">
-                  <EditableFormattedSalesPage 
+                  <EditableFormattedSalesPage
                     content={generatedSalesPage}
                     onContentChange={(newContent) => {
                       setGeneratedSalesPage(newContent);
-                      localStorage.setItem(`emotionalSalesPage_${userId}`, newContent);
+                      localStorage.setItem(
+                        `emotionalSalesPage_${userId}`,
+                        newContent
+                      );
                     }}
                     onSave={() => setIsEditing(false)}
                     onCancel={() => setIsEditing(false)}
                   />
-                  
+
                   <div className="flex gap-2 items-center justify-center">
-                    <Button onClick={() => setIsEditing(false)} variant="default" size="sm">
+                    <Button
+                      onClick={() => setIsEditing(false)}
+                      variant="default"
+                      size="sm"
+                    >
                       <Save className="w-4 h-4 mr-1" />
                       Save Changes
                     </Button>
-                    <Button onClick={() => copyToClipboard(generatedSalesPage)} variant="outline" size="sm">
+                    <Button
+                      onClick={() => copyToClipboard(generatedSalesPage)}
+                      variant="outline"
+                      size="sm"
+                    >
                       <Copy className="w-4 h-4 mr-1" />
                       Copy
                     </Button>
@@ -796,30 +889,42 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
                 </Button>
               </CardTitle>
             </CardHeader>
-            
+
             {showDraftsPanel && (
               <CardContent className="space-y-4">
                 {savedDrafts.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">
                     <FolderOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">No saved drafts yet</p>
-                    <p className="text-sm">Generate your first sales page to create a draft</p>
+                    <p className="text-lg font-medium mb-2">
+                      No saved drafts yet
+                    </p>
+                    <p className="text-sm">
+                      Generate your first sales page to create a draft
+                    </p>
                   </div>
                 ) : (
                   <>
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <h4 className="font-medium text-blue-800 mb-2">Draft Management</h4>
+                      <h4 className="font-medium text-blue-800 mb-2">
+                        Draft Management
+                      </h4>
                       <p className="text-sm text-blue-700 mb-3">
-                        You have {savedDrafts.length} saved draft{savedDrafts.length !== 1 ? 's' : ''}. 
-                        Click "Load" to switch to any draft, or "Delete" to remove outdated versions.
+                        You have {savedDrafts.length} saved draft
+                        {savedDrafts.length !== 1 ? "s" : ""}. Click "Load" to
+                        switch to any draft, or "Delete" to remove outdated
+                        versions.
                       </p>
                       <div className="flex gap-2">
                         <Button
                           onClick={() => {
-                            const confirmDelete = confirm("Delete ALL drafts? This cannot be undone.");
+                            const confirmDelete = confirm(
+                              "Delete ALL drafts? This cannot be undone."
+                            );
                             if (confirmDelete) {
                               setSavedDrafts([]);
-                              localStorage.removeItem(`salesPageDrafts_${userId}`);
+                              localStorage.removeItem(
+                                `salesPageDrafts_${userId}`
+                              );
                             }
                           }}
                           variant="outline"
@@ -841,7 +946,10 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
 
                     <div className="space-y-3">
                       {savedDrafts.map((draft, index) => (
-                        <div key={draft.id} className="border border-blue-200 rounded-lg p-4 bg-white hover:bg-blue-50 transition-colors">
+                        <div
+                          key={draft.id}
+                          className="border border-blue-200 rounded-lg p-4 bg-white hover:bg-blue-50 transition-colors"
+                        >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
@@ -854,9 +962,14 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
                                   </span>
                                 )}
                               </div>
-                              <h4 className="font-medium text-slate-800 mb-1">{draft.title}</h4>
+                              <h4 className="font-medium text-slate-800 mb-1">
+                                {draft.title}
+                              </h4>
                               <p className="text-xs text-slate-500">
-                                Created: {new Date(draft.createdAt).toLocaleDateString()} at {new Date(draft.createdAt).toLocaleTimeString()}
+                                Created:{" "}
+                                {new Date(draft.createdAt).toLocaleDateString()}{" "}
+                                at{" "}
+                                {new Date(draft.createdAt).toLocaleTimeString()}
                               </p>
                             </div>
                             <div className="flex space-x-2 ml-4">
@@ -881,20 +994,26 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
                               </Button>
                             </div>
                           </div>
-                          
+
                           {/* Draft Preview */}
                           <div className="bg-slate-50 border border-slate-200 rounded p-3">
-                            <p className="text-xs text-slate-500 mb-1">Preview:</p>
+                            <p className="text-xs text-slate-500 mb-1">
+                              Preview:
+                            </p>
                             <p className="text-sm text-slate-700 line-clamp-3">
                               {draft.content.substring(0, 200)}...
                             </p>
                           </div>
-                          
+
                           {/* Word Count & Stats */}
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200">
                             <div className="flex items-center gap-4 text-xs text-slate-500">
-                              <span>{draft.content.split(' ').length} words</span>
-                              <span>{Math.ceil(draft.content.length / 1000)} KB</span>
+                              <span>
+                                {draft.content.split(" ").length} words
+                              </span>
+                              <span>
+                                {Math.ceil(draft.content.length / 1000)} KB
+                              </span>
                             </div>
                             <Button
                               onClick={() => {
@@ -926,7 +1045,8 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
           <AlertDialogHeader>
             <AlertDialogTitle>Save Sales Page Draft</AlertDialogTitle>
             <AlertDialogDescription>
-              Give your sales page draft a descriptive name so you can easily find it later.
+              Give your sales page draft a descriptive name so you can easily
+              find it later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -952,17 +1072,21 @@ export default function EmotionalSalesPageGenerator({ userId }: EmotionalSalesPa
       </AlertDialog>
 
       {/* Delete Draft Confirmation Dialog */}
-      <AlertDialog open={!!draftToDelete} onOpenChange={() => setDraftToDelete(null)}>
+      <AlertDialog
+        open={!!draftToDelete}
+        onOpenChange={() => setDraftToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Draft</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this sales page draft? This action cannot be undone.
+              Are you sure you want to delete this sales page draft? This action
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => draftToDelete && deleteDraft(draftToDelete)}
               className="bg-red-600 hover:bg-red-700"
             >

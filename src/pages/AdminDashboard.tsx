@@ -103,7 +103,9 @@ function MessagingStrategyButton({ strategyId, title, version }: { strategyId: n
     if (strategy) return; // Already loaded
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/messaging-strategies/${strategyId}`);
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/admin/messaging-strategies/${strategyId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch strategy");
       const data = await response.json();
       setStrategy(data);
@@ -253,7 +255,9 @@ function OfferOutlineButton({ outlineId, title, offerNumber }: { outlineId: numb
     if (outline) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/offer-outlines/${outlineId}`);
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/admin/offer-outlines/${outlineId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch outline");
       const data = await response.json();
       setOutline(data);
@@ -403,7 +407,9 @@ function SalesPageButton({ pageId, draftNumber }: { pageId: number; draftNumber:
     if (page) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/sales-pages/${pageId}`);
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/admin/sales-pages/${pageId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch sales page");
       const data = await response.json();
       setPage(data);
@@ -533,7 +539,9 @@ function IgniteDocButton({ docId, title, docType }: { docId: number; title: stri
     if (doc) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/admin/ignite-docs/${docId}`);
+      const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/admin/ignite-docs/${docId}`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error("Failed to fetch document");
       const data = await response.json();
       setDoc(data);

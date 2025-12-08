@@ -558,7 +558,9 @@ export function InterviewTranscriptManager({
 
           // Refetch transcripts to check actual database status
           const transcriptsResponse = await fetch(
-            `/api/interview-transcripts/user/${userId}`,
+            `${
+              import.meta.env.VITE_BASE_URL
+            }/api/interview-transcripts/user/${userId}`,
             {
               credentials: "include",
             }

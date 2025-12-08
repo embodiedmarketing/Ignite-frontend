@@ -1402,7 +1402,11 @@ export default function InteractiveStep({
   const { data: tripwireOutlineData } = useQuery({
     queryKey: ["/api/user-offer-outlines/user", userId, "tripwire"],
     queryFn: async () => {
-      const response = await fetch(`/api/user-offer-outlines/user/${userId}`);
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/user-offer-outlines/user/${userId}`
+      );
       if (!response.ok) return null;
       const outlines = await response.json();
       // Find the Tripwire outline (offerNumber = 2)
@@ -2665,7 +2669,9 @@ export default function InteractiveStep({
 
     try {
       const response = await fetch(
-        "/api/core-offer/generate-core-offer-outline",
+        `${
+          import.meta.env.VITE_BASE_URL
+        }/api/core-offer/generate-core-offer-outline`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2673,6 +2679,7 @@ export default function InteractiveStep({
             coreResponses,
             userId: Number(userId),
           }),
+          credentials: "include",
         }
       );
 
@@ -2796,9 +2803,12 @@ export default function InteractiveStep({
   const { data: dbInterviewNotes } = useQuery({
     queryKey: ["/api/interview-notes", userId],
     queryFn: async () => {
-      const response = await fetch(`/api/interview-notes/${userId}`, {
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/interview-notes/${userId}`,
+        {
+          credentials: "include",
+        }
+      );
       if (!response.ok) throw new Error("Failed to fetch interview notes");
       return response.json();
     },
@@ -2954,6 +2964,7 @@ export default function InteractiveStep({
   const [originalStrategyContent, setOriginalStrategyContent] =
     useState<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [isSavingStrategy, setIsSavingStrategy] = useState<boolean>(false);
   const [prefillLoadingButton, setPrefillLoadingButton] = useState<
     string | null
   >(null);
@@ -2980,8 +2991,15 @@ export default function InteractiveStep({
   // CRITICAL: Only watch activeStrategy changes, NOT messagingStrategyContent changes
   // This prevents the useEffect from reverting manual state updates (like after generation)
   useEffect(() => {
+    // CRITICAL: NEVER sync when actively editing - this prevents the edit box from disappearing
+    // when user clears content. The edit box should remain open until user explicitly saves or cancels.
+    if (editingStrategy) {
+      console.log("[SYNC] Skipping sync - user is actively editing");
+      return; // Don't sync while editing - let user have full control, even if content is empty
+    }
+
     // CRITICAL: Always sync from database when activeStrategy updates, unless actively editing
-    if (!editingStrategy && !hasUnsavedChanges && activeStrategy?.content) {
+    if (!hasUnsavedChanges && activeStrategy?.content) {
       // Sync database content to UI whenever activeStrategy updates (including after transfers)
       // Only update if the content actually differs to avoid unnecessary re-renders
       if (messagingStrategyContent !== activeStrategy.content) {
@@ -5144,14 +5162,17 @@ export default function InteractiveStep({
   // Transcript parsing mutation
   const parseTranscriptMutation = useMutation({
     mutationFn: async ({ transcript }: { transcript: string }) => {
-      const response = await fetch("/api/parse-interview-transcript", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ transcript }),
-        credentials: "include",
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/parse-interview-transcript`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ transcript }),
+          credentials: "include",
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -6113,10 +6134,13 @@ export default function InteractiveStep({
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/extract-text-from-file", {
-          method: "POST",
-          body: formData,
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_BASE_URL}/api/extract-text-from-file`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Failed to extract text from document");
@@ -7109,9 +7133,11 @@ export default function InteractiveStep({
           )}
 
           {/* Display Generated Messaging Strategy at the top for Step 1 */}
+          {/* Show card if there's content OR if user is actively editing (even if content is empty) */}
           {stepNumber === 1 &&
-            messagingStrategyContent &&
-            messagingStrategyContent.trim() && (
+            (editingStrategy ||
+              (messagingStrategyContent &&
+                messagingStrategyContent.trim())) && (
               <Card id="generated-messaging-strategy">
                 <CardHeader className="border-b border-coral-100 bg-gradient-to-r from-coral-50 to-orange-50 p-4 sm:p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -7450,7 +7476,7 @@ export default function InteractiveStep({
                         </p>
                       </div>
                       <Textarea
-                        value={messagingStrategyContent}
+                        value={messagingStrategyContent || ""}
                         onChange={(e) =>
                           setMessagingStrategyContent(e.target.value)
                         }
@@ -7474,46 +7500,88 @@ export default function InteractiveStep({
                         </Button>
                         <Button
                           onClick={async () => {
-                            try {
-                              // Save the edited content
-                              const editedContent = messagingStrategyContent;
+                            // Validate that content is not empty before saving
+                            const editedContent =
+                              messagingStrategyContent?.trim();
 
+                            if (!editedContent || editedContent.length === 0) {
+                              toast({
+                                title: "Cannot save empty content",
+                                description:
+                                  "There is no content to save. Please add some content before saving.",
+                                variant: "destructive",
+                              });
+                              return; // Exit early - don't proceed with save
+                            }
+
+                            setIsSavingStrategy(true);
+                            try {
                               // Update database
                               if (activeStrategy?.id && memoizedUserId) {
                                 const response = await apiRequest(
                                   "PUT",
                                   `/api/messaging-strategies/${activeStrategy.id}`,
                                   {
-                                    content: editedContent,
+                                    content: editedContent.trim(),
                                     version: (activeStrategy.version || 1) + 1,
                                   }
                                 );
                                 const updatedStrategy = await response.json();
 
-                                // Update local state with saved content from database response
-                                setMessagingStrategyContent(
-                                  updatedStrategy.content || editedContent
-                                );
-                                setOriginalStrategyContent(
-                                  updatedStrategy.content || editedContent
+                                // Update query cache immediately with the new data
+                                // Use the correct query keys that match useMessagingStrategy hook
+                                const activeQueryKey = [
+                                  "messaging-strategy",
+                                  "active",
+                                  memoizedUserId,
+                                ];
+                                const allStrategiesQueryKey = [
+                                  "messaging-strategies",
+                                  memoizedUserId,
+                                ];
+
+                                // Update the active strategy cache immediately
+                                queryClient.setQueryData(
+                                  activeQueryKey,
+                                  updatedStrategy
                                 );
 
-                                // Invalidate queries to refetch the updated data
+                                // Update the all strategies cache
+                                queryClient.setQueryData(
+                                  allStrategiesQueryKey,
+                                  (old: any) => {
+                                    if (!old || !Array.isArray(old)) return old;
+                                    return old.map((strategy: any) =>
+                                      strategy.id === updatedStrategy.id
+                                        ? updatedStrategy
+                                        : strategy
+                                    );
+                                  }
+                                );
+
+                                // Update local state with saved content from database response
+                                const savedContent =
+                                  updatedStrategy.content ||
+                                  editedContent.trim();
+                                setMessagingStrategyContent(savedContent);
+                                setOriginalStrategyContent(savedContent);
+
+                                // Invalidate and refetch to ensure data is fresh
                                 await queryClient.invalidateQueries({
-                                  queryKey: [
-                                    "/api/messaging-strategies/active",
-                                    memoizedUserId,
-                                  ],
+                                  queryKey: activeQueryKey,
                                 });
                                 await queryClient.invalidateQueries({
-                                  queryKey: [
-                                    "/api/messaging-strategies/user",
-                                    memoizedUserId,
-                                  ],
+                                  queryKey: allStrategiesQueryKey,
+                                });
+
+                                // Explicitly refetch to ensure UI updates
+                                await queryClient.refetchQueries({
+                                  queryKey: activeQueryKey,
                                 });
                               }
 
                               setEditingStrategy(false);
+                              setHasUnsavedChanges(false);
 
                               toast({
                                 title: "✓ Changes saved!",
@@ -7522,18 +7590,34 @@ export default function InteractiveStep({
                                 className: "border-green-200 bg-green-50",
                               });
                             } catch (error) {
+                              console.error(
+                                "Failed to save messaging strategy:",
+                                error
+                              );
                               toast({
                                 title: "Error",
                                 description: "Failed to save changes",
                                 variant: "destructive",
                               });
+                            } finally {
+                              setIsSavingStrategy(false);
                             }
                           }}
+                          disabled={isSavingStrategy}
                           style={{ backgroundColor: "#689cf2", color: "white" }}
-                          className="hover:opacity-90 min-h-12 sm:min-h-auto w-full sm:w-auto"
+                          className="hover:opacity-90 min-h-12 sm:min-h-auto w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
+                          {isSavingStrategy ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Save Changes
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -7790,7 +7874,7 @@ export default function InteractiveStep({
                                     "POST",
                                     "/api/user-offer-outlines",
                                     {
-                                      userId,
+                                      userId: Number(userId),
                                       offerNumber: 2, // Tripwire is offer #2
                                       title: "Tripwire Offer Outline",
                                       content: newOutline,
