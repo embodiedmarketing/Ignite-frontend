@@ -1571,6 +1571,10 @@ export default function InteractiveStep({
         {
           tripwireResponses: tripwireData,
           offerNumber: offerNumber,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: "high",
         }
       );
 
@@ -1636,9 +1640,17 @@ export default function InteractiveStep({
       }
     } catch (error) {
       console.error("Error generating tripwire outline:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message.includes("timeout") ||
+            error.message.includes("Timeout") ||
+            error.message.includes("ECONNABORTED")
+            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            : error.message
+          : "Failed to generate tripwire outline. Please try again.";
       toast({
         title: "Error",
-        description: "Failed to generate tripwire outline. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -2680,6 +2692,7 @@ export default function InteractiveStep({
             userId: Number(userId),
           }),
           credentials: "include",
+          
         }
       );
 
@@ -3435,7 +3448,10 @@ export default function InteractiveStep({
           interviewNotes: interviewNotesData,
           userId,
         },
-        { timeout: 120000 }
+        {
+          timeout: 180000, // 180 seconds (3 minutes) for complex AI processing
+          priority: "high",
+        }
       );
 
       const data = await response.json();
@@ -3600,12 +3616,20 @@ export default function InteractiveStep({
             "Please save or cancel your current edits before regenerating.",
           variant: "destructive",
         });
-      } else if (!error.message.includes("No workbook responses available")) {
+      } else if (error.message.includes("No workbook responses available")) {
+        // Skip showing error for missing workbook responses
+        return;
+      } else {
+        const errorMessage =
+          error instanceof Error &&
+          (error.message.includes("timeout") ||
+            error.message.includes("Timeout") ||
+            error.message.includes("ECONNABORTED"))
+            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            : error?.message || "Unable to regenerate strategy. Please try again.";
         toast({
           title: "Regeneration failed",
-          description:
-            error?.message ||
-            "Unable to regenerate strategy. Please try again.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -4016,7 +4040,7 @@ export default function InteractiveStep({
         });
 
         // Invalidate cache to update UI
-        queryClient.invalidateQueries(["section-completions", userId]!);
+        queryClient.invalidateQueries(["section-completions", userId]! as any);
 
         toast({
           title: "Section Marked Incomplete",
@@ -4645,7 +4669,7 @@ export default function InteractiveStep({
     [stepNumber]
   );
 
-  const { data: userProgress } = useQuery<UserProgress>({
+  const { data: userProgress } = useQuery<any>({
     queryKey: [`/api/user-progress/${userId}/${stepNumber}`],
     enabled: false, // We'll implement this endpoint later
   });
@@ -5313,7 +5337,7 @@ export default function InteractiveStep({
         }
 
         return await response.json();
-      } catch (error) {
+      } catch (error:any) {
         clearTimeout(timeoutId);
         if (error.name === "AbortError") {
           throw new Error(
@@ -9411,8 +9435,9 @@ export default function InteractiveStep({
                                           getCurrentValue(promptKey) || ""
                                         }
                                         sectionContext={section.title}
-                                        debounceMs={2000}
-                                        autoStart={false}
+                                        // debounceMs={2000}
+
+                                        // autoStart={false}
                                         onAddRewording={(rewording) =>
                                           handleResponseChange(
                                             promptKey,

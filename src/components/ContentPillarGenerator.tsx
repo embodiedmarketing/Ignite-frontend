@@ -39,7 +39,6 @@ import {
   Edit3
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/services/queryClient";
-import { MessagingStrategy } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { validateAndNotify } from "@/utils/prerequisite-validator";
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from "docx";
@@ -168,7 +167,7 @@ export default function ContentPillarGenerator() {
   const userId = user?.id;
 
   // Fetch user's active messaging strategy for context
-  const { data: messagingStrategy, refetch: refetchMessagingStrategy } = useQuery<MessagingStrategy | null>({
+  const { data: messagingStrategy, refetch: refetchMessagingStrategy } = useQuery<any | null>({
     queryKey: ['/api/messaging-strategies/active'],
     enabled: true
   });
@@ -519,10 +518,18 @@ export default function ContentPillarGenerator() {
     
     try {
       const contentPreferences = form.getValues();
-      const response = await apiRequest('POST', '/api/generate-content-ideas', {
-        messagingStrategy: messagingStrategy.content,
-        contentPreferences
-      });
+      const response = await apiRequest(
+        'POST',
+        '/api/generate-content-ideas',
+        {
+          messagingStrategy: messagingStrategy.content,
+          contentPreferences,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: 'high',
+        }
+      );
       
       const data = await response.json();
       setContentIdeas(data.ideas);
@@ -573,9 +580,17 @@ export default function ContentPillarGenerator() {
       }
     } catch (error) {
       console.error('Error generating content ideas:', error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message.includes('timeout') ||
+            error.message.includes('Timeout') ||
+            error.message.includes('ECONNABORTED')
+            ? 'The request took too long. This may happen if the server is processing a large amount of data. Please try again.'
+            : error.message
+          : 'Failed to generate content ideas. Please try again.';
       toast({
         title: "Error",
-        description: "Failed to generate content ideas. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -601,10 +616,18 @@ export default function ContentPillarGenerator() {
     
     try {
       const contentPreferences = form.getValues();
-      const response = await apiRequest('POST', '/api/generate-content-ideas', {
-        messagingStrategy: latestMessagingStrategy.content,
-        contentPreferences
-      });
+      const response = await apiRequest(
+        'POST',
+        '/api/generate-content-ideas',
+        {
+          messagingStrategy: latestMessagingStrategy.content,
+          contentPreferences,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: 'high',
+        }
+      );
       
       const data = await response.json();
       setContentIdeas(data.ideas);

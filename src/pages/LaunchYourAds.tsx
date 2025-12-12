@@ -347,11 +347,19 @@ export default function LaunchYourAds() {
     setIsGeneratingScripts(true);
 
     try {
-      const response = await apiRequest("POST", "/api/generate-video-scripts", {
-        manualContent:
-          inputMethod === "manual" ? landingPageContent : undefined,
-        landingPageUrl: inputMethod === "url" ? landingPageUrl : undefined,
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-video-scripts",
+        {
+          manualContent:
+            inputMethod === "manual" ? landingPageContent : undefined,
+          landingPageUrl: inputMethod === "url" ? landingPageUrl : undefined,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: "high",
+        }
+      );
 
       const result = await response.json();
       setGeneratedScripts(result);
@@ -372,7 +380,11 @@ export default function LaunchYourAds() {
       console.error("Error generating video scripts:", error);
       const errorMessage =
         error instanceof Error
-          ? error.message
+          ? error.message.includes("timeout") ||
+            error.message.includes("Timeout") ||
+            error.message.includes("ECONNABORTED")
+            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            : error.message
           : "Failed to generate video scripts. Please try again.";
       toast({
         title: "Generation Failed",

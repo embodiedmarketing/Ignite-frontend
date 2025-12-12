@@ -777,6 +777,10 @@ export default function LaunchSellStrategy() {
         {
           salesPageAction: funnelData.salesPageAction,
           salesPageUrgency: funnelData.salesPageUrgency,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: "high",
         }
       );
       return await response.json();
@@ -842,11 +846,17 @@ export default function LaunchSellStrategy() {
       }, 100);
     },
     onError: (error: any) => {
+      const errorMessage =
+        error instanceof Error
+          ? error.message.includes("timeout") ||
+            error.message.includes("Timeout") ||
+            error.message.includes("ECONNABORTED")
+            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            : error.message
+          : "Failed to generate sales page copy. Please try again.";
       toast({
         title: "Generation Failed",
-        description:
-          error.message ||
-          "Failed to generate sales page copy. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },

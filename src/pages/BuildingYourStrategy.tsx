@@ -851,11 +851,19 @@ export default function BuildingYourStrategy() {
         latestMessagingStrategy?.content ||
         "Professional and conversion-focused";
 
-      const response = await apiRequest("POST", "/api/generate-funnel-copy", {
-        userId,
-        answers,
-        messagingStrategyVoice,
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/generate-funnel-copy",
+        {
+          userId,
+          answers,
+          messagingStrategyVoice,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: "high",
+        }
+      );
 
       const result = await response.json();
       setGeneratedCopy(result);
@@ -911,9 +919,17 @@ export default function BuildingYourStrategy() {
       }
     } catch (error) {
       console.error("Error generating funnel copy:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message.includes("timeout") ||
+            error.message.includes("Timeout") ||
+            error.message.includes("ECONNABORTED")
+            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            : error.message
+          : "Failed to generate funnel copy. Please try again.";
       toast({
         title: "Generation Failed",
-        description: "Failed to generate funnel copy. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -965,6 +981,10 @@ export default function BuildingYourStrategy() {
           contentOrder,
           messagingStrategy: messagingStrategyContent,
           idealCustomerProfile,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: "high",
         }
       );
 
@@ -1036,9 +1056,17 @@ export default function BuildingYourStrategy() {
       });
     } catch (error) {
       console.error("Error generating email sequence:", error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message.includes("timeout") ||
+            error.message.includes("Timeout") ||
+            error.message.includes("ECONNABORTED")
+            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            : error.message
+          : "Failed to generate email sequence. Please try again.";
       toast({
         title: "Generation Failed",
-        description: "Failed to generate email sequence. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -1351,7 +1379,7 @@ export default function BuildingYourStrategy() {
     if (!generatedCopy) return;
 
     try {
-      const { jsPDF } = await import("jspdf");
+      const { default: jsPDF } = await import("jspdf");
       const doc = new jsPDF();
 
       const content = generatedCopy[pageKey as keyof typeof generatedCopy];
