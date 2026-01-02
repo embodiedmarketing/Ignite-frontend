@@ -158,6 +158,157 @@ export default function LiveCoachingCalls() {
   const recordings = {
     strategy: [
       { 
+        id: "47", 
+        vimeoId: "1150467684/1b2cc0c235", 
+        title: "Dec 30, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-30",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:05] Lauren - AI-generated podcast backgrounds, Telegram follow-up strategy for year-end offer cutoffs
+[00:07:36] Fica - web copy completion, brand assets, email sequences progress, sales page CTA clarification
+[00:11:45] Elle - timeline acceleration for February launch, visibility ad content creation, lead gen infrastructure
+[00:41:00] Amanda - adding video to ads, recording tools comparison (Loom vs PowerPoint vs Sambavi)
+[00:48:03] Cassandra - customer journey mapping, mini mind messaging reframe, high-risk pregnancy coaching positioning`
+      },
+      { 
+        id: "46", 
+        vimeoId: "1149071821/6cb55acacb", 
+        title: "Dec 23, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-23",
+        duration: "68 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:04:03] Lauren - email strategy win, sales conversion, content batching approach
+[00:20:48] Cassandra - prenatal clarity call email review, 12 days of Christmas campaign, pricing one-on-one mindset mentorship
+[00:39:01] Kara - offer outcomes deep dive, ads launch timing, balancing business with family during holidays
+[01:01:51] Sheri Chen - year-end reflection, tracking business progress, planning for 2026`
+      },
+      { 
+        id: "44", 
+        vimeoId: "1148107847/caf161d381", 
+        title: "Dec 19, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-19",
+        duration: "61 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:01:09] Sherry - quiz landing page review, tripwire messaging, email sequences
+[00:15:37] Kara - ads targeting strategy, offer transformation outcomes
+[00:29:41] Jordan - Built for Bigger sales page review, tangible outcomes
+[00:48:46] Cassandra - tripwire page CTA, launching ads`
+      },
+      { 
+        id: "40", 
+        vimeoId: "1147369138/03aa7fc6d4", 
+        title: "Dec 16, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-16",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:02] Amanda
+[00:03:55] Casey
+[00:23:43] Lauren
+[00:35:31] Cassandra
+[00:45:44] Jordan
+[00:58:40] Taylor`
+      },
+      { 
+        id: "37", 
+        vimeoId: "1146006835/f4518153e1", 
+        title: "Dec 12, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-12",
+        duration: "64 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:06] Caroline
+[00:07:59] Ashley
+[00:13:18] Sherry
+[00:27:18] Jordan
+[00:39:06] Lauren`
+      },
+      { 
+        id: "34", 
+        vimeoId: "1145276938/adb1197739", 
+        title: "Dec 9, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-09",
+        duration: "61 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:35] Alicia
+[00:14:09] Sherry
+[00:25:44] Casey
+[00:36:48] Lauren`
+      },
+      { 
+        id: "27", 
+        vimeoId: "1143135939/aec88d38e0", 
+        title: "Dec 2, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-02",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:07] Laura
+[00:05:44] Lauren
+[00:28:05] Jordan`
+      },
+      { 
+        id: "26", 
+        vimeoId: "1140576929/632d42eb80", 
+        title: "Nov 25, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-11-25",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:00] Lauren
+[00:26:45] Jordan
+[00:28:17] Anne-Marie
+[00:39:45] Sherry
+[00:47:48] SiriChand`
+      },
+      { 
+        id: "25", 
+        vimeoId: "1139461567/c947fc319d", 
+        title: "Nov 21, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-11-21",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:00] Sherry
+[00:10:17] Jasmine
+[00:26:07] Lauren
+[00:38:17] SiriChand
+[00:51:30] Taylor`
+      },
+      { 
+        id: "23", 
+        vimeoId: "1138260283/77c4b1439f", 
+        title: "Nov 18, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-11-18",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:17] Cassandra
+[00:11:22] Kasie
+[00:22:32] Ruth
+[00:37:39] Nadine and Jen
+[00:51:51] Jasmine`
+      },
+      { 
+        id: "22", 
+        vimeoId: "1137810472/3f549f778d", 
+        title: "Nov 14, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-11-14",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:00] Lauren
+[00:30:08] Caroline
+[00:42:18] Jasmine
+[00:55:47] SiriChand`
+      },
+      { 
+        id: "21", 
+        vimeoId: "1136664353/721c623e33", 
+        title: "Nov 11, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-11-11",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:02:29] Lauren
+[00:23:29] Casey
+[00:37:51] Jordan
+[00:43:20] Feike
+[00:51:47] SiriChand`
+      },
+      { 
         id: "20", 
         vimeoId: "1134727878/c3d50f04ca", 
         title: "Nov 7, 2025 Strategy & Conversion Call Recording", 
@@ -168,6 +319,17 @@ export default function LiveCoachingCalls() {
 [00:14:11] Jordan
 [00:14:16] Sherry
 [00:51:29] Lauren`
+      },
+      { 
+        id: "31", 
+        vimeoId: "1143893155/e09ab8cc90", 
+        title: "Dec 5, 2025 Strategy & Conversion Call Recording", 
+        date: "2025-12-05",
+        duration: "62 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:21] Sherry
+[00:11:26] Kim
+[00:30:38] Lauren`
       },
       { 
         id: "17", 
@@ -188,8 +350,7 @@ export default function LiveCoachingCalls() {
         date: "2025-10-31",
         duration: "60 min",
         description: "Strategy and conversion coaching session",
-        transcript: `[00:00:12] Minnie
-[00:15:11] Siri
+        transcript: `[00:15:11] Siri
 [00:36:10] Jordan
 [00:42:45] Lauren`
       },
@@ -239,8 +400,7 @@ export default function LiveCoachingCalls() {
         transcript: `[00:00:21] Laura
 [00:05:12] Jordan
 [00:32:05] Jennifer
-[00:45:03] Cassandra
-[00:46:53] Minnie`
+[00:45:03] Cassandra`
       },
       { 
         id: "4", 
@@ -257,6 +417,83 @@ export default function LiveCoachingCalls() {
       }
     ],
     messaging: [
+      { 
+        id: "43", 
+        vimeoId: "1148060876/4cb0cadae2", 
+        title: "Dec 18, 2025 Messaging & Offer Positioning Call Recording", 
+        date: "2025-12-18",
+        duration: "62 min",
+        description: "Messaging and offer positioning coaching session",
+        transcript: `[00:00:09] Yasmin - visibility ads, messaging direction
+[00:04:04] Elle - strategy call booking, messaging generator issues
+[00:09:19] Lauren - scheduling coworking sessions, time zone accommodations
+[00:17:43] Amanda - tripwire page review, Go High Level setup
+[00:30:24] Taylor - funnel optimization, lead gen confirmation page
+[00:48:48] Cassandra - tripwire copy review, launching ads`
+      },
+      { 
+        id: "38", 
+        vimeoId: "1147111789/00bcb590a0", 
+        title: "Dec 11, 2025 Messaging & Offer Positioning Call Recording", 
+        date: "2025-12-11",
+        duration: "51 min",
+        description: "Messaging and offer positioning coaching session",
+        transcript: `[00:00:00] Alicia
+[00:13:55] Ruth
+[00:28:21] Elle
+[00:34:10] Jordan
+[00:47:03] Sherry`
+      },
+      { 
+        id: "30", 
+        vimeoId: "1143845267/8a85f9d8af", 
+        title: "Dec 4, 2025 Messaging & Offer Positioning Call Recording", 
+        date: "2025-12-04",
+        duration: "56 min",
+        description: "Messaging and offer positioning coaching session",
+        transcript: `[00:05:35] Kim
+[00:08:01] Lauren
+[00:22:14] Laura
+[00:36:17] Anne Marie
+[00:46:00] Cassandra
+[00:52:10] Sherry`
+      },
+      { 
+        id: "25", 
+        vimeoId: "1141518764/80725b8b3b", 
+        title: "Nov 27, 2025 Messaging & Offer Positioning Call Recording", 
+        date: "2025-11-27",
+        duration: "41 min",
+        description: "Messaging and offer positioning coaching session",
+        transcript: `[00:00:03] Sheri
+[00:21:06] Caroline`
+      },
+      { 
+        id: "24", 
+        vimeoId: "1139078707/9d82e8c50b", 
+        title: "Nov 20, 2025 Messaging & Offer Positioning Call Recording", 
+        date: "2025-11-20",
+        duration: "60 min",
+        description: "Messaging and offer positioning coaching session",
+        transcript: `[00:00:22] Feike
+[00:06:42] Jordan
+[00:12:44] Lauren
+[00:27:15] Anne Marie`
+      },
+      { 
+        id: "22", 
+        vimeoId: "1136664640/1735e0fd48", 
+        title: "Nov 13, 2025 Messaging & Offer Positioning Call Recording", 
+        date: "2025-11-13",
+        duration: "60 min",
+        description: "Messaging and offer positioning coaching session",
+        transcript: `[00:01:51] SiriChand
+[00:13:07] Feike
+[00:17:31] Lauren
+[00:33:01] Jordan
+[00:38:14] Heather
+[00:44:48] Jasmine`
+      },
       { 
         id: "19", 
         vimeoId: "1134389485/febcc5c6d1", 
@@ -311,6 +548,138 @@ export default function LiveCoachingCalls() {
     ],
     ads: [
       { 
+        id: "46", 
+        vimeoId: "1150141802/729694a6b4", 
+        title: "Dec 24, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-24",
+        duration: "90 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:00] Participant - pixel setup, lead generation funnel, event tracking for speaker booking
+[00:15:56] Yasmin - visibility ads setup, ads manager configuration, profile management
+[00:38:32] Taylor - lead gen campaign optimization, ad testing strategy, conversion tracking`
+      },
+      { 
+        id: "45", 
+        vimeoId: "1148699098/bc573e5b43", 
+        title: "Dec 19, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-19",
+        duration: "60 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:07:22] Ashley - visibility campaigns, audience segmentation, lookalike audiences
+[00:20:43] Kara - first ads setup, lead magnet campaign, ad request form
+[00:38:54] Heather - lead gen campaign review, high net worth targeting`
+      },
+      { 
+        id: "41", 
+        vimeoId: "1147721751/ed99e05788", 
+        title: "Dec 17, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-17",
+        duration: "75 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:03] Sandra - Lookalike audiences, ad budgets, CPL optimization
+[00:11:53] Cassie - Visibility ads, niche audience targeting
+[00:28:27] Taylor - Lead gen campaign, teacher spotlight ads
+[00:52:16] Heather - Audience setup, reach limitations`
+      },
+      { 
+        id: "37", 
+        vimeoId: "1146418516/ba1c7e43dc", 
+        title: "Dec 12, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-12",
+        duration: "60 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: ``
+      },
+      { 
+        id: "35", 
+        vimeoId: "1145424186/9d6c064c17", 
+        title: "Dec 10, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-10",
+        duration: "80 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:01] Cassandra
+[00:08:14] Amanda
+[00:34:43] Caroline`
+      },
+      { 
+        id: "32", 
+        vimeoId: "1144630856/d8815676ae", 
+        title: "Dec 5, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-05",
+        duration: "59 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:00] Heather
+[00:13:09] Caroline`
+      },
+      { 
+        id: "29", 
+        vimeoId: "1143243463/da5cc40283", 
+        title: "Dec 3, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-03",
+        duration: "74 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:10:35] Lauren
+[00:36:10] SiriChand
+[00:54:23] Melissa`
+      },
+      { 
+        id: "27", 
+        vimeoId: "1140935730/31ef1f5589", 
+        title: "Nov 26, 2025 Ads Optimization Call Recording", 
+        date: "2025-11-26",
+        duration: "78 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:08] Caroline
+[00:08:57] Cassandra
+[00:47:25] Jasmine
+[00:52:13] SiriChand
+[01:07:13] Taylor`
+      },
+      { 
+        id: "26", 
+        vimeoId: "1139814210/1828d12c30", 
+        title: "Nov 21, 2025 Ads Optimization Call Recording", 
+        date: "2025-11-21",
+        duration: "60 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:05] Lauren
+[00:05:48] Caroline
+[00:12:26] Karli
+[00:28:58] Taylor`
+      },
+      { 
+        id: "22", 
+        vimeoId: "1138661518/d941fa8af6", 
+        title: "Nov 19, 2025 Ads Optimization Call Recording", 
+        date: "2025-11-19",
+        duration: "60 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:03] Ruth`
+      },
+      { 
+        id: "21", 
+        vimeoId: "1137815753/6d0aabc0fa", 
+        title: "Nov 14, 2025 Ads Optimization Call Recording", 
+        date: "2025-11-14",
+        duration: "60 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:03] Steph
+[00:10:43] Caroline
+[00:24:19] SiriChand`
+      },
+      { 
+        id: "20", 
+        vimeoId: "1136519452/687cb0ed8f", 
+        title: "Nov 12, 2025 Ads Optimization Call Recording", 
+        date: "2025-11-12",
+        duration: "78 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:01] Ruth
+[00:23:18] Lawrence
+[00:33:13] Caroline
+[00:44:32] Siri`
+      },
+      { 
         id: "19", 
         vimeoId: "1135370745/75052191ea", 
         title: "Nov 7, 2025 Ads Optimization Call Recording", 
@@ -328,7 +697,6 @@ export default function LiveCoachingCalls() {
         description: "Expert feedback on ad performance and optimization strategies",
         transcript: `[00:00:03] Caroline
 [00:08:52] Ruth
-[00:23:20] Minnie
 [00:51:59] Lauren`
       },
       { 
@@ -413,6 +781,64 @@ export default function LiveCoachingCalls() {
     ],
     tech: [
       { 
+        id: "42", 
+        vimeoId: "1147724166/f0116dd1d7", 
+        title: "Dec 17, 2025 Tech Support Call Recording", 
+        date: "2025-12-17",
+        duration: "40 min",
+        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
+        transcript: `[00:00:30] Heather - DNS records, email setup, payment links`
+      },
+      { 
+        id: "36", 
+        vimeoId: "1145424298/d7d0f7f6f7", 
+        title: "Dec 10, 2025 Tech Support Call Recording", 
+        date: "2025-12-10",
+        duration: "61 min",
+        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
+        transcript: `[00:00:18] Heather
+[00:34:04] Elysha`
+      },
+      { 
+        id: "28", 
+        vimeoId: "1143239952/ab856bf64b", 
+        title: "Dec 3, 2025 Tech Support Call Recording", 
+        date: "2025-12-03",
+        duration: "48 min",
+        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
+        transcript: `[00:00:07] Melissa
+[00:24:09] Heather
+[00:40:50] Taylor`
+      },
+      { 
+        id: "24", 
+        vimeoId: "1140936117/0eacb88c8f", 
+        title: "Nov 26, 2025 Tech Support Call Recording", 
+        date: "2025-11-26",
+        duration: "43 min",
+        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
+        transcript: `[00:00:00] Caroline`
+      },
+      { 
+        id: "23", 
+        vimeoId: "1138960991/5a34e6bd02", 
+        title: "Nov 19, 2025 Tech Support Call Recording", 
+        date: "2025-11-19",
+        duration: "60 min",
+        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
+        transcript: `[00:00:05] Heather
+[00:19:00] Ruth`
+      },
+      { 
+        id: "21", 
+        vimeoId: "1136519808/41de8ae452", 
+        title: "Nov 12, 2025 Tech Support Call Recording", 
+        date: "2025-11-12",
+        duration: "60 min",
+        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
+        transcript: `[00:00:01] Heather`
+      },
+      { 
         id: "18", 
         vimeoId: "1134332221/789d0d44fd", 
         title: "Nov 5, 2025 Tech Support Call Recording", 
@@ -433,6 +859,94 @@ export default function LiveCoachingCalls() {
     ],
     accountability: [
       { 
+        id: "47", 
+        vimeoId: "1150191291/afa51662af", 
+        title: "Dec 29, 2025 Accountability Call Recording", 
+        date: "2025-12-29",
+        duration: "48 min",
+        description: "Accountability coaching session",
+        transcript: `[00:00:21] Shayna - tripwire setup, strategy questions, funnel next steps
+[00:06:57] Beth - getting oriented, strategy pivot questions, visibility ads
+[00:14:01] Fica - visibility ads win, email copy for lead generation
+[00:18:03] Lauren - content batching, podcast relaunch, challenge prep
+[00:28:18] Cassandra - domain switch, messaging for high risk pregnant women
+[00:32:31] Elizabeth - strategy presentation, email sequence for quiz
+[00:36:55] Kevin - messaging input forms, strategy call prep`
+      },
+      { 
+        id: "40", 
+        vimeoId: "1148809000/9cc1d874ca", 
+        title: "Dec 22, 2025 Accountability Call Recording", 
+        date: "2025-12-22",
+        duration: "67 min",
+        description: "Accountability coaching session",
+        transcript: `[00:00:23] Cassandra - Discovery call follow-up and sales process
+[00:10:54] Lauren - Setting boundaries with free calls
+[00:46:55] SiriChand - Sold 17 seats in solstice class`
+      },
+      { 
+        id: "39", 
+        vimeoId: "1147361415/f6aafdd2f3", 
+        title: "Dec 15, 2025 Accountability Call Recording", 
+        date: "2025-12-15",
+        duration: "55 min",
+        description: "Accountability coaching session",
+        transcript: `[00:00:18] Jordan
+[00:07:05] Lauren`
+      },
+      { 
+        id: "33", 
+        vimeoId: "1144721574/fce7185a7e", 
+        title: "Dec 8, 2025 Accountability Call Recording", 
+        date: "2025-12-08",
+        duration: "62 min",
+        description: "Accountability coaching session",
+        transcript: `[00:00:18] Steph
+[00:06:11] Casey
+[00:07:49] Lauren
+[00:14:54] Anne-Marie
+[00:24:10] Caroline
+[00:26:22] SiriChand
+[00:34:00] Cassandra`
+      },
+      { 
+        id: "26", 
+        vimeoId: "1142520619/ce199b20f4", 
+        title: "Dec 1, 2025 Accountability Call Recording", 
+        date: "2025-12-01",
+        duration: "60 min",
+        description: "Accountability coaching session",
+        transcript: ``
+      },
+      { 
+        id: "24", 
+        vimeoId: "1140526538/32cb54b014", 
+        title: "Nov 24, 2025 Accountability Call Recording", 
+        date: "2025-11-24",
+        duration: "60 min",
+        description: "Accountability coaching session",
+        transcript: `[00:00:15] Steph
+[00:04:59] Caroline
+[00:06:58] Anne-Marie
+[00:12:06] Lauren
+[00:17:43] SiriChand
+[00:32:55] Kasie`
+      },
+      { 
+        id: "22", 
+        vimeoId: "1137818541/0500b07ed4", 
+        title: "Nov 17, 2025 Accountability Call Recording", 
+        date: "2025-11-17",
+        duration: "60 min",
+        description: "Accountability coaching session",
+        transcript: `[00:00:56] Steph
+[00:04:42] Caroline
+[00:15:40] Lauren
+[00:39:40] Anne-Marie
+[00:44:43] SiriChand
+[00:51:26] Jasmine`
+      },
+      { 
         id: "14", 
         vimeoId: "1133263525/c943a2fe89", 
         title: "Nov 3, 2025 Accountability Call Recording", 
@@ -452,7 +966,6 @@ export default function LiveCoachingCalls() {
         duration: "60 min",
         description: "Accountability coaching session",
         transcript: `[00:10:32] Jordan
-[00:22:09] Minnie
 [00:24:16] Sophie
 [00:30:26] Casey
 [00:36:06] Jill
