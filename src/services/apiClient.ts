@@ -116,6 +116,19 @@ class EnhancedApiClient {
           // Handle axios errors
           const axiosError = error as AxiosError;
           
+          // Check for timeout/cancellation errors first
+          if (
+            axiosError.code === "ECONNABORTED" ||
+            axiosError.code === "ETIMEDOUT" ||
+            axiosError.message?.toLowerCase().includes("timeout") ||
+            axiosError.message?.toLowerCase().includes("cancelled") ||
+            axiosError.message?.toLowerCase().includes("canceled")
+          ) {
+            throw new Error(
+              `Request timeout: The request took longer than ${timeout}ms to complete. Please try again.`
+            );
+          }
+          
           if (axiosError.response) {
             // Server responded with error status
             const errorMessage = 

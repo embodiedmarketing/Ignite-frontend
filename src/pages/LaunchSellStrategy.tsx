@@ -3268,7 +3268,11 @@ export default function LaunchSellStrategy() {
                                   <div className="space-y-3">
                                     <div>
                                       <h4 className="font-semibold text-slate-800 mb-1">
-                                        📩 Registration Invite Emails (5)
+                                        📩 Registration Invite Emails (
+                                        {generatedEmails.filter(
+                                          (e) => e.emailType === "registration_invite"
+                                        ).length}
+                                        )
                                       </h4>
                                       <p className="text-sm mb-1">
                                         <strong>Purpose:</strong> Drives your
@@ -3293,7 +3297,11 @@ export default function LaunchSellStrategy() {
 
                                     <div>
                                       <h4 className="font-semibold text-slate-800 mb-1">
-                                        📩 Confirmation Email (1)
+                                        📩 Confirmation Email (
+                                        {generatedEmails?.length && generatedEmails?.filter(
+                                          (e) => e.emailType === "confirmation"
+                                        ).length}
+                                        )
                                       </h4>
                                       <p className="text-sm mb-1">
                                         <strong>Purpose:</strong> Welcome new
@@ -3317,7 +3325,11 @@ export default function LaunchSellStrategy() {
 
                                     <div>
                                       <h4 className="font-semibold text-slate-800 mb-1">
-                                        📩 Nurture Emails (3)
+                                        📩 Nurture Emails (
+                                        {generatedEmails?.length && generatedEmails?.filter(
+                                          (e) => e.emailType === "nurture"
+                                        ).length}
+                                        )
                                       </h4>
                                       <p className="text-sm mb-1">
                                         <strong>Purpose:</strong> Build
@@ -3341,7 +3353,11 @@ export default function LaunchSellStrategy() {
 
                                     <div>
                                       <h4 className="font-semibold text-slate-800 mb-1">
-                                        📩 Reminder Emails (3)
+                                        📩 Reminder Emails (
+                                        {generatedEmails?.length && generatedEmails?.filter(
+                                          (e) => e.emailType === "reminder"
+                                        ).length}
+                                        )
                                       </h4>
                                       <p className="text-sm mb-1">
                                         <strong>Purpose:</strong> Maximize live
@@ -3361,7 +3377,11 @@ export default function LaunchSellStrategy() {
 
                                     <div>
                                       <h4 className="font-semibold text-slate-800 mb-1">
-                                        📩 Sales Emails (5)
+                                        📩 Sales Emails (
+                                        {generatedEmails?.length && generatedEmails?.filter(
+                                          (e) => e.emailType === "sales"
+                                        ).length}
+                                        )
                                       </h4>
                                       <p className="text-sm mb-1">
                                         <strong>Purpose:</strong> Convert

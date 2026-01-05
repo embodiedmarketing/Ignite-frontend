@@ -1587,8 +1587,17 @@ export default function InteractiveStep({
         );
       }
 
-      const { outline, completeness, missingInformation, savedId } =
-        await response.json();
+      const responseData = await response.json();
+      
+      // Check if the response indicates a cancelled status
+      if (responseData.status === "cancelled" || responseData.status === "canceled") {
+        throw new Error(
+          responseData.message || 
+          "The request was cancelled. This may happen if the server is processing a large amount of data. Please try again."
+        );
+      }
+      
+      const { outline, completeness, missingInformation, savedId } = responseData;
 
       // Handle low completeness cases
       if (completeness < 0.4) {
@@ -1640,12 +1649,20 @@ export default function InteractiveStep({
       }
     } catch (error) {
       console.error("Error generating tripwire outline:", error);
+      console.error("Error details:", {
+        message: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      
       const errorMessage =
         error instanceof Error
           ? error.message.includes("timeout") ||
             error.message.includes("Timeout") ||
-            error.message.includes("ECONNABORTED")
-            ? "The request took too long. This may happen if the server is processing a large amount of data. Please try again."
+            error.message.includes("ECONNABORTED") ||
+            error.message.includes("cancelled") ||
+            error.message.includes("canceled")
+            ? "The request took too long or was cancelled. This may happen if the server is processing a large amount of data. Please try again."
             : error.message
           : "Failed to generate tripwire outline. Please try again.";
       toast({
