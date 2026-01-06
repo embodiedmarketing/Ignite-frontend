@@ -100,7 +100,8 @@ export default function LiveCoachingCalls() {
           description: "Live tech support for funnel setup and automation challenges.",
           link: "https://us02web.zoom.us/j/7442098096",
           icon: Settings,
-          color: "coral"
+          color: "coral",
+          canceled:true,
         },
         {
           id: weekOffset * 10 + 5,
@@ -1155,7 +1156,7 @@ export default function LiveCoachingCalls() {
                       <div className="flex flex-col items-end gap-1">
                         {isCanceled ? (
                           <Badge variant="outline" className="text-red-600 border-red-600">
-                            Canceled
+                            Cancelled
                           </Badge>
                         ) : (
                           <Badge variant="outline" className={`text-${call.color}-600 border-${call.color}-600`}>
@@ -1177,9 +1178,11 @@ export default function LiveCoachingCalls() {
                         </span>
                       </div>
                       {isCanceled ? (
-                        <Badge variant="outline" className="text-red-600 border-red-600">
-                          {call.cancelReason}
-                        </Badge>
+                        // <Badge variant="outline" className="text-red-600 border-red-600">
+                        //   {call.cancelReason}
+                        // </Badge>
+
+                        ""
                       ) : (
                         <a href={call.link} target="_blank" rel="noopener noreferrer">
                           <Button size="sm" className={
