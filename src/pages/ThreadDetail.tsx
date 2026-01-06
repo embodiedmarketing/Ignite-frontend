@@ -184,6 +184,9 @@ export default function ThreadDetail() {
     return { topLevel, replies };
   }, [data?.posts]);
 
+
+  console.log("organizedPosts", organizedPosts);
+
   const onSubmit = (postData: InsertForumPost) => {
     const payload = replyingToPostId
       ? { body: postData.body, parentId: replyingToPostId }
