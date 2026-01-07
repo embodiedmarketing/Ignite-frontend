@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { lazy, Suspense } from "react";
 import { queryClient } from "@/services/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -26,7 +27,8 @@ import Resources from "@/pages/Resources";
 import OfferManagement from "@/pages/OfferManagement";
 import BuildYourOffer from "@/pages/BuildYourOffer";
 // Removed payment-related imports
-import InteractiveStep from "@/components/InteractiveStep";
+// Lazy load InteractiveStep to reduce initial bundle size (file is 508KB)
+const InteractiveStep = lazy(() => import("@/components/InteractiveStep"));
 import NotFound from "@/pages/not-found";
 import BonusMaterial from "@/pages/BonusMaterial";
 import AudienceGrowth from "@/pages/AudienceGrowth";
@@ -51,11 +53,37 @@ import BusinessIncubatorMessaging from "@/pages/BusinessIncubatorMessaging";
 import BusinessIncubatorCustomerJourney from "@/pages/BusinessIncubatorCustomerJourney";
 import MessagingStrategyResults from "@/pages/MessagingStrategyResults";
 import Profile from "@/pages/Profile";
-import { lazy, Suspense } from "react";
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 import AdminLogin from "@/pages/AdminLogin";
 import AdminUserManagement from "@/pages/AdminUserManagement";
 import AdminUserDetail from "@/pages/AdminUserDetail";
+
+// Wrapper component to handle Suspense for InteractiveStep
+function InteractiveStepWrapper({
+  stepNumber,
+  userId,
+  offerId,
+}: {
+  stepNumber: number;
+  userId: string;
+  offerId?: number;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin w-8 h-8 border-4 border-[#4593ed] border-t-transparent rounded-full" />
+        </div>
+      }
+    >
+      <InteractiveStep
+        stepNumber={stepNumber}
+        userId={userId}
+        offerId={offerId}
+      />
+    </Suspense>
+  );
+}
 
 function AppRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -116,7 +144,7 @@ function AppRouter() {
       <Route path="/messaging">
         {isAuthenticated ? (
           <Layout>
-            <InteractiveStep
+            <InteractiveStepWrapper
               stepNumber={1}
               userId={user?.id?.toString() || ""}
             />
@@ -129,7 +157,7 @@ function AppRouter() {
       <Route path="/create-offer">
         {isAuthenticated ? (
           <Layout>
-            <InteractiveStep
+            <InteractiveStepWrapper
               stepNumber={2}
               userId={user?.id?.toString() || ""}
             />
@@ -152,7 +180,7 @@ function AppRouter() {
       <Route path="/sell-offer">
         {isAuthenticated ? (
           <Layout>
-            <InteractiveStep
+            <InteractiveStepWrapper
               stepNumber={4}
               userId={user?.id?.toString() || ""}
             />
@@ -400,7 +428,7 @@ function AppRouter() {
               {stepNumber === 3 ? (
                 <BuildYourOffer userId={user?.id?.toString() || ""} />
               ) : (
-                <InteractiveStep
+                <InteractiveStepWrapper
                   stepNumber={stepNumber}
                   userId={user?.id?.toString() || ""}
                 />
@@ -480,7 +508,7 @@ function App() {
 function FloatingIssueButton() {
   const { isAuthenticated, user } = useAuth();
 
-  if (!isAuthenticated || !user) return null;
+  if (!isAuthenticated || !user || !user.id) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import OfferManager from "@/components/OfferManager";
 
@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
-import InteractiveStep from "@/components/InteractiveStep";
+// Lazy load InteractiveStep to reduce initial bundle size (file is 508KB)
+const InteractiveStep = lazy(() => import("@/components/InteractiveStep"));
 
 interface OfferManagementProps {
   user: any;

@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, FileText, Target, MessageSquare, CheckCircle, TrendingUp, PlayCircle, Wand2, Settings } from "lucide-react";
-import InteractiveStep from "@/components/InteractiveStep";
 import CustomerExperienceBuilder from "@/components/CustomerExperienceBuilder";
 import CustomerExperienceTabs from "@/components/CustomerExperienceTabs";
 import SalesPageGenerator from "@/components/SalesPageGenerator";
