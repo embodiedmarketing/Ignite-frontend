@@ -2,17 +2,42 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Video, Calendar, Users, Clock, Play, ExternalLink, Target, MessageSquare, TrendingUp, CheckCircle, FileText, Settings, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Video, Calendar, Users, Clock, Play, ExternalLink, Target, MessageSquare, TrendingUp, CheckCircle, FileText, Settings, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import VimeoEmbed from "@/components/VimeoEmbed";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/services/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 // Live Coaching Calls - Updated Oct 29, 2025
 export default function LiveCoachingCalls() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [mainTab, setMainTab] = useState<string>("schedule");
   const [selectedRecordingCategory, setSelectedRecordingCategory] = useState<string>("strategy");
   const [currentWeek, setCurrentWeek] = useState<number>(0);
   const [videoStartTimes, setVideoStartTimes] = useState<Record<string, number>>({});
+  const [isAddRecordingModalOpen, setIsAddRecordingModalOpen] = useState(false);
+  const [isEditRecordingModalOpen, setIsEditRecordingModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [recordingToDelete, setRecordingToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [editingRecording, setEditingRecording] = useState<any>(null);
+  const [newRecording, setNewRecording] = useState({
+    title: "",
+    date: "",
+    duration: "",
+    vimeoId: "",
+    description: "",
+    transcript: "",
+    category: "strategy"
+  });
 
   // Generate dynamic weeks based on current date
   const generateWeeksData = () => {
@@ -155,914 +180,10 @@ export default function LiveCoachingCalls() {
   const currentWeekData = weeksData[currentWeek];
   const thisWeeksCalls = currentWeekData?.calls || [];
 
-  // Recordings organized by category - easily updatable by your team
-  const recordings = {
-    strategy: [
-      { 
-        id: "49", 
-        vimeoId: "1152029055/4d6c0ef3d2", 
-        title: "Jan 6, 2026 Strategy & Conversion Call Recording", 
-        date: "2026-01-06",
-        duration: "62 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:01:09] Yeah. So I'm just thinking your thoughts about that
-[00:23:55] Elle - strategy delivery win, February launch timeline discussion
-[00:24:20] Fika - webinar registration funnel setup, landing page headline optimization, lead gen page copy improvements
-[00:36:16] Cassandra - lead form vs landing page strategy, high-risk pregnancy coaching positioning, sales call structure`
-      },
-      { 
-        id: "48", 
-        vimeoId: "1151059222/acd51cada6", 
-        title: "Jan 2, 2026 Strategy & Conversion Call Recording", 
-        date: "2026-01-02",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:00] Caroline - AI-assisted positioning with Claude, case study portfolio strategy, visibility ads direction
-[00:23:55] Elle - strategy delivery win, February launch timeline discussion
-[00:24:20] Fika - webinar registration funnel setup, landing page headline optimization, lead gen page copy improvements
-[00:36:16] Cassandra - lead form vs landing page strategy, high-risk pregnancy coaching positioning, sales call structure`
-      },
-      { 
-        id: "47", 
-        vimeoId: "1150467684/1b2cc0c235", 
-        title: "Dec 30, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-30",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:05] Lauren - AI-generated podcast backgrounds, Telegram follow-up strategy for year-end offer cutoffs
-[00:07:36] Fica - web copy completion, brand assets, email sequences progress, sales page CTA clarification
-[00:11:45] Elle - timeline acceleration for February launch, visibility ad content creation, lead gen infrastructure
-[00:41:00] Amanda - adding video to ads, recording tools comparison (Loom vs PowerPoint vs Sambavi)
-[00:48:03] Cassandra - customer journey mapping, mini mind messaging reframe, high-risk pregnancy coaching positioning`
-      },
-      { 
-        id: "46", 
-        vimeoId: "1149071821/6cb55acacb", 
-        title: "Dec 23, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-23",
-        duration: "68 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:04:03] Lauren - email strategy win, sales conversion, content batching approach
-[00:20:48] Cassandra - prenatal clarity call email review, 12 days of Christmas campaign, pricing one-on-one mindset mentorship
-[00:39:01] Kara - offer outcomes deep dive, ads launch timing, balancing business with family during holidays
-[01:01:51] Sheri Chen - year-end reflection, tracking business progress, planning for 2026`
-      },
-      { 
-        id: "44", 
-        vimeoId: "1148107847/caf161d381", 
-        title: "Dec 19, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-19",
-        duration: "61 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:01:09] Sherry - quiz landing page review, tripwire messaging, email sequences
-[00:15:37] Kara - ads targeting strategy, offer transformation outcomes
-[00:29:41] Jordan - Built for Bigger sales page review, tangible outcomes
-[00:48:46] Cassandra - tripwire page CTA, launching ads`
-      },
-      { 
-        id: "40", 
-        vimeoId: "1147369138/03aa7fc6d4", 
-        title: "Dec 16, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-16",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:02] Amanda
-[00:03:55] Casey
-[00:23:43] Lauren
-[00:35:31] Cassandra
-[00:45:44] Jordan
-[00:58:40] Taylor`
-      },
-      { 
-        id: "37", 
-        vimeoId: "1146006835/f4518153e1", 
-        title: "Dec 12, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-12",
-        duration: "64 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:06] Caroline
-[00:07:59] Ashley
-[00:13:18] Sherry
-[00:27:18] Jordan
-[00:39:06] Lauren`
-      },
-      { 
-        id: "34", 
-        vimeoId: "1145276938/adb1197739", 
-        title: "Dec 9, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-09",
-        duration: "61 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:35] Alicia
-[00:14:09] Sherry
-[00:25:44] Casey
-[00:36:48] Lauren`
-      },
-      { 
-        id: "27", 
-        vimeoId: "1143135939/aec88d38e0", 
-        title: "Dec 2, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-02",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:07] Laura
-[00:05:44] Lauren
-[00:28:05] Jordan`
-      },
-      { 
-        id: "26", 
-        vimeoId: "1140576929/632d42eb80", 
-        title: "Nov 25, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-25",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:00] Lauren
-[00:26:45] Jordan
-[00:28:17] Anne-Marie
-[00:39:45] Sherry
-[00:47:48] SiriChand`
-      },
-      { 
-        id: "25", 
-        vimeoId: "1139461567/c947fc319d", 
-        title: "Nov 21, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-21",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:00] Sherry
-[00:10:17] Jasmine
-[00:26:07] Lauren
-[00:38:17] SiriChand
-[00:51:30] Taylor`
-      },
-      { 
-        id: "23", 
-        vimeoId: "1138260283/77c4b1439f", 
-        title: "Nov 18, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-18",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:17] Cassandra
-[00:11:22] Kasie
-[00:22:32] Ruth
-[00:37:39] Nadine and Jen
-[00:51:51] Jasmine`
-      },
-      { 
-        id: "22", 
-        vimeoId: "1137810472/3f549f778d", 
-        title: "Nov 14, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-14",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:00] Lauren
-[00:30:08] Caroline
-[00:42:18] Jasmine
-[00:55:47] SiriChand`
-      },
-      { 
-        id: "21", 
-        vimeoId: "1136664353/721c623e33", 
-        title: "Nov 11, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-11",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:02:29] Lauren
-[00:23:29] Casey
-[00:37:51] Jordan
-[00:43:20] Feike
-[00:51:47] SiriChand`
-      },
-      { 
-        id: "20", 
-        vimeoId: "1134727878/c3d50f04ca", 
-        title: "Nov 7, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-07",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:17] Caroline
-[00:14:11] Jordan
-[00:14:16] Sherry
-[00:51:29] Lauren`
-      },
-      { 
-        id: "31", 
-        vimeoId: "1143893155/e09ab8cc90", 
-        title: "Dec 5, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-12-05",
-        duration: "62 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:21] Sherry
-[00:11:26] Kim
-[00:30:38] Lauren`
-      },
-      { 
-        id: "17", 
-        vimeoId: "1133621616/3229b27627", 
-        title: "Nov 4, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-11-04",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:29] Carolyn
-[00:09:57] Lauren
-[00:21:57] Ruth
-[00:26:22] Carly`
-      },
-      { 
-        id: "15", 
-        vimeoId: "1132569346/b1dd26721a", 
-        title: "Oct 31, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-10-31",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:15:11] Siri
-[00:36:10] Jordan
-[00:42:45] Lauren`
-      },
-      { 
-        id: "14", 
-        vimeoId: "1131461062/9981c827f0", 
-        title: "Oct 28, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-10-28",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:49] Caroline
-[00:03:54] Jill
-[00:12:56] Monica
-[00:28:08] Christine
-[00:36:52] Siri`
-      },
-      { 
-        id: "11", 
-        vimeoId: "1130296205/1367a4d1a2", 
-        title: "Oct 24, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-10-24",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:54] Jordan
-[00:17:03] Melissa
-[00:43:17] Lauren`
-      },
-      { 
-        id: "8", 
-        vimeoId: "1129660643/a0f3c1b69c", 
-        title: "Oct 22, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-10-22",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:16] Ruth
-[00:15:40] Monica
-[00:29:10] Lauren
-[00:48:06] Tiana`
-      },
-      { 
-        id: "7", 
-        vimeoId: "1129313917/a613028199", 
-        title: "Oct 21, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-10-21",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:21] Laura
-[00:05:12] Jordan
-[00:32:05] Jennifer
-[00:45:03] Cassandra`
-      },
-      { 
-        id: "4", 
-        vimeoId: "1127630471/7125c9942f", 
-        title: "Oct 14, 2025 Strategy & Conversion Call Recording", 
-        date: "2025-10-14",
-        duration: "60 min",
-        description: "Strategy and conversion coaching session",
-        transcript: `[00:00:20] Caroline
-[00:10:20] Lauren
-[00:19:20] Jordan
-[00:29:40] Taylor
-[00:36:50] Monica`
-      }
-    ],
-    messaging: [
-      { 
-        id: "43", 
-        vimeoId: "1148060876/4cb0cadae2", 
-        title: "Dec 18, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-12-18",
-        duration: "62 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:09] Yasmin - visibility ads, messaging direction
-[00:04:04] Elle - strategy call booking, messaging generator issues
-[00:09:19] Lauren - scheduling coworking sessions, time zone accommodations
-[00:17:43] Amanda - tripwire page review, Go High Level setup
-[00:30:24] Taylor - funnel optimization, lead gen confirmation page
-[00:48:48] Cassandra - tripwire copy review, launching ads`
-      },
-      { 
-        id: "38", 
-        vimeoId: "1147111789/00bcb590a0", 
-        title: "Dec 11, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-12-11",
-        duration: "51 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:00] Alicia
-[00:13:55] Ruth
-[00:28:21] Elle
-[00:34:10] Jordan
-[00:47:03] Sherry`
-      },
-      { 
-        id: "30", 
-        vimeoId: "1143845267/8a85f9d8af", 
-        title: "Dec 4, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-12-04",
-        duration: "56 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:05:35] Kim
-[00:08:01] Lauren
-[00:22:14] Laura
-[00:36:17] Anne Marie
-[00:46:00] Cassandra
-[00:52:10] Sherry`
-      },
-      { 
-        id: "25", 
-        vimeoId: "1141518764/80725b8b3b", 
-        title: "Nov 27, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-11-27",
-        duration: "41 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:03] Sheri
-[00:21:06] Caroline`
-      },
-      { 
-        id: "24", 
-        vimeoId: "1139078707/9d82e8c50b", 
-        title: "Nov 20, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-11-20",
-        duration: "60 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:22] Feike
-[00:06:42] Jordan
-[00:12:44] Lauren
-[00:27:15] Anne Marie`
-      },
-      { 
-        id: "22", 
-        vimeoId: "1136664640/1735e0fd48", 
-        title: "Nov 13, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-11-13",
-        duration: "60 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:01:51] SiriChand
-[00:13:07] Feike
-[00:17:31] Lauren
-[00:33:01] Jordan
-[00:38:14] Heather
-[00:44:48] Jasmine`
-      },
-      { 
-        id: "19", 
-        vimeoId: "1134389485/febcc5c6d1", 
-        title: "Nov 6, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-11-06",
-        duration: "60 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:02] Caroline
-[00:00:36] Lauren
-[00:04:10] Tiana
-[00:15:35] Ruth
-[00:26:46] Sherry
-[00:30:38] Jordan`
-      },
-      { 
-        id: "16", 
-        vimeoId: "1132266864/7591fb542a", 
-        title: "Oct 30, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-10-30",
-        duration: "67 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:17] Jasmine
-[00:11:38] Caroline
-[00:29:58] Tiana
-[00:51:21] Lauren
-[01:04:03] Jordan`
-      },
-      { 
-        id: "2", 
-        vimeoId: "1130013276/63180baf53", 
-        title: "Oct 23, 2025 Messaging & Offer Positioning Call Recording", 
-        date: "2025-10-23",
-        duration: "60 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:10] Monica
-[00:19:05] Lauren
-[00:38:50] Siri
-[00:53:58] Tiana`
-      },
-      { 
-        id: "1", 
-        vimeoId: "1127630471/7125c9942f", 
-        title: "Oct 15, 2025 Messaging & Offer Positioning Recording", 
-        date: "2025-10-15",
-        duration: "60 min",
-        description: "Messaging and offer positioning coaching session",
-        transcript: `[00:00:20] Caroline
-[00:10:20] Lauren
-[00:19:20] Jordan
-[00:29:40] Taylor`
-      }
-    ],
-    ads: [
-      { 
-        id: "48", 
-        vimeoId: "1151936346/10c2d8452b", 
-        title: "Jan 2, 2026 Ads Optimization Call Recording", 
-        date: "2026-01-02",
-        duration: "73 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:03] Lauren - challenge iteration, visibility audience warm retargeting, ad creative strategy
-[00:10:22] Alicia - leads stopped, quiz pixel troubleshooting, $1.48 CPL tracking
-[00:22:18] Cassandra - 78 cent CPL, $7/day ad budget, visibility ads training`
-      },
-      { 
-        id: "47", 
-        vimeoId: "1151053012/aaa390e0fa", 
-        title: "Dec 31, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-31",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:00] Alicia - lead gen ad budget strategy, quiz funnel setup, cost per lead optimization for January challenge
-[00:14:14] Ashley - event setup in ads manager, pixel configuration, funnel page tracking
-[00:15:33] Heather - Facebook account hacked recovery, business manager access restoration, document upload issues
-[00:31:43] Taylor - lead gen audience testing, three-day test results, ad performance check-in
-[00:43:57] Cassandra - ad budget increase strategy, campaign optimization, data collection at $5/day`
-      },
-      { 
-        id: "46", 
-        vimeoId: "1150141802/729694a6b4", 
-        title: "Dec 24, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-24",
-        duration: "90 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:00] Participant - pixel setup, lead generation funnel, event tracking for speaker booking
-[00:15:56] Yasmin - visibility ads setup, ads manager configuration, profile management
-[00:38:32] Taylor - lead gen campaign optimization, ad testing strategy, conversion tracking`
-      },
-      { 
-        id: "45", 
-        vimeoId: "1148699098/bc573e5b43", 
-        title: "Dec 19, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-19",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:07:22] Ashley - visibility campaigns, audience segmentation, lookalike audiences
-[00:20:43] Kara - first ads setup, lead magnet campaign, ad request form
-[00:38:54] Heather - lead gen campaign review, high net worth targeting`
-      },
-      { 
-        id: "41", 
-        vimeoId: "1147721751/ed99e05788", 
-        title: "Dec 17, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-17",
-        duration: "75 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:03] Sandra - Lookalike audiences, ad budgets, CPL optimization
-[00:11:53] Cassie - Visibility ads, niche audience targeting
-[00:28:27] Taylor - Lead gen campaign, teacher spotlight ads
-[00:52:16] Heather - Audience setup, reach limitations`
-      },
-      { 
-        id: "37", 
-        vimeoId: "1146418516/ba1c7e43dc", 
-        title: "Dec 12, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-12",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: ``
-      },
-      { 
-        id: "35", 
-        vimeoId: "1145424186/9d6c064c17", 
-        title: "Dec 10, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-10",
-        duration: "80 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:01] Cassandra
-[00:08:14] Amanda
-[00:34:43] Caroline`
-      },
-      { 
-        id: "32", 
-        vimeoId: "1144630856/d8815676ae", 
-        title: "Dec 5, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-05",
-        duration: "59 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:00] Heather
-[00:13:09] Caroline`
-      },
-      { 
-        id: "29", 
-        vimeoId: "1143243463/da5cc40283", 
-        title: "Dec 3, 2025 Ads Optimization Call Recording", 
-        date: "2025-12-03",
-        duration: "74 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:10:35] Lauren
-[00:36:10] SiriChand
-[00:54:23] Melissa`
-      },
-      { 
-        id: "27", 
-        vimeoId: "1140935730/31ef1f5589", 
-        title: "Nov 26, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-26",
-        duration: "78 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:08] Caroline
-[00:08:57] Cassandra
-[00:47:25] Jasmine
-[00:52:13] SiriChand
-[01:07:13] Taylor`
-      },
-      { 
-        id: "26", 
-        vimeoId: "1139814210/1828d12c30", 
-        title: "Nov 21, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-21",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:05] Lauren
-[00:05:48] Caroline
-[00:12:26] Karli
-[00:28:58] Taylor`
-      },
-      { 
-        id: "22", 
-        vimeoId: "1138661518/d941fa8af6", 
-        title: "Nov 19, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-19",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:03] Ruth`
-      },
-      { 
-        id: "21", 
-        vimeoId: "1137815753/6d0aabc0fa", 
-        title: "Nov 14, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-14",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:03] Steph
-[00:10:43] Caroline
-[00:24:19] SiriChand`
-      },
-      { 
-        id: "20", 
-        vimeoId: "1136519452/687cb0ed8f", 
-        title: "Nov 12, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-12",
-        duration: "78 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:01] Ruth
-[00:23:18] Lawrence
-[00:33:13] Caroline
-[00:44:32] Siri`
-      },
-      { 
-        id: "19", 
-        vimeoId: "1135370745/75052191ea", 
-        title: "Nov 7, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-07",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:00] Lauren`
-      },
-      { 
-        id: "17", 
-        vimeoId: "1133935789/7f8ed131cb", 
-        title: "Nov 5, 2025 Ads Optimization Call Recording", 
-        date: "2025-11-05",
-        duration: "74 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:03] Caroline
-[00:08:52] Ruth
-[00:51:59] Lauren`
-      },
-      { 
-        id: "16", 
-        vimeoId: "1132984921/d15b3df341", 
-        title: "Oct 31, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-31",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:52] Caroline
-[00:21:55] Jasmine
-[00:37:28] Monica`
-      },
-      { 
-        id: "15", 
-        vimeoId: "1131763128/03ccfd9878", 
-        title: "Oct 29, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-29",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:01] Tiana
-[00:07:57] Lauren
-[00:27:23] Ashley
-[00:35:55] Siri
-[00:50:41] Caroline`
-      },
-      { 
-        id: "12", 
-        vimeoId: "1131001423/8fad42ed4a", 
-        title: "Oct 24, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-24",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:00] Monica
-[00:06:47] Lauren`
-      },
-      { 
-        id: "9", 
-        vimeoId: "1129661332/e3fa9c1069", 
-        title: "Oct 22, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-22",
-        duration: "60 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:02] Monica
-[00:09:16] Caroline
-[01:00:45] Melissa
-[01:21:30] Siri`
-      },
-      { 
-        id: "5", 
-        vimeoId: "1128888950/f3b8b4eba7", 
-        title: "Oct 17, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-17",
-        duration: "72 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:03] Lauren
-[00:28:52] Monica`
-      },
-      { 
-        id: "3", 
-        vimeoId: "1127885664/849eca944b", 
-        title: "Oct 15, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-15",
-        duration: "90 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:00:00] Monica
-[00:21:10] Doug
-[00:41:15] Ruth
-[01:03:40] Monica`
-      },
-      { 
-        id: "2", 
-        vimeoId: "1125632162/e7706a57cb", 
-        title: "Oct 10, 2025 Ads Optimization Call Recording", 
-        date: "2025-10-10",
-        duration: "92 min",
-        description: "Expert feedback on ad performance and optimization strategies",
-        transcript: `[00:01:01] Monica
-[00:23:17] Anna
-[00:41:57] Lauren`
-      }
-    ],
-    tech: [
-      { 
-        id: "42", 
-        vimeoId: "1147724166/f0116dd1d7", 
-        title: "Dec 17, 2025 Tech Support Call Recording", 
-        date: "2025-12-17",
-        duration: "40 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:30] Heather - DNS records, email setup, payment links`
-      },
-      { 
-        id: "36", 
-        vimeoId: "1145424298/d7d0f7f6f7", 
-        title: "Dec 10, 2025 Tech Support Call Recording", 
-        date: "2025-12-10",
-        duration: "61 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:18] Heather
-[00:34:04] Elysha`
-      },
-      { 
-        id: "28", 
-        vimeoId: "1143239952/ab856bf64b", 
-        title: "Dec 3, 2025 Tech Support Call Recording", 
-        date: "2025-12-03",
-        duration: "48 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:07] Melissa
-[00:24:09] Heather
-[00:40:50] Taylor`
-      },
-      { 
-        id: "24", 
-        vimeoId: "1140936117/0eacb88c8f", 
-        title: "Nov 26, 2025 Tech Support Call Recording", 
-        date: "2025-11-26",
-        duration: "43 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:00] Caroline`
-      },
-      { 
-        id: "23", 
-        vimeoId: "1138960991/5a34e6bd02", 
-        title: "Nov 19, 2025 Tech Support Call Recording", 
-        date: "2025-11-19",
-        duration: "60 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:05] Heather
-[00:19:00] Ruth`
-      },
-      { 
-        id: "21", 
-        vimeoId: "1136519808/41de8ae452", 
-        title: "Nov 12, 2025 Tech Support Call Recording", 
-        date: "2025-11-12",
-        duration: "60 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:01] Heather`
-      },
-      { 
-        id: "18", 
-        vimeoId: "1134332221/789d0d44fd", 
-        title: "Nov 5, 2025 Tech Support Call Recording", 
-        date: "2025-11-05",
-        duration: "60 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:03] Lauren`
-      },
-      { 
-        id: "10", 
-        vimeoId: "1129916697/9d386d2954", 
-        title: "Oct 22, 2025 Tech Support Call Recording", 
-        date: "2025-10-22",
-        duration: "60 min",
-        description: "Tech support for funnel setup, integrations, troubleshooting, and more.",
-        transcript: `[00:00:16] Ruth`
-      }
-    ],
-    accountability: [
-      { 
-        id: "48", 
-        vimeoId: "1151935383/81417655b5", 
-        title: "Jan 5, 2026 Accountability Call Recording", 
-        date: "2026-01-05",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:02:10] Sherry - social media handles refresh, lead magnet and tripwire strategy
-[00:08:23] Annmarie - visibility ads launch, non-negotiable commitment
-[00:16:25] Beth - visibility ad and messaging strategy work
-[00:24:39] Casey - funnel copy and design, two-week sprint
-[00:29:27] Cassandra - finishing messaging on Ignite, 60 cent CPL
-[00:33:13] Lauren - Keep It Flowing kit sales, challenge prep
-[00:40:30] Caroline - content strategy bot feedback, visibility ad mindset`
-      },
-      { 
-        id: "47", 
-        vimeoId: "1150191291/afa51662af", 
-        title: "Dec 29, 2025 Accountability Call Recording", 
-        date: "2025-12-29",
-        duration: "48 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:21] Shayna - tripwire setup, strategy questions, funnel next steps
-[00:06:57] Beth - getting oriented, strategy pivot questions, visibility ads
-[00:14:01] Fica - visibility ads win, email copy for lead generation
-[00:18:03] Lauren - content batching, podcast relaunch, challenge prep
-[00:28:18] Cassandra - domain switch, messaging for high risk pregnant women
-[00:32:31] Elizabeth - strategy presentation, email sequence for quiz
-[00:36:55] Kevin - messaging input forms, strategy call prep`
-      },
-      { 
-        id: "40", 
-        vimeoId: "1148809000/9cc1d874ca", 
-        title: "Dec 22, 2025 Accountability Call Recording", 
-        date: "2025-12-22",
-        duration: "67 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:23] Cassandra - Discovery call follow-up and sales process
-[00:10:54] Lauren - Setting boundaries with free calls
-[00:46:55] SiriChand - Sold 17 seats in solstice class`
-      },
-      { 
-        id: "39", 
-        vimeoId: "1147361415/f6aafdd2f3", 
-        title: "Dec 15, 2025 Accountability Call Recording", 
-        date: "2025-12-15",
-        duration: "55 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:18] Jordan
-[00:07:05] Lauren`
-      },
-      { 
-        id: "33", 
-        vimeoId: "1144721574/fce7185a7e", 
-        title: "Dec 8, 2025 Accountability Call Recording", 
-        date: "2025-12-08",
-        duration: "62 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:18] Steph
-[00:06:11] Casey
-[00:07:49] Lauren
-[00:14:54] Anne-Marie
-[00:24:10] Caroline
-[00:26:22] SiriChand
-[00:34:00] Cassandra`
-      },
-      { 
-        id: "26", 
-        vimeoId: "1142520619/ce199b20f4", 
-        title: "Dec 1, 2025 Accountability Call Recording", 
-        date: "2025-12-01",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: ``
-      },
-      { 
-        id: "24", 
-        vimeoId: "1140526538/32cb54b014", 
-        title: "Nov 24, 2025 Accountability Call Recording", 
-        date: "2025-11-24",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:15] Steph
-[00:04:59] Caroline
-[00:06:58] Anne-Marie
-[00:12:06] Lauren
-[00:17:43] SiriChand
-[00:32:55] Kasie`
-      },
-      { 
-        id: "22", 
-        vimeoId: "1137818541/0500b07ed4", 
-        title: "Nov 17, 2025 Accountability Call Recording", 
-        date: "2025-11-17",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:56] Steph
-[00:04:42] Caroline
-[00:15:40] Lauren
-[00:39:40] Anne-Marie
-[00:44:43] SiriChand
-[00:51:26] Jasmine`
-      },
-      { 
-        id: "14", 
-        vimeoId: "1133263525/c943a2fe89", 
-        title: "Nov 3, 2025 Accountability Call Recording", 
-        date: "2025-11-03",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:02:03] Casey
-[00:06:37] Tal
-[00:22:33] Ruth
-[00:28:56] Lauren`
-      },
-      { 
-        id: "13", 
-        vimeoId: "1131058853/326750b425", 
-        title: "Oct 27, 2025 Accountability Call Recording", 
-        date: "2025-10-27",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:10:32] Jordan
-[00:24:16] Sophie
-[00:30:26] Casey
-[00:36:06] Jill
-[00:45:25] Lauren`
-      },
-      { 
-        id: "20", 
-        vimeoId: "1135500077/17fae14c88", 
-        title: "Nov 10, 2025 Accountability Call Recording", 
-        date: "2025-11-10",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:01:34] Ann Marie
-[00:03:11] Taylor
-[00:04:55] Jasmine
-[00:08:59] Jordan
-[00:13:34] Lauren`
-      },
-      { 
-        id: "6", 
-        vimeoId: "1129313379/f629bf6c5a", 
-        title: "Oct 20, 2025 Accountability Call Recording", 
-        date: "2025-10-20",
-        duration: "60 min",
-        description: "Accountability coaching session",
-        transcript: `[00:00:12] Christine
-[00:02:24] Monica
-[00:03:46] Jordan
-[00:04:53] Lauren
-[00:12:59] Caroline`
-      }
-    ]
-  };
+
+
+const [recordings, setRecordings] = useState<any>({});
+
   const getCategoryIcon = (category: string) => {
     switch(category.toLowerCase()) {
       case 'strategy': return Target;
@@ -1121,6 +242,305 @@ export default function LiveCoachingCalls() {
       ...prev,
       [recordingId]: seconds
     }));
+  };
+
+
+const getRecordings = async () => {
+  const response = await apiRequest(
+    "GET",
+    "/api/coaching-calls/recordings"
+  );
+  return response.json();
+};
+const [callRecordingLoading, setCallRecordingLoading] = useState(false);
+
+useEffect(() => {
+  setCallRecordingLoading(true);
+  getRecordings().then(data => {
+    // 1. Transform the array into a grouped object
+    const groupedData = data.reduce((acc: any, recording: any) => {
+      // Get the category name (e.g., 'strategy' or 'messaging')
+      const category = recording.category.toLowerCase();
+      
+      // If the category doesn't exist in our object yet, create an empty array
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      
+      // Push the recording into the correct category array
+      acc[category].push({
+        id: String(recording.id),
+        vimeoId: recording.vimeoId,
+        title: recording.title,
+        date: recording.date,
+        duration: recording.duration,
+        description: recording.description,
+        transcript: recording.transcript
+      });
+      
+      return acc;
+    }, {});
+    setRecordings(groupedData);
+    
+    setCallRecordingLoading(false)
+    console.log("Structured data:", groupedData);
+  });
+}, []);
+
+  const addRecordingMutation = useMutation({
+    mutationFn: async (recordingData: {
+      title: string;
+      date: string;
+      duration: string;
+      vimeoId: string;
+      description: string;
+      transcript: string;
+      category: string;
+    }) => {
+      // API Payload
+      const payload = {
+        title: recordingData.title,
+        date: recordingData.date,
+        duration: recordingData.duration || "60 min",
+        vimeoId: recordingData.vimeoId,
+        description: recordingData.description || "",
+        transcript: recordingData.transcript || "",
+        category: recordingData.category
+      };
+
+      console.log("API Payload:", payload);
+
+      const response = await apiRequest(
+        "POST",
+        "/api/coaching-calls/recordings",
+        payload
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to add recording");
+      }
+
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      // Update local state with the new recording
+      const category = newRecording.category as keyof typeof recordings;
+      const recordingToAdd = {
+        id: data.id || Date.now().toString(),
+        title: data.title,
+        date: data.date,
+        duration: data.duration,
+        vimeoId: data.vimeoId,
+        description: data.description,
+        transcript: data.transcript
+      };
+
+      setRecordings((prev: any) => ({
+        ...prev,
+        [category]: [...(prev[category] || []), recordingToAdd]
+      }));
+
+      // Reset form and close modal
+      setNewRecording({
+        title: "",
+        date: "",
+        duration: "",
+        vimeoId: "",
+        description: "",
+        transcript: "",
+        category: selectedRecordingCategory
+      });
+      setIsAddRecordingModalOpen(false);
+
+      toast({
+        title: "Success",
+        description: "Call recording added successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add recording",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete recording mutation
+  const deleteRecordingMutation = useMutation({
+    mutationFn: async (recordingId: string) => {
+      const response = await apiRequest(
+        "DELETE",
+        `/api/coaching-calls/recordings/${recordingId}`
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete recording");
+      }
+
+      return await response.json();
+    },
+    onSuccess: () => {
+      // Refetch recordings
+      getRecordings().then(data => {
+        const groupedData = data.reduce((acc: any, recording: any) => {
+          const category = recording.category.toLowerCase();
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+          acc[category].push({
+            id: String(recording.id),
+            vimeoId: recording.vimeoId,
+            title: recording.title,
+            date: recording.date,
+            duration: recording.duration,
+            description: recording.description,
+            transcript: recording.transcript
+          });
+          return acc;
+        }, {});
+        setRecordings(groupedData);
+      });
+
+      setIsDeleteModalOpen(false);
+      setRecordingToDelete(null);
+      toast({
+        title: "Success",
+        description: "Recording deleted successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete recording",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update recording mutation
+  const updateRecordingMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const payload = {
+        title: data.title,
+        date: data.date,
+        duration: data.duration || "60 min",
+        vimeoId: data.vimeoId,
+        description: data.description || "",
+        transcript: data.transcript || "",
+        category: data.category
+      };
+
+      const response = await apiRequest(
+        "PUT",
+        `/api/coaching-calls/recordings/${id}`,
+        payload
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update recording");
+      }
+
+      return await response.json();
+    },
+    onSuccess: () => {
+      // Refetch recordings
+      getRecordings().then(data => {
+        const groupedData = data.reduce((acc: any, recording: any) => {
+          const category = recording.category.toLowerCase();
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+          acc[category].push({
+            id: String(recording.id),
+            vimeoId: recording.vimeoId,
+            title: recording.title,
+            date: recording.date,
+            duration: recording.duration,
+            description: recording.description,
+            transcript: recording.transcript
+          });
+          return acc;
+        }, {});
+        setRecordings(groupedData);
+      });
+
+      setIsEditRecordingModalOpen(false);
+      setEditingRecording(null);
+      toast({
+        title: "Success",
+        description: "Recording updated successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update recording",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle add recording
+  const handleAddRecording = () => {
+    if (!newRecording.title || !newRecording.date || !newRecording.vimeoId) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (Title, Date, Vimeo ID)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    addRecordingMutation.mutate(newRecording);
+  };
+
+  // Handle edit recording
+  const handleEditRecording = (recording: any, category: string) => {
+    setEditingRecording({
+      id: recording.id,
+      title: recording.title,
+      date: recording.date,
+      duration: recording.duration,
+      vimeoId: recording.vimeoId,
+      description: recording.description || "",
+      transcript: recording.transcript || "",
+      category: category
+    });
+    setIsEditRecordingModalOpen(true);
+  };
+
+  // Handle update recording
+  const handleUpdateRecording = () => {
+    if (!editingRecording?.title || !editingRecording?.date || !editingRecording?.vimeoId) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (Title, Date, Vimeo ID)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateRecordingMutation.mutate({
+      id: editingRecording.id,
+      data: editingRecording
+    });
+  };
+
+  // Handle delete recording
+  const handleDeleteRecording = (recording: any) => {
+    setRecordingToDelete({ id: recording.id, title: recording.title });
+    setIsDeleteModalOpen(true);
+  };
+
+  // Confirm delete
+  const confirmDelete = () => {
+    if (recordingToDelete) {
+      deleteRecordingMutation.mutate(recordingToDelete.id);
+    }
   };
 
   return (
@@ -1273,13 +693,137 @@ export default function LiveCoachingCalls() {
         <TabsContent value="recordings" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Play className="w-5 h-5 text-purple-600" />
-                Call Recordings
-              </CardTitle>
-              <CardDescription>
-                Watch previous coaching call recordings organized by category
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Play className="w-5 h-5 text-purple-600" />
+                    Call Recordings
+                  </CardTitle>
+                  <CardDescription>
+                    Watch previous coaching call recordings organized by category
+                  </CardDescription>
+                </div>
+                <Dialog 
+                  open={isAddRecordingModalOpen} 
+                  onOpenChange={(open) => {
+                    setIsAddRecordingModalOpen(open);
+                    if (open) {
+                      // Set category to selected tab when opening modal
+                      setNewRecording(prev => ({ ...prev, category: selectedRecordingCategory }));
+                    }
+                  }}
+                >
+                  <DialogTrigger asChild>
+                   {user?.isAdmin && (
+                    <Button className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Add Recording
+                    </Button>
+                   )}
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Add New Call Recording</DialogTitle>
+                      <DialogDescription>
+                        Add a new call recording to the {selectedRecordingCategory} category
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="category">Category</Label>
+                        <Select
+                          value={newRecording.category}
+                          onValueChange={(value) => setNewRecording(prev => ({ ...prev, category: value }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="strategy">Strategy</SelectItem>
+                            <SelectItem value="messaging">Messaging</SelectItem>
+                            <SelectItem value="ads">Ads</SelectItem>
+                            <SelectItem value="tech">Tech</SelectItem>
+                            <SelectItem value="accountability">Accountability</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="title">Title *</Label>
+                        <Input
+                          id="title"
+                          placeholder="e.g., Jan 6, 2026 Strategy & Conversion Call Recording"
+                          value={newRecording.title}
+                          onChange={(e) => setNewRecording(prev => ({ ...prev, title: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="date">Date *</Label>
+                          <Input
+                            id="date"
+                            type="date"
+                            value={newRecording.date}
+                            onChange={(e) => setNewRecording(prev => ({ ...prev, date: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="duration">Duration</Label>
+                          <Input
+                            id="duration"
+                            placeholder="e.g., 60 min"
+                            value={newRecording.duration}
+                            onChange={(e) => setNewRecording(prev => ({ ...prev, duration: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="vimeoId">Vimeo ID *</Label>
+                        <Input
+                          id="vimeoId"
+                          placeholder="e.g., 1152029055/4d6c0ef3d2"
+                          value={newRecording.vimeoId}
+                          onChange={(e) => setNewRecording(prev => ({ ...prev, vimeoId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          id="description"
+                          placeholder="Brief description of the call"
+                          value={newRecording.description}
+                          onChange={(e) => setNewRecording(prev => ({ ...prev, description: e.target.value }))}
+                          rows={3}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="transcript">Transcript / Timestamps</Label>
+                        <Textarea
+                          id="transcript"
+                          placeholder="Enter timestamps and transcript content, e.g., [00:01:09] Speaker name - content"
+                          value={newRecording.transcript}
+                          onChange={(e) => setNewRecording(prev => ({ ...prev, transcript: e.target.value }))}
+                          rows={6}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setIsAddRecordingModalOpen(false)}
+                        disabled={addRecordingMutation.isPending}
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={handleAddRecording} 
+                        disabled={!newRecording.title || !newRecording.date || !newRecording.vimeoId || addRecordingMutation.isPending}
+                      >
+                        {addRecordingMutation.isPending ? "Adding..." : "Add Recording"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs value={selectedRecordingCategory} onValueChange={setSelectedRecordingCategory}>
@@ -1306,13 +850,15 @@ export default function LiveCoachingCalls() {
                 </TabsTrigger>
               </TabsList>
 
-              {Object.entries(recordings).map(([category, categoryRecordings]) => {
+              {callRecordingLoading ? <div className="flex items-center justify-center min-h-[300px]">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div> :    Object.entries(recordings).map(([category, categoryRecordings]:any) => {
                 const sortedRecordings = getSortedRecordings(categoryRecordings);
                 return (
                   <TabsContent key={category} value={category} className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900 capitalize">
-                        {category} Call Recordings ({categoryRecordings.length})
+                        {category} Call Recordings ({categoryRecordings.length as number})
                       </h3>
                       <Badge variant="outline" className="text-slate-600">
                         Sorted by Date (Newest First)
@@ -1349,13 +895,33 @@ export default function LiveCoachingCalls() {
 
                               {/* Content Section */}
                               <div className="lg:col-span-2 space-y-4">
-                                <div>
-                                  <h4 className="text-xl font-semibold text-slate-900 mb-2">
-                                    {recording.title}
-                                  </h4>
-                                  <p className="text-slate-600">
-                                    {recording.description}
-                                  </p>
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <h4 className="text-xl font-semibold text-slate-900 mb-2">
+                                      {recording.title}
+                                    </h4>
+                                    <p className="text-slate-600">
+                                      {recording.description}
+                                    </p>
+                                  </div>
+                            {user?.isAdmin && (<div className="flex items-center gap-2 ml-4">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleEditRecording(recording, category)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Edit className="w-4 h-4 text-blue-600" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDeleteRecording(recording)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                  </div>)}
                                 </div>
 
                                 {/* Transcript Section */}
@@ -1364,8 +930,8 @@ export default function LiveCoachingCalls() {
                                     <FileText className="w-4 h-4 text-slate-600" />
                                     <h5 className="font-medium text-slate-900">Timestamps & Questions</h5>
                                   </div>
-                                  <div className="text-sm text-slate-700 leading-relaxed space-y-2">
-                                    {recording.transcript.split('\n').map((line: string, lineIndex: number) => {
+                                  <div className="text-sm text-slate-700 leading-relaxed space-y-2 max-h-[200px] overflow-y-auto">
+                                    {(recording.transcript || '').split('\n').filter((line: string) => line.trim()).map((line: string, lineIndex: number) => {
                                       const timestampMatch = line.match(/\[([^\]]+)\]/);
                                       const timestamp = timestampMatch ? timestampMatch[0] : '';
                                       const content = line.replace(/\[([^\]]+)\]\s*/, '');
@@ -1403,6 +969,154 @@ export default function LiveCoachingCalls() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Recording Modal */}
+      <Dialog open={isEditRecordingModalOpen} onOpenChange={setIsEditRecordingModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Call Recording</DialogTitle>
+            <DialogDescription>
+              Update the call recording information
+            </DialogDescription>
+          </DialogHeader>
+          {editingRecording && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category</Label>
+                <Select
+                  value={editingRecording.category}
+                  onValueChange={(value) => setEditingRecording((prev: any) => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="strategy">Strategy</SelectItem>
+                    <SelectItem value="messaging">Messaging</SelectItem>
+                    <SelectItem value="ads">Ads</SelectItem>
+                    <SelectItem value="tech">Tech</SelectItem>
+                    <SelectItem value="accountability">Accountability</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title *</Label>
+                <Input
+                  id="edit-title"
+                  placeholder="e.g., Jan 6, 2026 Strategy & Conversion Call Recording"
+                  value={editingRecording.title}
+                  onChange={(e) => setEditingRecording((prev: any) => ({ ...prev, title: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Date *</Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editingRecording.date}
+                    onChange={(e) => setEditingRecording((prev: any) => ({ ...prev, date: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-duration">Duration</Label>
+                  <Input
+                    id="edit-duration"
+                    placeholder="e.g., 60 min"
+                    value={editingRecording.duration}
+                    onChange={(e) => setEditingRecording((prev: any) => ({ ...prev, duration: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-vimeoId">Vimeo ID *</Label>
+                <Input
+                  id="edit-vimeoId"
+                  placeholder="e.g., 1152029055/4d6c0ef3d2"
+                  value={editingRecording.vimeoId}
+                  onChange={(e) => setEditingRecording((prev: any) => ({ ...prev, vimeoId: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  placeholder="Brief description of the call"
+                  value={editingRecording.description}
+                  onChange={(e) => setEditingRecording((prev: any) => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-transcript">Transcript / Timestamps</Label>
+                <Textarea
+                  id="edit-transcript"
+                  placeholder="Enter timestamps and transcript content, e.g., [00:01:09] Speaker name - content"
+                  value={editingRecording.transcript}
+                  onChange={(e) => setEditingRecording((prev: any) => ({ ...prev, transcript: e.target.value }))}
+                  rows={6}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsEditRecordingModalOpen(false);
+                setEditingRecording(null);
+              }}
+              disabled={updateRecordingMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleUpdateRecording} 
+              disabled={!editingRecording?.title || !editingRecording?.date || !editingRecording?.vimeoId || updateRecordingMutation.isPending}
+            >
+              {updateRecordingMutation.isPending ? "Updating..." : "Update Recording"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Recording</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this recording? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {recordingToDelete && (
+            <div className="py-4">
+              <p className="text-sm text-slate-600">
+                <strong>{recordingToDelete.title}</strong>
+              </p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsDeleteModalOpen(false);
+                setRecordingToDelete(null);
+              }}
+              disabled={deleteRecordingMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteRecordingMutation.isPending}
+            >
+              {deleteRecordingMutation.isPending ? "Deleting..." : "Delete Recording"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
