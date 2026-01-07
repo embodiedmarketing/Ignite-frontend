@@ -159,6 +159,30 @@ export default function LiveCoachingCalls() {
   const recordings = {
     strategy: [
       { 
+        id: "49", 
+        vimeoId: "1152029055/4d6c0ef3d2", 
+        title: "Jan 6, 2026 Strategy & Conversion Call Recording", 
+        date: "2026-01-06",
+        duration: "62 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:01:09] Yeah. So I'm just thinking your thoughts about that
+[00:23:55] Elle - strategy delivery win, February launch timeline discussion
+[00:24:20] Fika - webinar registration funnel setup, landing page headline optimization, lead gen page copy improvements
+[00:36:16] Cassandra - lead form vs landing page strategy, high-risk pregnancy coaching positioning, sales call structure`
+      },
+      { 
+        id: "48", 
+        vimeoId: "1151059222/acd51cada6", 
+        title: "Jan 2, 2026 Strategy & Conversion Call Recording", 
+        date: "2026-01-02",
+        duration: "60 min",
+        description: "Strategy and conversion coaching session",
+        transcript: `[00:00:00] Caroline - AI-assisted positioning with Claude, case study portfolio strategy, visibility ads direction
+[00:23:55] Elle - strategy delivery win, February launch timeline discussion
+[00:24:20] Fika - webinar registration funnel setup, landing page headline optimization, lead gen page copy improvements
+[00:36:16] Cassandra - lead form vs landing page strategy, high-risk pregnancy coaching positioning, sales call structure`
+      },
+      { 
         id: "47", 
         vimeoId: "1150467684/1b2cc0c235", 
         title: "Dec 30, 2025 Strategy & Conversion Call Recording", 
@@ -549,6 +573,30 @@ export default function LiveCoachingCalls() {
     ],
     ads: [
       { 
+        id: "48", 
+        vimeoId: "1151936346/10c2d8452b", 
+        title: "Jan 2, 2026 Ads Optimization Call Recording", 
+        date: "2026-01-02",
+        duration: "73 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:03] Lauren - challenge iteration, visibility audience warm retargeting, ad creative strategy
+[00:10:22] Alicia - leads stopped, quiz pixel troubleshooting, $1.48 CPL tracking
+[00:22:18] Cassandra - 78 cent CPL, $7/day ad budget, visibility ads training`
+      },
+      { 
+        id: "47", 
+        vimeoId: "1151053012/aaa390e0fa", 
+        title: "Dec 31, 2025 Ads Optimization Call Recording", 
+        date: "2025-12-31",
+        duration: "60 min",
+        description: "Expert feedback on ad performance and optimization strategies",
+        transcript: `[00:00:00] Alicia - lead gen ad budget strategy, quiz funnel setup, cost per lead optimization for January challenge
+[00:14:14] Ashley - event setup in ads manager, pixel configuration, funnel page tracking
+[00:15:33] Heather - Facebook account hacked recovery, business manager access restoration, document upload issues
+[00:31:43] Taylor - lead gen audience testing, three-day test results, ad performance check-in
+[00:43:57] Cassandra - ad budget increase strategy, campaign optimization, data collection at $5/day`
+      },
+      { 
         id: "46", 
         vimeoId: "1150141802/729694a6b4", 
         title: "Dec 24, 2025 Ads Optimization Call Recording", 
@@ -860,6 +908,21 @@ export default function LiveCoachingCalls() {
     ],
     accountability: [
       { 
+        id: "48", 
+        vimeoId: "1151935383/81417655b5", 
+        title: "Jan 5, 2026 Accountability Call Recording", 
+        date: "2026-01-05",
+        duration: "60 min",
+        description: "Accountability coaching session",
+        transcript: `[00:02:10] Sherry - social media handles refresh, lead magnet and tripwire strategy
+[00:08:23] Annmarie - visibility ads launch, non-negotiable commitment
+[00:16:25] Beth - visibility ad and messaging strategy work
+[00:24:39] Casey - funnel copy and design, two-week sprint
+[00:29:27] Cassandra - finishing messaging on Ignite, 60 cent CPL
+[00:33:13] Lauren - Keep It Flowing kit sales, challenge prep
+[00:40:30] Caroline - content strategy bot feedback, visibility ad mindset`
+      },
+      { 
         id: "47", 
         vimeoId: "1150191291/afa51662af", 
         title: "Dec 29, 2025 Accountability Call Recording", 
@@ -1000,7 +1063,6 @@ export default function LiveCoachingCalls() {
       }
     ]
   };
-
   const getCategoryIcon = (category: string) => {
     switch(category.toLowerCase()) {
       case 'strategy': return Target;
