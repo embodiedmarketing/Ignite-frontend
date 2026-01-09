@@ -2115,13 +2115,45 @@ export default function AdminDashboard() {
     enabled: !!user?.isAdmin && activeTab === "analytics",
   });
 
-  const { data: recentLogins, isLoading: loginsLoading } = useQuery({
+  const { data: recentLogins, isLoading: loginsLoading, error: loginsError, isError: isLoginsError } = useQuery({
     queryKey: ["/api/admin/analytics/logins"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/admin/analytics/logins?limit=50");
-      return response.json();
+    queryFn: async ({ signal }) => {
+      try {
+        const response = await apiRequest("GET", "/api/admin/analytics/logins?limit=50");
+        
+        // Check if request was cancelled
+        if (signal?.aborted) {
+          throw new Error("Request was cancelled");
+        }
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: "Unknown error" }));
+          throw new Error(errorData.message || `Request failed with status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log("Login analytics data received:", data);
+        return data;
+      } catch (error: any) {
+        console.error("Error fetching login analytics:", error);
+        
+        // Handle cancellation errors
+        if (error?.name === 'AbortError' || error?.message?.includes('cancelled') || error?.message?.includes('aborted')) {
+          console.warn("Request was cancelled - this is normal when switching tabs");
+          throw new Error("Request was cancelled");
+        }
+        
+        throw error;
+      }
     },
     enabled: !!user?.isAdmin && activeTab === "analytics",
+    retry: (failureCount, error: any) => {
+      // Don't retry if request was cancelled
+      if (error?.message?.includes('cancelled') || error?.message?.includes('aborted')) {
+        return false;
+      }
+      return failureCount < 1;
+    },
   });
 
   const { data: moduleStats, isLoading: moduleStatsLoading } = useQuery({
@@ -2453,6 +2485,27 @@ export default function AdminDashboard() {
                   {loginsLoading ? (
                     <div className="flex items-center justify-center h-32">
                       <div className="animate-spin w-6 h-6 border-4 border-[#4593ed] border-t-transparent rounded-full" />
+                    </div>
+                  ) : isLoginsError && loginsError ? (
+                    <div className="text-center py-8">
+                      {loginsError instanceof Error && loginsError.message.includes('cancelled') ? (
+                        <>
+                          <Clock className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                          <p className="text-sm text-slate-500">Request was cancelled</p>
+                          <p className="text-xs text-slate-400 mt-2">This may happen when switching tabs</p>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-300" />
+                          <p className="font-medium text-red-600">Error loading login data</p>
+                          <p className="text-sm text-red-500 mt-2">
+                            {loginsError instanceof Error ? loginsError.message : "Unknown error occurred"}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-2">
+                            Please check if the API endpoint is available or try refreshing the page.
+                          </p>
+                        </>
+                      )}
                     </div>
                   ) : recentLogins && recentLogins.length > 0 ? (
                     <div className="space-y-2 max-h-96 overflow-y-auto">
