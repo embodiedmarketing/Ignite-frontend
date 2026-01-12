@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/services/queryClient";
 import { AlertCircle, Bug, CheckCircle, Clock, Eye, Lightbulb, MessageSquare, Zap, Shield, XCircle, FileText, Download, BarChart3, Users, Activity, Plus, Pencil, Trash2, Video } from "lucide-react";
@@ -23,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLocation, Link } from "wouter";
 import jsPDF from "jspdf";
 import type { TrainingVideo, PlatformResource, ChecklistStepDefinition } from "@shared/schema";
+import UserActivityOverview from "@/shared/components/UserActivityOverview";
 
 interface IssueReport {
   id: number;
@@ -60,6 +63,20 @@ interface MessagingStrategy {
   userEmail: string;
   userFirstName: string;
   userLastName: string;
+}
+
+interface AdminUser {
+  id: number;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  businessName: string | null;
+  subscriptionStatus: string | null;
+  subscriptionEndDate?: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  completedSections: number;
+  isActive?: boolean;
 }
 
 function getIssueTypeIcon(type: string) {
@@ -2084,6 +2101,8 @@ export default function AdminDashboard() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [activeTab, setActiveTab] = useState<string>("issues");
+  const [usersPage, setUsersPage] = useState<number>(1);
+  const usersPerPage = 10;
 
   const { data: issues, isLoading } = useQuery({
     queryKey: ["/api/issue-reports"],
@@ -2183,6 +2202,15 @@ export default function AdminDashboard() {
     enabled: !!user?.isAdmin && activeTab === "tools",
   });
 
+  const { data: users, isLoading: usersLoading } = useQuery<AdminUser[]>({
+    queryKey: ["/api/admin/users"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/users");
+      return response.json();
+    },
+    enabled: !!user?.isAdmin && activeTab === "users",
+  });
+
   const filteredIssues = issues?.filter((issue: IssueReport) => {
     const statusMatch = filterStatus === "all" || issue.status === filterStatus;
     const typeMatch = filterType === "all" || issue.issueType === filterType;
@@ -2260,7 +2288,7 @@ export default function AdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full max-w-5xl grid-cols-5" data-testid="tabs-admin">
+        <TabsList className="grid w-full max-w-6xl grid-cols-6" data-testid="tabs-admin">
           <TabsTrigger value="issues" data-testid="tab-issues">
             <Bug className="w-4 h-4 mr-2" />
             Report Issue
@@ -2280,6 +2308,10 @@ export default function AdminDashboard() {
           <TabsTrigger value="content" data-testid="tab-content">
             <FileText className="w-4 h-4 mr-2" />
             Content Management
+          </TabsTrigger>
+          <TabsTrigger value="users" data-testid="tab-users">
+            <Users className="w-4 h-4 mr-2" />
+            User Management
           </TabsTrigger>
         </TabsList>
 
@@ -2582,142 +2614,17 @@ export default function AdminDashboard() {
                 </Card>
               )}
 
-              {/* User Statistics Table */}
+           
               {analyticsData?.userStats && analyticsData.userStats.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      User Activity Overview
-                    </CardTitle>
-                    <CardDescription>Detailed statistics for each user</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b">
-                          <tr>
-                            <th className="text-left p-3 font-medium text-slate-700">User</th>
-                            <th className="text-center p-3 font-medium text-slate-700">Logins</th>
-                            <th className="text-center p-3 font-medium text-slate-700">Sections</th>
-                            <th className="text-center p-3 font-medium text-slate-700">Responses</th>
-                            <th className="text-left p-3 font-medium text-slate-700">Completed Documents</th>
-                            <th className="text-right p-3 font-medium text-slate-700">Last Login</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {analyticsData.userStats.map((stat: any) => (
-                              <tr 
-                                key={stat.userId} 
-                                className="hover:bg-slate-100 cursor-pointer transition-colors"
-                                onClick={() => window.location.href = `/admin/users/${stat.userId}`}
-                                data-testid={`user-row-${stat.userId}`}
-                              >
-                                <td className="p-3">
-                                  <div>
-                                    <p className="font-medium text-slate-900">{stat.firstName} {stat.lastName}</p>
-                                    <p className="text-xs text-slate-600">{stat.userEmail}</p>
-                                    {stat.completedSectionsList && stat.completedSectionsList.length > 0 && (
-                                      <div className="mt-2 space-y-1">
-                                        <p className="text-xs font-medium text-slate-700">Completed Sections:</p>
-                                        <div className="flex flex-wrap gap-1">
-                                          {stat.completedSectionsList.map((section: any, idx: number) => (
-                                            <span 
-                                              key={idx}
-                                              className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-green-50 text-green-700 border border-green-200"
-                                              title={`Completed: ${format(new Date(section.completedAt), 'MMM d, yyyy h:mm a')}`}
-                                            >
-                                              {section.title}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="p-3 text-center">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    {stat.loginCount}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-center text-slate-700">{stat.completedSections}</td>
-                                <td className="p-3 text-center text-slate-700">{stat.totalResponses}</td>
-                                <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                                  <div className="space-y-1">
-                                    {stat.messagingStrategies && stat.messagingStrategies.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-semibold text-slate-600 mb-1">Messaging Strategies ({stat.messagingStrategies.length})</p>
-                                        {stat.messagingStrategies.map((strategy: any) => (
-                                          <div key={strategy.id} onClick={(e) => e.stopPropagation()}>
-                                            <MessagingStrategyButton
-                                              strategyId={strategy.id}
-                                              title={strategy.title}
-                                              version={strategy.version}
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {stat.offerOutlines && stat.offerOutlines.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-semibold text-slate-600 mb-1">Offer Outlines ({stat.offerOutlines.length})</p>
-                                        {stat.offerOutlines.map((outline: any) => (
-                                          <div key={outline.id} onClick={(e) => e.stopPropagation()}>
-                                            <OfferOutlineButton
-                                              outlineId={outline.id}
-                                              title={outline.title}
-                                              offerNumber={outline.offerNumber}
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {stat.salesPages && stat.salesPages.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-semibold text-slate-600 mb-1">Sales Pages ({stat.salesPages.length})</p>
-                                        {stat.salesPages.map((page: any) => (
-                                          <div key={page.id} onClick={(e) => e.stopPropagation()}>
-                                            <SalesPageButton
-                                              pageId={page.id}
-                                              draftNumber={page.draftNumber}
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {stat.igniteDocs && stat.igniteDocs.length > 0 && (
-                                      <div>
-                                        <p className="text-xs font-semibold text-slate-600 mb-1">IGNITE Docs ({stat.igniteDocs.length})</p>
-                                        {stat.igniteDocs.map((doc: any) => (
-                                          <div key={doc.id} onClick={(e) => e.stopPropagation()}>
-                                            <IgniteDocButton
-                                              docId={doc.id}
-                                              title={doc.title}
-                                              docType={doc.docType}
-                                            />
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {(!stat.messagingStrategies || stat.messagingStrategies.length === 0) &&
-                                     (!stat.offerOutlines || stat.offerOutlines.length === 0) &&
-                                     (!stat.salesPages || stat.salesPages.length === 0) &&
-                                     (!stat.igniteDocs || stat.igniteDocs.length === 0) && (
-                                      <p className="text-xs text-slate-400 italic">No documents yet</p>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="p-3 text-right text-xs text-slate-600">
-                                  {stat.lastLogin ? format(new Date(stat.lastLogin), 'MMM d, yyyy h:mm a') : 'Never'}
-                                </td>
-                              </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+            <UserActivityOverview
+            userStats={analyticsData.userStats}
+            MessagingStrategyButton={MessagingStrategyButton}
+            OfferOutlineButton={OfferOutlineButton}
+            SalesPageButton={SalesPageButton}
+            IgniteDocButton={IgniteDocButton}
+          />
+        )}
+            
             </div>
           )}
         </TabsContent>
@@ -3092,6 +2999,131 @@ export default function AdminDashboard() {
 
         <TabsContent value="content" className="mt-6">
           <ContentManagement />
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-6">
+          {usersLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin w-8 h-8 border-4 border-[#4593ed] border-t-transparent rounded-full" />
+            </div>
+          ) : users && users.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  User Management
+                </CardTitle>
+                <CardDescription>
+                  View and manage all platform users
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Subscription Status</TableHead>
+                        <TableHead>End Date</TableHead>
+                        <TableHead>Days Left</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users
+                        .slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
+                        .map((user) => {
+                          const endDate = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const daysLeft = endDate ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
+                          
+                          const status = user.isActive !== false && user.lastLoginAt 
+                            ? (new Date(user.lastLoginAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? 'Active' : 'Inactive')
+                            : 'Inactive';
+
+                          return (
+                            <TableRow key={user.id}>
+                              <TableCell>
+                                <div className="font-medium">
+                                  {user.firstName || user.lastName
+                                    ? `${user.firstName || ''} ${user.lastName || ''}`.trim()
+                                    : 'N/A'}
+                                </div>
+                              </TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                <Badge variant={status === 'Active' ? 'default' : 'secondary'}>
+                                  {status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={user.subscriptionStatus === 'active' ? 'default' : 'secondary'}>
+                                  {user.subscriptionStatus || 'N/A'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {endDate ? format(endDate, 'MMM d, yyyy') : 'N/A'}
+                              </TableCell>
+                              <TableCell>
+                                {daysLeft !== null ? (
+                                  <span className={daysLeft < 0 ? 'text-red-600' : daysLeft <= 7 ? 'text-orange-600' : 'text-slate-600'}>
+                                    {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)} days ago` : `${daysLeft} days`}
+                                  </span>
+                                ) : 'N/A'}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                    </TableBody>
+                  </Table>
+                </div>
+                {users.length > usersPerPage && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="text-sm text-slate-500">
+                      Showing {(usersPage - 1) * usersPerPage + 1} to {Math.min(usersPage * usersPerPage, users.length)} of {users.length} users
+                    </div>
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious
+                            onClick={() => setUsersPage((prev) => Math.max(1, prev - 1))}
+                            className={usersPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        {Array.from({ length: Math.ceil(users.length / usersPerPage) }, (_, i) => i + 1).map((page) => (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setUsersPage(page)}
+                              isActive={usersPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                          <PaginationNext
+                            onClick={() => setUsersPage((prev) => Math.min(Math.ceil(users.length / usersPerPage), prev + 1))}
+                            className={usersPage >= Math.ceil(users.length / usersPerPage) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-8">
+                <div className="text-center text-slate-500">
+                  No users found
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
