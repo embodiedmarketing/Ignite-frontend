@@ -504,7 +504,35 @@ export default function LiveCoachingCalls() {
     });
   };
 
-  const thisWeeksCalls = getCurrentWeekCalls();
+  const thisWeeksCalls = (() => {
+    const calls = getCurrentWeekCalls();
+    // Sort by day sequence (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
+    const dayOrder: { [key: string]: number } = {
+      "Monday": 1,
+      "Tuesday": 2,
+      "Wednesday": 3,
+      "Thursday": 4,
+      "Friday": 5,
+      "Saturday": 6,
+      "Sunday": 7
+    };
+    
+    return [...calls].sort((a: any, b: any) => {
+      const dayA = a.day || "";
+      const dayB = b.day || "";
+      const orderA = dayOrder[dayA] || 999;
+      const orderB = dayOrder[dayB] || 999;
+      
+      // If same day, sort by time
+      if (orderA === orderB) {
+        const timeA = a.time || "";
+        const timeB = b.time || "";
+        return timeA.localeCompare(timeB);
+      }
+      
+      return orderA - orderB;
+    });
+  })();
 
 
   // Generate week label for current week
@@ -603,34 +631,59 @@ const getRecordings = async () => {
   );
   return response.json();
 };
+
+// Helper function to sort recordings by day sequence and group by category
+const sortAndGroupRecordings = (data: any[]) => {
+  // Sort by day sequence (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
+  const dayOrder: { [key: string]: number } = {
+    "Monday": 1,
+    "Tuesday": 2,
+    "Wednesday": 3,
+    "Thursday": 4,
+    "Friday": 5,
+    "Saturday": 6,
+    "Sunday": 7
+  };
+
+  const sortedData = [...data].sort((a: any, b: any) => {
+    const dayA = a.day || "";
+    const dayB = b.day || "";
+    const orderA = dayOrder[dayA] || 999;
+    const orderB = dayOrder[dayB] || 999;
+    return orderA - orderB;
+  });
+
+  // Transform the sorted array into a grouped object
+  return sortedData.reduce((acc: any, recording: any) => {
+    // Get the category name (e.g., 'strategy' or 'messaging')
+    const category = recording.category.toLowerCase();
+    
+    // If the category doesn't exist in our object yet, create an empty array
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    
+    // Push the recording into the correct category array
+    acc[category].push({
+      id: String(recording.id),
+      vimeoId: recording.vimeoId,
+      title: recording.title,
+      date: recording.date,
+      duration: recording.duration,
+      description: recording.description,
+      transcript: recording.transcript
+    });
+    
+    return acc;
+  }, {});
+};
+
 const [callRecordingLoading, setCallRecordingLoading] = useState(false);
 
 useEffect(() => {
   setCallRecordingLoading(true);
   getRecordings().then(data => {
-    // 1. Transform the array into a grouped object
-    const groupedData = data.reduce((acc: any, recording: any) => {
-      // Get the category name (e.g., 'strategy' or 'messaging')
-      const category = recording.category.toLowerCase();
-      
-      // If the category doesn't exist in our object yet, create an empty array
-      if (!acc[category]) {
-        acc[category] = [];
-      }
-      
-      // Push the recording into the correct category array
-      acc[category].push({
-        id: String(recording.id),
-        vimeoId: recording.vimeoId,
-        title: recording.title,
-        date: recording.date,
-        duration: recording.duration,
-        description: recording.description,
-        transcript: recording.transcript
-      });
-      
-      return acc;
-    }, {});
+    const groupedData = sortAndGroupRecordings(data);
     setRecordings(groupedData);
     
     setCallRecordingLoading(false)
@@ -736,22 +789,7 @@ useEffect(() => {
     onSuccess: () => {
       // Refetch recordings
       getRecordings().then(data => {
-        const groupedData = data.reduce((acc: any, recording: any) => {
-          const category = recording.category.toLowerCase();
-          if (!acc[category]) {
-            acc[category] = [];
-          }
-          acc[category].push({
-            id: String(recording.id),
-            vimeoId: recording.vimeoId,
-            title: recording.title,
-            date: recording.date,
-            duration: recording.duration,
-            description: recording.description,
-            transcript: recording.transcript
-          });
-          return acc;
-        }, {});
+        const groupedData = sortAndGroupRecordings(data);
         setRecordings(groupedData);
       });
 
@@ -800,22 +838,7 @@ useEffect(() => {
     onSuccess: () => {
       // Refetch recordings
       getRecordings().then(data => {
-        const groupedData = data.reduce((acc: any, recording: any) => {
-          const category = recording.category.toLowerCase();
-          if (!acc[category]) {
-            acc[category] = [];
-          }
-          acc[category].push({
-            id: String(recording.id),
-            vimeoId: recording.vimeoId,
-            title: recording.title,
-            date: recording.date,
-            duration: recording.duration,
-            description: recording.description,
-            transcript: recording.transcript
-          });
-          return acc;
-        }, {});
+        const groupedData = sortAndGroupRecordings(data);
         setRecordings(groupedData);
       });
 
@@ -1551,7 +1574,7 @@ useEffect(() => {
                     <DialogTrigger asChild>
                       <Button className="flex items-center gap-2 mr-2">
                         <Plus className="w-4 h-4" />
-                        Add Call
+                        Add Call  
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
