@@ -307,6 +307,46 @@ export default function LiveCoachingCalls() {
     return response.json();
   };
 
+  // Helper function to get the start of the current week (Monday)
+  const getStartOfCurrentWeek = (): Date => {
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+    startOfWeek.setHours(0, 0, 0, 0);
+    return startOfWeek;
+  };
+
+  // Helper function to calculate date for a specific day in a specific week
+  // This matches exactly how generateWeeksData() calculates dates
+  const calculateCallDateForWeek = (day: string, weekOffset: number): string => {
+    const startOfWeek = getStartOfCurrentWeek();
+    const weekStart = new Date(startOfWeek);
+    weekStart.setDate(startOfWeek.getDate() + (weekOffset * 7));
+    
+    // Day mapping (matches hardcoded data logic)
+    const dayMap: { [key: string]: number } = {
+      "Monday": 0,    // Monday is day 0 of the week (weekStart)
+      "Tuesday": 1,   // Tuesday is day 1 (weekStart + 1)
+      "Wednesday": 2, // Wednesday is day 2 (weekStart + 2)
+      "Thursday": 3,  // Thursday is day 3 (weekStart + 3)
+      "Friday": 4,    // Friday is day 4 (weekStart + 4)
+      "Saturday": 5,  // Saturday is day 5 (weekStart + 5)
+      "Sunday": 6     // Sunday is day 6 (weekStart + 6)
+    };
+    
+    const dayOffset = dayMap[day] || 0;
+    const callDate = new Date(weekStart);
+    callDate.setDate(weekStart.getDate() + dayOffset);
+    
+    // Return in YYYY-MM-DD format using local date (not UTC) to avoid timezone issues
+    // Format: YYYY-MM-DD
+    const year = callDate.getFullYear();
+    const month = String(callDate.getMonth() + 1).padStart(2, '0');
+    const dayOfMonth = String(callDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${dayOfMonth}`;
+  };
+
   // Helper function to parse date from various formats
   const parseDate = (dateString: string): string => {
     if (!dateString) return '';
@@ -327,12 +367,10 @@ export default function LiveCoachingCalls() {
   };
 
   // Helper function to expand recurring calls into multiple weeks
-  // Note: If backend already expands recurring calls (sends multiple calls with different dates),
-  // we should NOT expand them again - just return them as-is
+  // This ensures recurring calls appear in EVERY week, matching the hardcoded data structure
+  // Non-recurring calls are kept as-is (date-wise)
   const expandRecurringCalls = (calls: any[]): any[] => {
-    // Group calls by a unique key to identify recurring call groups
-    // If backend sends multiple calls with same title/category/day/time and recurring=true,
-    // it means backend already expanded them - don't expand again
+    // Separate recurring and non-recurring calls
     const recurringGroups = new Map<string, any[]>();
     const nonRecurringCalls: any[] = [];
     
@@ -348,71 +386,55 @@ export default function LiveCoachingCalls() {
         }
         recurringGroups.get(groupKey)!.push(call);
       } else {
+        // Non-recurring calls: keep as-is (they will show date-wise)
         nonRecurringCalls.push(call);
       }
     });
     
     const result: any[] = [...nonRecurringCalls];
     
-    // Process recurring call groups
-    recurringGroups.forEach((groupCalls) => {
-      // If there are multiple calls in the group with different dates,
-      // backend already expanded them - use them as-is (don't expand again)
-      if (groupCalls.length > 1) {
-        // Backend already expanded - just add all of them
-        result.push(...groupCalls);
-      } else {
-        // Only one call in group - backend didn't expand, so expand on frontend
-        const call = groupCalls[0];
-        const today = new Date();
-        const currentDay = today.getDay();
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+    // Process recurring call groups - ALWAYS expand to 4 weeks
+    recurringGroups.forEach((groupCalls, groupKey) => {
+      // Get the base call (use the first one as template)
+      const baseCall = groupCalls[0];
+      
+      // Always create exactly 4 weeks of calls for recurring calls
+      // This ensures they appear in EVERY week view
+      for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
+        // Calculate date for this specific week using the same logic as hardcoded data
+        const callDate = calculateCallDateForWeek(baseCall.day, weekOffset);
         
-        // Expand for 4 weeks
-        for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
-          const weekStart = new Date(startOfWeek);
-          weekStart.setDate(startOfWeek.getDate() + (weekOffset * 7));
-          
-          // Calculate date based on the day
-          const dayMap: { [key: string]: number } = {
-            "Monday": 1,
-            "Tuesday": 2,
-            "Wednesday": 3,
-            "Thursday": 4,
-            "Friday": 5,
-            "Saturday": 6,
-            "Sunday": 0
-          };
-          
-          let callDate: string;
-          if (call.date && call.date.trim() !== "") {
-            // Use existing date as base
-            const baseDate = new Date(call.date);
-            const baseDayOfWeek = baseDate.getDay();
-            const targetDate = new Date(weekStart);
-            targetDate.setDate(weekStart.getDate() + (baseDayOfWeek === 0 ? 6 : baseDayOfWeek - 1));
-            callDate = targetDate.toISOString().split('T')[0];
-          } else {
-            // Calculate based on day of week
-            const targetDate = new Date(weekStart);
-            const dayOfWeek = dayMap[call.day] || 1;
-            targetDate.setDate(weekStart.getDate() + (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-            callDate = targetDate.toISOString().split('T')[0];
-          }
-          
+        // Check if backend already provided a call for this week
+        const existingCall = groupCalls.find((c: any) => {
+          const existingDate = parseDate(c.date);
+          return existingDate === callDate;
+        });
+        
+        if (existingCall) {
+          // Use existing call but ensure date is correct
           result.push({
-            ...call,
-            id: `${call.id}-week-${weekOffset}`,
+            ...existingCall,
+            date: callDate,
+            recurring: true,
+            weekOffset: weekOffset
+          });
+        } else {
+          // Create new call for this week
+          result.push({
+            ...baseCall,
+            id: `${baseCall.id}-week-${weekOffset}`,
             date: callDate,
             recurring: true,
             isRecurring: true,
-            originalId: call.id,
+            originalId: baseCall.id,
             weekOffset: weekOffset
           });
         }
       }
     });
+    
+    console.log("expandRecurringCalls - Input:", calls.length, "Output:", result.length);
+    console.log("Recurring groups:", recurringGroups.size, "Non-recurring:", nonRecurringCalls.length);
     
     return result;
   };
@@ -456,35 +478,39 @@ export default function LiveCoachingCalls() {
   }, []);
 
   // Filter calls for current week
+  // Uses the same week calculation logic as generateWeeksData() to ensure consistency
+  // Recurring calls: Show in EVERY week (they have dates calculated for each week)
+  // Non-recurring calls: Show only in the week their date falls in (date-wise)
   const getCurrentWeekCalls = () => {
     if (!calls || calls.length === 0) return [];
     
-    const today = new Date();
-    const currentDay = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
-    
+    // Use the same week calculation as generateWeeksData()
+    const startOfWeek = getStartOfCurrentWeek();
     const weekStart = new Date(startOfWeek);
     weekStart.setDate(startOfWeek.getDate() + (currentWeek * 7));
     weekStart.setHours(0, 0, 0, 0);
+    
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
     
-    return calls.filter((call: any) => {
-      // Recurring calls are already expanded with specific dates for each week
-      // So we can filter them normally
+    // Debug: Log week range
+    console.log(`Week ${currentWeek} range: ${weekStart.toISOString().split('T')[0]} to ${weekEnd.toISOString().split('T')[0]}`);
+    
+    const filteredCalls = calls.filter((call: any) => {
+    
       if (!call.date) {
-        // Skip calls without dates (shouldn't happen after expansion)
+        console.warn("Call without date:", call);
         return false;
       }
       
-      // Parse the date - handle both YYYY-MM-DD and other formats
+     
       let callDate: Date;
       if (typeof call.date === 'string') {
-        // If it's already in YYYY-MM-DD format
         if (/^\d{4}-\d{2}-\d{2}$/.test(call.date)) {
-          callDate = new Date(call.date);
+          // Parse YYYY-MM-DD as local date (not UTC)
+          const [year, month, day] = call.date.split('-').map(Number);
+          callDate = new Date(year, month - 1, day);
         } else {
           // Try to parse other formats like "Jan 12, 2026"
           callDate = new Date(call.date);
@@ -500,8 +526,29 @@ export default function LiveCoachingCalls() {
       }
       
       callDate.setHours(0, 0, 0, 0);
-      return callDate >= weekStart && callDate <= weekEnd;
+      const isInWeek = callDate >= weekStart && callDate <= weekEnd;
+      
+      // Debug logging for all calls in the last week
+      if (currentWeek === 3) {
+        console.log(`Call "${call.title}" (${call.day}): date=${call.date}, parsed=${callDate.toISOString().split('T')[0]}, weekStart=${weekStart.toISOString().split('T')[0]}, weekEnd=${weekEnd.toISOString().split('T')[0]}, inWeek=${isInWeek}, recurring=${call.recurring}`);
+      }
+      
+      // Debug logging for recurring calls
+      if (call.recurring && isInWeek) {
+        console.log(`Recurring call "${call.title}" (${call.day}) showing in week ${currentWeek} with date ${call.date}`);
+      }
+      
+      return isInWeek;
     });
+    
+    console.log(`Week ${currentWeek}: Showing ${filteredCalls.length} calls (${filteredCalls.filter(c => c.recurring).length} recurring, ${filteredCalls.filter(c => !c.recurring).length} non-recurring)`);
+    
+    // Debug: Log all calls for week 3
+    if (currentWeek === 3) {
+      console.log(`Week 3 calls:`, filteredCalls.map((c: any) => ({ title: c.title, day: c.day, date: c.date, recurring: c.recurring })));
+    }
+    
+    return filteredCalls;
   };
 
   const thisWeeksCalls = (() => {
@@ -1056,43 +1103,14 @@ useEffect(() => {
   };
 
   // Helper function to generate recurring calls for each week
+  // This uses the same week calculation logic as generateWeeksData() and expandRecurringCalls()
   const generateRecurringCallsPayload = (callData: CallFormData): any[] => {
     const calls: any[] = [];
-    const today = new Date();
-    const currentDay = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
     
-    // Generate calls for 4 weeks ahead
+    // Generate calls for 4 weeks ahead (matching generateWeeksData logic)
     for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
-      const weekStart = new Date(startOfWeek);
-      weekStart.setDate(startOfWeek.getDate() + (weekOffset * 7));
-      
-      // Calculate the date for this week based on the selected day
-      const dayMap: { [key: string]: number } = {
-        "Monday": 1,
-        "Tuesday": 2,
-        "Wednesday": 3,
-        "Thursday": 4,
-        "Friday": 5,
-        "Saturday": 6,
-        "Sunday": 0
-      };
-      
-      let callDate: string;
-      if (callData.date) {
-        const baseDate = new Date(callData.date);
-        const baseDayOfWeek = baseDate.getDay();
-        const targetDate = new Date(weekStart);
-        targetDate.setDate(weekStart.getDate() + (baseDayOfWeek === 0 ? 6 : baseDayOfWeek - 1));
-        callDate = targetDate.toISOString().split('T')[0];
-      } else {
-        // If no date, use the selected day of the target week
-        const targetDate = new Date(weekStart);
-        const dayOfWeek = dayMap[callData.day] || 1;
-        targetDate.setDate(weekStart.getDate() + (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-        callDate = targetDate.toISOString().split('T')[0];
-      }
+      // Calculate date using the same helper function that ensures consistency
+      const callDate = calculateCallDateForWeek(callData.day, weekOffset);
       
       calls.push({
         title: callData.title,
@@ -1241,27 +1259,11 @@ useEffect(() => {
         
         // Otherwise, update the single call as normal
         // If recurring is true and date is empty, calculate date based on the selected day
+        // Use the same helper function for consistency
         let dateToSend = data.date;
         if (data.recurring && (!data.date || data.date.trim() === "")) {
-          const today = new Date();
-          const currentDay = today.getDay();
-          const startOfWeek = new Date(today);
-          startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
-          
-          const dayMap: { [key: string]: number } = {
-            "Monday": 1,
-            "Tuesday": 2,
-            "Wednesday": 3,
-            "Thursday": 4,
-            "Friday": 5,
-            "Saturday": 6,
-            "Sunday": 0
-          };
-          
-          const targetDate = new Date(startOfWeek);
-          const dayOfWeek = dayMap[data.day] || 1;
-          targetDate.setDate(startOfWeek.getDate() + (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-          dateToSend = targetDate.toISOString().split('T')[0];
+          // Calculate date for week 0 (current week) using the same logic
+          dateToSend = calculateCallDateForWeek(data.day, 0);
         }
         
         const payload = {
@@ -1467,8 +1469,34 @@ useEffect(() => {
 
   // Handle edit call
   const handleEditCall = (call: any) => {
+    console.log("handleEditCall", call);
+    
+    // For recurring calls that were expanded, we need to use the original ID
+    // Check if this is an expanded recurring call (has originalId or ID contains "-week-")
+    let originalId = call.id;
+    if (call.originalId) {
+      // Use the originalId if it exists
+      originalId = call.originalId;
+    } else if (typeof call.id === 'string' && call.id.includes('-week-')) {
+      // Extract original ID from expanded ID (e.g., "28-week-1" -> "28")
+      originalId = call.id.split('-week-')[0];
+    }
+    
+    // Find the original call data from the calls array to get all the original properties
+    const originalCall = calls.find((c: any) => {
+      // Check if this is the original call (not expanded)
+      if (c.id === originalId && !c.id.toString().includes('-week-')) {
+        return true;
+      }
+      // Also check if this call has the same originalId
+      if (c.originalId === originalId) {
+        return true;
+      }
+      return false;
+    }) || call; // Fallback to current call if not found
+    
     // Store original call data to check if it was recurring
-    setOriginalCallData(call);
+    setOriginalCallData(originalCall);
     
     // Check if call is recurring
     const isRecurring = call.recurring === true || call.recurring === "true" || call.recurring === 1;
@@ -1496,7 +1524,10 @@ useEffect(() => {
       cancelReason: call.cancelReason || "",
       recurring: isRecurring
     });
-    setEditingCallId(call.id);
+    
+    // Use the original ID for editing (not the expanded ID like "28-week-1")
+    setEditingCallId(originalId);
+    console.log("Editing call - Original ID:", originalId, "Expanded ID:", call.id);
     setIsEditCallModalOpen(true);
   };
 
