@@ -4293,7 +4293,7 @@ export default function InteractiveStep({
               },
               {
                 question:
-                  "Automatically placed in relevant messaging strategy section?",
+                  "Is there anything else you think I should know?",
                 guidance:
                   "What results would be so compelling they'd naturally recommend you? What would they brag about to friends? This helps you understand what creates raving fans.",
               },
@@ -5064,9 +5064,9 @@ export default function InteractiveStep({
       });
     },
     onSuccess: (data: any, variables) => {
-      // The question key for "Automatically placed in relevant messaging strategy section?"
+      // The question key for "Is there anything else you think I should know?"
       const autoPlacementQuestionKey =
-        "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?";
+        "Customer Avatar Deep Dive-Is there anything else you think I should know?";
 
       // Update the appropriate workbook sections with the placed content
       if (data.placements && data.placements.length > 0) {
@@ -5731,13 +5731,13 @@ export default function InteractiveStep({
       },
       {
         question:
-          "Automatically placed in relevant messaging strategy section?",
+          "Is there anything else you think I should know?",
         key: "additional_insights",
         // workbookKey: "smart-placement",
         workbookKey:
-          "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?",
+          "Customer Avatar Deep Dive-Is there anything else you think I should know?",
         workbookMap:
-          "Automatically placed in relevant messaging strategy section?",
+          "Is there anything else you think I should know?",
       },
     ];
 
@@ -10350,12 +10350,12 @@ export default function InteractiveStep({
                       },
                       {
                         question:
-                          "Automatically placed in relevant messaging strategy section?",
+                          "Is there anything else you think I should know?",
                         key: "additional_insights",
                         workbookKey:
-                          "Customer Avatar Deep Dive-Automatically placed in relevant messaging strategy section?",
+                          "Customer Avatar Deep Dive-Is there anything else you think I should know?",
                         workbookMap:
-                          "Automatically placed in relevant messaging strategy section?",
+                          "Is there anything else you think I should know?",
                       },
                     ].map((item, index) => (
                       <div
