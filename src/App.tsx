@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "@/services/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { usePageTracking, useAutoRedirect } from "@/hooks/usePageTracking";
+import { useEffect } from "react";
 import Layout from "@/components/Layout";
 import IssueReportDialog from "@/components/IssueReportDialog";
 import Dashboard from "@/pages/Dashboard";
@@ -56,15 +57,25 @@ const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 import AdminLogin from "@/pages/AdminLogin";
 import AdminUserManagement from "@/pages/AdminUserManagement";
 import AdminUserDetail from "@/pages/AdminUserDetail";
+import AccountDeactivated from "@/pages/AccountDeactivated";
 
 function AppRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [location, setLocation] = useLocation();
 
   // Track page visits for "continue where you left off"
   usePageTracking();
 
   // Auto-redirect to last visited page on app load
   useAutoRedirect();
+
+  useEffect(() => {
+    if (!isLoading && user && (user as any).isActive === false && location !== "/account-deactivated") {
+      setLocation("/account-deactivated");
+    }else{
+      setLocation("/");
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -82,6 +93,7 @@ function AppRouter() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password/:token" component={ResetPassword} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/account-deactivated" component={AccountDeactivated} />
 
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />
@@ -480,7 +492,7 @@ function App() {
 function FloatingIssueButton() {
   const { isAuthenticated, user } = useAuth();
 
-  if (!isAuthenticated || !user) return null;
+  if (!isAuthenticated || !user || !user.id) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
