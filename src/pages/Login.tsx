@@ -18,15 +18,20 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Redirect if already logged in
+  // Redirect if already logged in and active
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      console.log("User already authenticated, redirecting to dashboard");
-      setLocation("/dashboard");
+      // Double check isActive to prevent redirecting inactive users
+      const isActive = (user as any)?.isActive ?? true;
+      
+      if (isActive) {
+        console.log("User already authenticated, redirecting to dashboard");
+        setLocation("/dashboard");
+      }
     }
-  }, [isAuthenticated, isLoading, setLocation]);
+  }, [isAuthenticated, isLoading, user, setLocation]);
 
   const form = useForm<LoginUser>({
     resolver: zodResolver(loginUserSchema),
@@ -47,15 +52,24 @@ export default function Login() {
         throw error;
       }
     },
-    onSuccess: async () => {
-      console.log("Login successful!");
+    onSuccess: async (responseData) => {
+      
+      // Check if user is active
+      const isActive = responseData?.user?.isActive;
+      
+      console.log("Login successful!", isActive);
+      if (isActive === false) {      
+        setLocation("/account-deactivated");
+        return;
+      }
+
       // Invalidate auth cache to ensure fresh user data with isAdmin
       await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       toast({
         title: "Welcome back!",
         description: "You've been logged in successfully.",
       });
-      // Force a page refresh to ensure proper authentication state
+      
       window.location.href = "/dashboard";
     },
     onError: (error: any) => {

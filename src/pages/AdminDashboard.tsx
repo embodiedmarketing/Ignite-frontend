@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/services/queryClient";
 import { AlertCircle, Bug, CheckCircle, Clock, Eye, Lightbulb, MessageSquare, Zap, Shield, XCircle, FileText, Download, BarChart3, Users, Activity, Plus, Pencil, Trash2, Video } from "lucide-react";
@@ -110,7 +111,7 @@ function getPriorityColor(priority: string) {
 }
 
 // Component to fetch and display a messaging strategy by ID
-function MessagingStrategyButton({ strategyId, title, version }: { strategyId: number; title: string; version: number }) {
+export const MessagingStrategyButton=({ strategyId, title, version }: { strategyId: number; title: string; version: number }) => {
   const [open, setOpen] = useState(false);
   const [strategy, setStrategy] = useState<MessagingStrategy | null>(null);
   const [loading, setLoading] = useState(false);
@@ -262,7 +263,7 @@ function MessagingStrategyButton({ strategyId, title, version }: { strategyId: n
 }
 
 // Component to fetch and display an offer outline by ID
-function OfferOutlineButton({ outlineId, title, offerNumber }: { outlineId: number; title: string; offerNumber: number }) {
+export const OfferOutlineButton=({ outlineId, title, offerNumber }: { outlineId: number; title: string; offerNumber: number })=> {
   const [open, setOpen] = useState(false);
   const [outline, setOutline] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -414,7 +415,7 @@ function OfferOutlineButton({ outlineId, title, offerNumber }: { outlineId: numb
 }
 
 // Component to fetch and display a sales page by ID
-function SalesPageButton({ pageId, draftNumber }: { pageId: number; draftNumber: number }) {
+export const SalesPageButton=({ pageId, draftNumber }: { pageId: number; draftNumber: number })=> {
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -546,7 +547,7 @@ function SalesPageButton({ pageId, draftNumber }: { pageId: number; draftNumber:
 }
 
 // Component to fetch and display an IGNITE document by ID
-function IgniteDocButton({ docId, title, docType }: { docId: number; title: string; docType: string }) {
+export const IgniteDocButton=({ docId, title, docType }: { docId: number; title: string; docType: string })=> {
   const [open, setOpen] = useState(false);
   const [doc, setDoc] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -2211,6 +2212,38 @@ export default function AdminDashboard() {
     enabled: !!user?.isAdmin && activeTab === "users",
   });
 
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+
+  const updateUserStatusMutation = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: number; isActive: boolean }) => {
+      setUpdatingUserId(userId);
+      const response = await apiRequest("PUT", `/api/admin/users/${userId}/toggle-active`, { isActive });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "User status updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setUpdatingUserId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user status",
+        variant: "destructive",
+      });
+      setUpdatingUserId(null);
+    },
+  });
+
+  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
+    updateUserStatusMutation.mutate({ userId, isActive: !currentStatus });
+  };
+
   const filteredIssues = issues?.filter((issue: IssueReport) => {
     const statusMatch = filterStatus === "all" || issue.status === filterStatus;
     const typeMatch = filterType === "all" || issue.issueType === filterType;
@@ -3025,9 +3058,10 @@ export default function AdminDashboard() {
                         <TableHead>User</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Status</TableHead>
+                        {/* <TableHead>Active</TableHead> */}
                         <TableHead>Subscription Status</TableHead>
-                        <TableHead>End Date</TableHead>
-                        <TableHead>Days Left</TableHead>
+                        {/* <TableHead>End Date</TableHead>
+                        <TableHead>Days Left</TableHead> */}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -3039,12 +3073,14 @@ export default function AdminDashboard() {
                           today.setHours(0, 0, 0, 0);
                           const daysLeft = endDate ? Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) : null;
                           
-                          const status = user.isActive !== false && user.lastLoginAt 
-                            ? (new Date(user.lastLoginAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) ? 'Active' : 'Inactive')
-                            : 'Inactive';
+                          const status = user.isActive
 
                           return (
-                            <TableRow key={user.id}>
+                            <TableRow 
+                              key={user.id}
+                              onClick={() => setLocation(`/admin/users/${user.id}`)}
+                              className="cursor-pointer hover:bg-muted/50"
+                            >
                               <TableCell>
                                 <div className="font-medium">
                                   {user.firstName || user.lastName
@@ -3053,17 +3089,34 @@ export default function AdminDashboard() {
                                 </div>
                               </TableCell>
                               <TableCell>{user.email}</TableCell>
-                              <TableCell>
-                                <Badge variant={status === 'Active' ? 'default' : 'secondary'}>
+                              {/* <TableCell>
+                                <Badge variant={status === true ? 'default' : 'secondary'}>
                                   {status}
                                 </Badge>
+                              </TableCell> */}
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  {updatingUserId === user.id ? (
+                                    <div className="animate-spin w-5 h-5 border-2 border-[#4593ed] border-t-transparent rounded-full" />
+                                  ) : (
+                                    <Switch
+                                      checked={user.isActive !== false}
+                                      onCheckedChange={() => handleToggleUserStatus(user.id, user.isActive !== false)}
+                                      data-testid={`switch-user-active-${user.id}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  )}
+                                  <span className="text-sm text-slate-600 dark:text-slate-300">
+                                    {status!== false ? 'Active' : 'Inactive'}
+                                  </span>
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <Badge variant={user.subscriptionStatus === 'active' ? 'default' : 'secondary'}>
                                   {user.subscriptionStatus || 'N/A'}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              {/* <TableCell>
                                 {endDate ? format(endDate, 'MMM d, yyyy') : 'N/A'}
                               </TableCell>
                               <TableCell>
@@ -3072,7 +3125,7 @@ export default function AdminDashboard() {
                                     {daysLeft < 0 ? `Expired ${Math.abs(daysLeft)} days ago` : `${daysLeft} days`}
                                   </span>
                                 ) : 'N/A'}
-                              </TableCell>
+                              </TableCell> */}
                             </TableRow>
                           );
                         })}

@@ -129,6 +129,7 @@ export const userProgressSchema = z.object({
 
 export const UserSchema = z.object({
   id: z.number().int().optional(), // serial primary key, usually auto-generated
+  isActive: z.boolean().default(true),
   email: z.string().email(),
   passwordHash: z.string(),
   firstName: z.string().nullable().optional(),

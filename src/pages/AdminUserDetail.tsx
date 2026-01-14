@@ -12,6 +12,8 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { apiRequest } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import UserActivityOverview from "@/shared/components/UserActivityOverview";
+import { IgniteDocButton, MessagingStrategyButton, OfferOutlineButton, SalesPageButton } from "./AdminDashboard";
 
 export default function AdminUserDetail() {
   const params = useParams<{ id: string }>();
@@ -314,6 +316,23 @@ export default function AdminUserDetail() {
                 )}
               </CardContent>
             </Card>
+            {progressLoading ? (
+              <Card>
+                <CardContent className="py-12">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin w-8 h-8 border-4 border-[#4593ed] border-t-transparent rounded-full" />
+                  </div>
+                </CardContent>
+              </Card>
+            ) : progressData?.userStats && [progressData?.userStats]?.length > 0 ? (
+              <UserActivityOverview
+                userStats={[progressData?.userStats]}
+                MessagingStrategyButton={MessagingStrategyButton}
+                OfferOutlineButton={OfferOutlineButton}
+                SalesPageButton={SalesPageButton}
+                IgniteDocButton={IgniteDocButton}
+              />
+            ) : null}
           </TabsContent>
 
           {/* Tools Used Tab */}
