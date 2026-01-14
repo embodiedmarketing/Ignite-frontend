@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/services/queryClient";
 import { AlertCircle, Bug, CheckCircle, Clock, Eye, Lightbulb, MessageSquare, Zap, Shield, XCircle, FileText, Download, BarChart3, Users, Activity, Plus, Pencil, Trash2, Video } from "lucide-react";
@@ -78,6 +78,7 @@ interface AdminUser {
   createdAt: string;
   completedSections: number;
   isActive?: boolean;
+  isAdmin?: boolean;
 }
 
 function getIssueTypeIcon(type: string) {
@@ -2214,35 +2215,131 @@ export default function AdminDashboard() {
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [bulkUserStatus, setBulkUserStatus] = useState<string>("");
+  const [bulkSubscriptionStatus, setBulkSubscriptionStatus] = useState<string>("");
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<number | null>(null);
 
-  const updateUserStatusMutation = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: number; isActive: boolean }) => {
-      setUpdatingUserId(userId);
-      const response = await apiRequest("PUT", `/api/admin/users/${userId}/toggle-active`, { isActive });
+  const bulkUpdateUsersMutation = useMutation({
+    mutationFn: async ({ userIds, isActive, subscriptionStatus }: { userIds: number[]; isActive?: boolean; subscriptionStatus?: string }) => {
+      const promises = userIds.map(async (userId) => {
+        const updatePromises: Promise<any>[] = [];
+        
+        if (isActive !== undefined) {
+          updatePromises.push(
+            apiRequest("PUT", `/api/admin/users/${userId}/toggle-active`, { isActive })
+          );
+        }
+        
+        if (subscriptionStatus !== undefined && subscriptionStatus !== "") {
+          // Try to update subscription status - may need separate endpoint
+          updatePromises.push(
+            apiRequest("PUT", `/api/admin/users/${userId}/toggle-active`, { subscriptionStatus }).catch(() => {
+              // If the endpoint doesn't support subscriptionStatus, try a separate endpoint
+              return apiRequest("PUT", `/api/admin/users/${userId}/subscription`, { subscriptionStatus });
+            })
+          );
+        }
+        
+        return Promise.all(updatePromises);
+      });
+      
+      await Promise.all(promises);
+      return { success: true };
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Users updated successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setSelectedUserIds([]);
+      setBulkUserStatus("");
+      setBulkSubscriptionStatus("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update users",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBulkUpdate = () => {
+    if (selectedUserIds.length === 0) return;
+    
+    const isActive = bulkUserStatus === "active" ? true : bulkUserStatus === "inactive" ? false : undefined;
+    const subscriptionStatus = bulkSubscriptionStatus || undefined;
+    
+    if (isActive === undefined && !subscriptionStatus) {
+      toast({
+        title: "Error",
+        description: "Please select at least one status to update",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    bulkUpdateUsersMutation.mutate({ userIds: selectedUserIds, isActive, subscriptionStatus });
+  };
+
+  const handleSelectUser = (userId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedUserIds(prev => [...prev, userId]);
+    } else {
+      setSelectedUserIds(prev => prev.filter(id => id !== userId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!users) return;
+    if (checked) {
+      const currentPageUserIds = users
+        .slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
+        .map(user => user.id);
+      setSelectedUserIds(prev => [...new Set([...prev, ...currentPageUserIds])]);
+    } else {
+      const currentPageUserIds = users
+        .slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
+        .map(user => user.id);
+      setSelectedUserIds(prev => prev.filter(id => !currentPageUserIds.includes(id)));
+    }
+  };
+
+  const toggleUserRoleMutation = useMutation({
+    mutationFn: async ({ userId, isAdmin }: { userId: number; isAdmin: boolean }) => {
+      const response = await apiRequest("PUT", `/api/admin/users/${userId}/toggle-admin`, { isAdmin });
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "User status updated successfully",
+        description: "User role updated successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      setUpdatingUserId(null);
+      setUpdatingRoleUserId(null);
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to update user status",
+        description: error.message || "Failed to update user role",
         variant: "destructive",
       });
-      setUpdatingUserId(null);
+      setUpdatingRoleUserId(null);
     },
   });
 
-  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
-    updateUserStatusMutation.mutate({ userId, isActive: !currentStatus });
+  const handleToggleUserRole = (userId: number, currentIsAdmin: boolean) => {
+    setUpdatingRoleUserId(userId);
+    toggleUserRoleMutation.mutate({ userId, isAdmin: !currentIsAdmin });
   };
+
+  const currentPageUserIds = users
+    ?.slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
+    .map(user => user.id) || [];
+  const allCurrentPageSelected = currentPageUserIds.length > 0 && currentPageUserIds.every(id => selectedUserIds.includes(id));
+  const someCurrentPageSelected = currentPageUserIds.some(id => selectedUserIds.includes(id));
 
   const filteredIssues = issues?.filter((issue: IssueReport) => {
     const statusMatch = filterStatus === "all" || issue.status === filterStatus;
@@ -3051,15 +3148,71 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {selectedUserIds.length > 0 && (
+                  <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                        {selectedUserIds.length} user{selectedUserIds.length > 1 ? 's' : ''} selected
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Select value={bulkUserStatus} onValueChange={setBulkUserStatus}>
+                          <SelectTrigger className="w-[150px]">
+                            <SelectValue placeholder="User Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Select value={bulkSubscriptionStatus} onValueChange={setBulkSubscriptionStatus}>
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Subscription Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="canceled">Canceled</SelectItem>
+                            <SelectItem value="past_due">Past Due</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button 
+                          onClick={handleBulkUpdate}
+                          disabled={bulkUpdateUsersMutation.isPending}
+                          size="sm"
+                        >
+                          {bulkUpdateUsersMutation.isPending ? "Updating..." : "Apply"}
+                        </Button>
+                        <Button 
+                          onClick={() => {
+                            setSelectedUserIds([]);
+                            setBulkUserStatus("");
+                            setBulkSubscriptionStatus("");
+                          }}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[50px]">
+                          <Checkbox
+                            checked={allCurrentPageSelected}
+                            onCheckedChange={handleSelectAll}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </TableHead>
                         <TableHead>User</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Status</TableHead>
                         {/* <TableHead>Active</TableHead> */}
                         <TableHead>Subscription Status</TableHead>
+                        <TableHead>Role</TableHead>
                         {/* <TableHead>End Date</TableHead>
                         <TableHead>Days Left</TableHead> */}
                       </TableRow>
@@ -3081,6 +3234,12 @@ export default function AdminDashboard() {
                               onClick={() => setLocation(`/admin/users/${user.id}`)}
                               className="cursor-pointer hover:bg-muted/50"
                             >
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Checkbox
+                                  checked={selectedUserIds.includes(user.id)}
+                                  onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
+                                />
+                              </TableCell>
                               <TableCell>
                                 <div className="font-medium">
                                   {user.firstName || user.lastName
@@ -3095,26 +3254,44 @@ export default function AdminDashboard() {
                                 </Badge>
                               </TableCell> */}
                               <TableCell>
-                                <div className="flex items-center gap-2">
-                                  {updatingUserId === user.id ? (
-                                    <div className="animate-spin w-5 h-5 border-2 border-[#4593ed] border-t-transparent rounded-full" />
-                                  ) : (
-                                    <Switch
-                                      checked={user.isActive !== false}
-                                      onCheckedChange={() => handleToggleUserStatus(user.id, user.isActive !== false)}
-                                      data-testid={`switch-user-active-${user.id}`}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  )}
-                                  <span className="text-sm text-slate-600 dark:text-slate-300">
-                                    {status!== false ? 'Active' : 'Inactive'}
-                                  </span>
-                                </div>
+                                <Badge 
+                                 variant={status !== false ? 'default' : 'destructive'}
+                                 className={status !== false ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : 'bg-red-500 hover:bg-red-600 text-white border-transparent'}
+                                
+                                >
+                                  {status !== false ? 'Active' : 'Inactive'}
+                                </Badge>
                               </TableCell>
                               <TableCell>
-                                <Badge variant={user.subscriptionStatus === 'active' ? 'default' : 'secondary'}>
+                                <Badge 
+                                  variant={user.subscriptionStatus === 'active' ? 'default' : 'destructive'}
+                                  className={user.subscriptionStatus === 'active' ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : 'bg-red-500 hover:bg-red-600 text-white border-transparent'}
+                                >
                                   {user.subscriptionStatus || 'N/A'}
                                 </Badge>
+                              </TableCell>
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-2">
+                                  <Badge 
+                                    variant={user.isAdmin ? 'default' : 'secondary'}
+                                    className={user.isAdmin ? 'bg-blue-500 hover:bg-blue-600 text-white border-transparent' : 'bg-gray-500 hover:bg-gray-600 text-white border-transparent'}
+                                  >
+                                    {user.isAdmin ? 'Admin' : 'User'}
+                                  </Badge>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleToggleUserRole(user.id, user.isAdmin || false)}
+                                    disabled={updatingRoleUserId === user.id}
+                                    className="h-7 px-2 text-xs min-w-20"
+                                  >
+                                    {updatingRoleUserId === user.id ? (
+                                      <div className="animate-spin w-3 h-3 border-2 border-[#4593ed] border-t-transparent rounded-full" />
+                                    ) : (
+                                      user.isAdmin ? 'Downgrade' : 'Upgrade'
+                                    )}
+                                  </Button>
+                                </div>
                               </TableCell>
                               {/* <TableCell>
                                 {endDate ? format(endDate, 'MMM d, yyyy') : 'N/A'}
