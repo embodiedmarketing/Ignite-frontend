@@ -62,7 +62,7 @@ export default function Signup() {
       console.error("Signup onError handler:", error);
       toast({
         title: "Signup failed",
-        description: error.message || "Unable to create account. Please try again.",
+        description: error.response.data.message || "Unable to create account. Please try again.",
         variant: "destructive",
       });
     },
