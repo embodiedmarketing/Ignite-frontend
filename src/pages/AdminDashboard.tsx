@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,7 +20,7 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/services/queryClient";
-import { AlertCircle, Bug, CheckCircle, Clock, Eye, Lightbulb, MessageSquare, Zap, Shield, XCircle, FileText, Download, BarChart3, Users, Activity, Plus, Pencil, Trash2, Video } from "lucide-react";
+import { AlertCircle, Bug, CheckCircle, Clock, Eye, Lightbulb, MessageSquare, Zap, Shield, XCircle, FileText, Download, BarChart3, Users, Activity, Plus, Pencil, Trash2, Video, Search } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation, Link } from "wouter";
@@ -2105,6 +2105,9 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<string>("issues");
   const [usersPage, setUsersPage] = useState<number>(1);
   const usersPerPage = 10;
+  const [userSearchQuery, setUserSearchQuery] = useState<string>("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  const [userStatusTab, setUserStatusTab] = useState<string>("active");
 
   const { data: issues, isLoading } = useQuery({
     queryKey: ["/api/issue-reports"],
@@ -2293,14 +2296,14 @@ export default function AdminDashboard() {
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (!users) return;
+    if (!filteredUsers) return;
     if (checked) {
-      const currentPageUserIds = users
+      const currentPageUserIds = filteredUsers
         .slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
         .map(user => user.id);
       setSelectedUserIds(prev => [...new Set([...prev, ...currentPageUserIds])]);
     } else {
-      const currentPageUserIds = users
+      const currentPageUserIds = filteredUsers
         .slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
         .map(user => user.id);
       setSelectedUserIds(prev => prev.filter(id => !currentPageUserIds.includes(id)));
@@ -2335,7 +2338,47 @@ export default function AdminDashboard() {
     toggleUserRoleMutation.mutate({ userId, isAdmin: !currentIsAdmin });
   };
 
-  const currentPageUserIds = users
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(userSearchQuery);
+    }, 300); // 300ms debounce delay
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [userSearchQuery]);
+
+  // Filter users based on debounced search query and status tab
+  const filteredUsers = users?.filter((user) => {
+    // Filter by status tab
+    if (userStatusTab === "active") {
+      if (user.isActive === false) return false;
+    } else if (userStatusTab === "inactive") {
+      if (user.isActive !== false) return false;
+    }
+    
+    // Filter by search query
+    if (!debouncedSearchQuery.trim()) return true;
+    
+    const searchLower = debouncedSearchQuery.toLowerCase();
+    const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim().toLowerCase();
+    const email = user.email?.toLowerCase() || '';
+    const businessName = user.businessName?.toLowerCase() || '';
+    
+    return (
+      fullName.includes(searchLower) ||
+      email.includes(searchLower) ||
+      businessName.includes(searchLower)
+    );
+  }) || [];
+
+  // Reset to page 1 when debounced search query or status tab changes
+  useEffect(() => {
+    setUsersPage(1);
+  }, [debouncedSearchQuery, userStatusTab]);
+
+  const currentPageUserIds = filteredUsers
     ?.slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
     .map(user => user.id) || [];
   const allCurrentPageSelected = currentPageUserIds.length > 0 && currentPageUserIds.every(id => selectedUserIds.includes(id));
@@ -3136,9 +3179,10 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin w-8 h-8 border-4 border-[#4593ed] border-t-transparent rounded-full" />
             </div>
-          ) : users && users.length > 0 ? (
+          ) : users && (users.length > 0 || userSearchQuery) ? (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row justify-between">
+                <div>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5" />
                   User Management
@@ -3146,8 +3190,26 @@ export default function AdminDashboard() {
                 <CardDescription>
                   View and manage all platform users
                 </CardDescription>
+                </div>
+                <div className="mb-4 w-full max-w-md">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <Input
+                      placeholder="Search users by name, email, or business name..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
+                <Tabs value={userStatusTab} onValueChange={setUserStatusTab} className="mb-6">
+                  <TabsList className="grid w-full max-w-md grid-cols-2">
+                    <TabsTrigger value="active">Active</TabsTrigger>
+                    <TabsTrigger value="inactive">Inactive</TabsTrigger>
+                  </TabsList>
+                </Tabs>
                 {selectedUserIds.length > 0 && (
                   <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
                     <div className="flex items-center gap-4">
@@ -3164,7 +3226,7 @@ export default function AdminDashboard() {
                             <SelectItem value="inactive">Inactive</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Select value={bulkSubscriptionStatus} onValueChange={setBulkSubscriptionStatus}>
+                        {/* <Select value={bulkSubscriptionStatus} onValueChange={setBulkSubscriptionStatus}>
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Subscription Status" />
                           </SelectTrigger>
@@ -3173,7 +3235,7 @@ export default function AdminDashboard() {
                             <SelectItem value="canceled">Canceled</SelectItem>
                             <SelectItem value="past_due">Past Due</SelectItem>
                           </SelectContent>
-                        </Select>
+                        </Select> */}
                         <Button 
                           onClick={handleBulkUpdate}
                           disabled={bulkUpdateUsersMutation.isPending}
@@ -3211,14 +3273,15 @@ export default function AdminDashboard() {
                         <TableHead>Email</TableHead>
                         <TableHead>Status</TableHead>
                         {/* <TableHead>Active</TableHead> */}
-                        <TableHead>Subscription Status</TableHead>
+                        {/* <TableHead>Subscription Status</TableHead> */}
                         <TableHead>Role</TableHead>
                         {/* <TableHead>End Date</TableHead>
                         <TableHead>Days Left</TableHead> */}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {users
+                      {filteredUsers.length > 0 ? (
+                        filteredUsers
                         .slice((usersPage - 1) * usersPerPage, usersPage * usersPerPage)
                         .map((user) => {
                           const endDate = user.subscriptionEndDate ? new Date(user.subscriptionEndDate) : null;
@@ -3262,14 +3325,14 @@ export default function AdminDashboard() {
                                   {status !== false ? 'Active' : 'Inactive'}
                                 </Badge>
                               </TableCell>
-                              <TableCell>
+                              {/* <TableCell>
                                 <Badge 
                                   variant={user.subscriptionStatus === 'active' ? 'default' : 'destructive'}
                                   className={user.subscriptionStatus === 'active' ? 'bg-green-500 hover:bg-green-600 text-white border-transparent' : 'bg-red-500 hover:bg-red-600 text-white border-transparent'}
                                 >
                                   {user.subscriptionStatus || 'N/A'}
                                 </Badge>
-                              </TableCell>
+                              </TableCell> */}
                               <TableCell onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center gap-2">
                                   <Badge 
@@ -3305,14 +3368,22 @@ export default function AdminDashboard() {
                               </TableCell> */}
                             </TableRow>
                           );
-                        })}
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                            No users found matching your search.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
-                {users.length > usersPerPage && (
+                {filteredUsers.length > usersPerPage && (
                   <div className="mt-4 flex items-center justify-between">
                     <div className="text-sm text-slate-500">
-                      Showing {(usersPage - 1) * usersPerPage + 1} to {Math.min(usersPage * usersPerPage, users.length)} of {users.length} users
+                      Showing {(usersPage - 1) * usersPerPage + 1} to {Math.min(usersPage * usersPerPage, filteredUsers.length)} of {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
+                      {debouncedSearchQuery && ` (filtered from ${users?.length || 0} total)`}
                     </div>
                     <Pagination>
                       <PaginationContent>
@@ -3322,7 +3393,7 @@ export default function AdminDashboard() {
                             className={usersPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                           />
                         </PaginationItem>
-                        {Array.from({ length: Math.ceil(users.length / usersPerPage) }, (_, i) => i + 1).map((page) => (
+                        {Array.from({ length: Math.ceil(filteredUsers.length / usersPerPage) }, (_, i) => i + 1).map((page) => (
                           <PaginationItem key={page}>
                             <PaginationLink
                               onClick={() => setUsersPage(page)}
@@ -3335,8 +3406,8 @@ export default function AdminDashboard() {
                         ))}
                         <PaginationItem>
                           <PaginationNext
-                            onClick={() => setUsersPage((prev) => Math.min(Math.ceil(users.length / usersPerPage), prev + 1))}
-                            className={usersPage >= Math.ceil(users.length / usersPerPage) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                            onClick={() => setUsersPage((prev) => Math.min(Math.ceil(filteredUsers.length / usersPerPage), prev + 1))}
+                            className={usersPage >= Math.ceil(filteredUsers.length / usersPerPage) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                           />
                         </PaginationItem>
                       </PaginationContent>
