@@ -75,7 +75,9 @@ export default function ThreadDetail() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/forum/threads", id],
     queryFn: () =>
-      fetch(`${import.meta.env.VITE_BASE_URL}/api/forum/threads/${id}`).then(
+      fetch(`${import.meta.env.VITE_BASE_URL}/api/forum/threads/${id}`, {
+        credentials: 'include'
+      }).then(
         (res) => res.json()
       ),
     enabled: !!id,

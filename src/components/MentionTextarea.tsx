@@ -27,7 +27,9 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
     const { data: users = [] } = useQuery<User[]>({
       queryKey: ['/api/forum/users/search', mentionQuery],
       queryFn: () => 
-        fetch(`/api/forum/users/search?q=${encodeURIComponent(mentionQuery)}`).then(res => res.json()),
+        fetch(`/api/forum/users/search?q=${encodeURIComponent(mentionQuery)}`, {
+          credentials: 'include'
+        }).then(res => res.json()),
       enabled: showMentions,
     });
 

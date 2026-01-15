@@ -161,7 +161,9 @@ export default function OfferOutlinePanel({ userId, stepNumber, showOnAllTabs = 
       }
     } else if (offerId) {
       // Fallback for legacy offerId approach (if still needed)
-      fetch(`/api/offers/${offerId}/outline`)
+      fetch(`/api/offers/${offerId}/outline`, {
+        credentials: 'include'
+      })
         .then(res => res.json())
         .then(data => {
           if (data && data.outline) {

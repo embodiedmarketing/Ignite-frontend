@@ -129,6 +129,7 @@ export default function SubscribeNew() {
     fetch("/api/create-payment-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: 'include',
       body: JSON.stringify({}),
     })
       .then((res) => res.json())

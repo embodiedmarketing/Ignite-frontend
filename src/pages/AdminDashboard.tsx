@@ -427,6 +427,7 @@ export const SalesPageButton=({ pageId, draftNumber }: { pageId: number; draftNu
     setLoading(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/admin/sales-pages/${pageId}`, {
+        credentials: 'include',
         credentials: 'include'
       });
       if (!response.ok) throw new Error("Failed to fetch sales page");
