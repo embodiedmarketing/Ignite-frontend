@@ -35,3 +35,17 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Helper function for fetch requests with credentials included
+ * Use this instead of fetch() directly to ensure cookies are sent
+ */
+export const fetchWithCredentials = (
+  url: string,
+  options?: RequestInit
+): Promise<Response> => {
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
+};
