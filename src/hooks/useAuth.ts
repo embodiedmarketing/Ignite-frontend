@@ -14,6 +14,15 @@ export function useAuth() {
     queryFn: async () => {
       try {
         const { data } = await apiClient.get<User>("/api/auth/user");
+        
+        // If user is inactive, log them out and return null
+        if (data && data.isActive === false) {
+          console.log("User is inactive, logging out");
+          // Clear auth state
+          await apiClient.post("/api/auth/logout");
+          return null;
+        }
+        
         return data;
       } catch (err: any) {
         if (!err.response) {
@@ -33,10 +42,12 @@ export function useAuth() {
     },
   });
 
+  const isAuthenticated = user !== null && user !== undefined && (user.isActive !== false);
+
   return {
     user,
     isLoading,
-    isAuthenticated: !!user && user?.isActive,
+    isAuthenticated,
     error,
   };
 }
