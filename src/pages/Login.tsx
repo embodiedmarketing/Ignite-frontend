@@ -54,9 +54,7 @@ export default function Login() {
     },
     onSuccess: async (responseData) => {
       
-      // Check if user is active
       const isActive = responseData?.user?.isActive;
-      
       console.log("Login successful!", isActive);
       if (isActive === false) {      
         setLocation("/account-deactivated");
