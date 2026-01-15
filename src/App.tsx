@@ -69,8 +69,9 @@ function AppRouter() {
   // Auto-redirect to last visited page on app load
   useAutoRedirect();
 
+
   useEffect(() => {
-    if (!isLoading && user && (user as any).isActive === false && location !== "/account-deactivated") {
+    if (!isLoading && user && (user as any)?.isActive === false && location !== "/account-deactivated") {
       setLocation("/account-deactivated");
     }else{
       setLocation("/");
