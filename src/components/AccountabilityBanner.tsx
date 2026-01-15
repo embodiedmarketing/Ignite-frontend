@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/services/queryClient";
+import { apiClient } from "@/services/api.config";
 
 interface ParticipationStatus {
   hasParticipated: boolean;
@@ -20,8 +21,13 @@ export function AccountabilityBanner() {
   // Query to check participation status
   const { data: participationStatus, isLoading } = useQuery<ParticipationStatus>({
     queryKey: ["/api/accountability/participation-status"],
+    queryFn: async () => {
+      const { data } = await apiClient.get<ParticipationStatus>("/api/accountability/participation-status");
+      return data;
+    },
     refetchInterval: 60000, // Check every minute
   });
+
 
   // Don't show if:
   // - Loading
