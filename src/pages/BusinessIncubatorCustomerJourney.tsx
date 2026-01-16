@@ -10,9 +10,10 @@ export default function BusinessIncubatorCustomerJourney() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
 
   const videos = [
-    { id: "1", vimeoId: "147258369/jkl147mno", title: "Business Incubator: Customer Journey - Week 1" },
-    { id: "2", vimeoId: "258369147/mno258pqr", title: "Business Incubator: Customer Journey - Week 2" },
-    { id: "3", vimeoId: "369147258/pqr369stu", title: "Business Incubator: Customer Journey - Week 3" }
+    { id: "1", vimeoId: "1121271914/cfc6fad702", title: "Week 1: Your Foundation" },
+    { id: "2", vimeoId: "1121272036/c5438aeed2", title: "Week 2: Your Audience" },
+    { id: "3", vimeoId: "1123018184/a3613d0b09", title: "Week 3: Your Sales Funnel" },
+    { id: "4", vimeoId: "1126899282/3340433dfa", title: "Week 4: Your Customer Experience" }
   ];
 
   const navigateVideo = (direction: 'prev' | 'next') => {

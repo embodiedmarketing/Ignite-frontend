@@ -55,7 +55,7 @@ import Profile from "@/pages/Profile";
 import { lazy, Suspense } from "react";
 const AdminDashboard = lazy(() => import("@/pages/AdminDashboard"));
 import AdminLogin from "@/pages/AdminLogin";
-import AdminUserManagement from "@/pages/AdminUserManagement";
+import AdminUserManagement from "@/pages/AdminUserManagement"
 import AdminUserDetail from "@/pages/AdminUserDetail";
 import AccountDeactivated from "@/pages/AccountDeactivated";
 

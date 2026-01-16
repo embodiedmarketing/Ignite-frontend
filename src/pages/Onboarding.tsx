@@ -447,7 +447,7 @@ export default function Onboarding() {
               </div>
               <div>
                 <h4 className="editorial-subheader text-embodied-navy">Rena - Marketing Coach & Strategist</h4>
-                <p className="editorial-body text-sm text-embodied-navy/80 mt-2">Hosts our messaging, strategy and accountability calls every week. She's the main coach in Ignite and is here to support you every step of the way!</p>
+                <p className="editorial-body text-sm text-embodied-navy/80 mt-2">She'll help develop your initial custom strategy and continue supporting you through the messaging, strategy and accountability calls every week. She's the main coach in Ignite and is here to support you every step of the way!</p>
               </div>
             </div>
 

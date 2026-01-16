@@ -428,7 +428,6 @@ export const SalesPageButton=({ pageId, draftNumber }: { pageId: number; draftNu
     try {
       const response = await fetch(`${import.meta.env.VITE_BASE_URL}/api/admin/sales-pages/${pageId}`, {
         credentials: 'include',
-        credentials: 'include'
       });
       if (!response.ok) throw new Error("Failed to fetch sales page");
       const data = await response.json();
@@ -1095,7 +1094,7 @@ function VideoScriptDialog({ script, trigger }: { script: any; trigger: React.Re
   );
 }
 
-function IssueDetailDialog({ issue, trigger }: { issue: IssueReport; trigger: React.ReactNode }) {
+function IssueDetailDialog({ issue, index, trigger }: { issue: IssueReport; index: number; trigger: React.ReactNode }) {
   const [adminNotes, setAdminNotes] = useState(issue.adminNotes || "");
   const [status, setStatus] = useState(issue.status);
   const [open, setOpen] = useState(false);
@@ -1140,7 +1139,7 @@ function IssueDetailDialog({ issue, trigger }: { issue: IssueReport; trigger: Re
             {issue.title}
           </DialogTitle>
           <DialogDescription>
-            Issue #{issue.id} • Reported by {issue.userEmail} • {format(new Date(issue.createdAt), 'MMM d, yyyy h:mm a')}
+            Issue #{index+1} • Reported by {issue.userEmail} • {format(new Date(issue.createdAt), 'MMM d, yyyy h:mm a')}
           </DialogDescription>
         </DialogHeader>
 
@@ -2527,7 +2526,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 my-4">
         <div>
           <label className="text-sm font-medium">Filter by Status</label>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -2572,7 +2571,7 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
         ) : (
-          filteredIssues.map((issue: IssueReport) => (
+          filteredIssues.map((issue: IssueReport,index: number) => (
             <Card key={issue.id} className="hover:shadow-md transition-shadow" data-testid={`issue-card-${issue.id}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -2594,7 +2593,7 @@ export default function AdminDashboard() {
                 </div>
                 <CardDescription>
                   <div className="flex items-center gap-4 text-sm">
-                    <span>#{issue.id}</span>
+                    <span>#{index+1}</span>
                     <span>{issue.userEmail}</span>
                     <span>{format(new Date(issue.createdAt), 'MMM d, yyyy')}</span>
                   </div>
@@ -2608,6 +2607,7 @@ export default function AdminDashboard() {
                   </div>
                   <IssueDetailDialog 
                     issue={issue}
+                    index={index}
                     trigger={
                       <Button variant="outline" size="sm" data-testid={`button-view-details-${issue.id}`}>
                         <Eye className="w-4 h-4 mr-2" />
