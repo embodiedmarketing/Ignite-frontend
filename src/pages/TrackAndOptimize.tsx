@@ -109,10 +109,27 @@ export default function TrackAndOptimize() {
   const [editedSuggestions, setEditedSuggestions] = useState<OptimizationSuggestion[]>([]);
   
   // Load funnel tracker data from database
-  const { data: funnelTrackerData, isLoading: isLoadingTrackerData } = useQuery<FunnelTrackerData>({
+  // const { data: funnelTrackerData, isLoading: isLoadingTrackerData } = useQuery<FunnelTrackerData>({
+  //   queryKey: ['/api/funnel-tracker-data', userId],
+  //   enabled: !!userId,
+  // });
+
+
+
+
+  const { data: funnelTrackerData, isLoading: isLoadingTrackerData } =
+  useQuery<FunnelTrackerData>({
     queryKey: ['/api/funnel-tracker-data', userId],
     enabled: !!userId,
+    queryFn: async () => {
+      const response = await apiRequest(
+        'GET',
+        `/api/funnel-tracker-data/${userId}`
+      );
+      return response.json();
+    },
   });
+
   
   // Load optimization suggestions from database
   const { data: savedSuggestions, isLoading: isLoadingSuggestions } = useQuery<OptimizationSuggestionsData>({
