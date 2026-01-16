@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/services/queryClient';
 import type { ChecklistItem } from '@shared/schema';
 
+/**
+ * Hook to fetch checklist items for a user and section
+ * 
+ * Note: apiRequest automatically includes cookies (withCredentials: true)
+ * via apiClient, so no additional configuration is needed.
+ */
 export function useChecklistItems(userId: number, sectionKey: string) {
   return useQuery({
     queryKey: [`/api/checklist-items/${userId}/${sectionKey}`],
