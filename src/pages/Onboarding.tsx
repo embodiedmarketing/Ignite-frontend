@@ -194,6 +194,7 @@ export default function Onboarding() {
                 id: "book-strategy-call",
                 title: "Book Your Strategy Call",
                 description: "Your messaging strategy and intake form MUST be completed before booking.",
+                descriptor:"To book your Onboarding Call, please email Rena at rena@embodiedmarketing.com to discuss availability and get your call booked.",
                 color: "navy"
               }
             ].map((step, index) => {
@@ -233,6 +234,11 @@ export default function Onboarding() {
                       isChecked ? 'text-embodied-navy/50' : 'text-embodied-navy/70'
                     }`}>
                       {step.description}
+                    </p>
+                    <p className={`editorial-body text-sm mt-1 ${
+                      isChecked ? 'text-embodied-navy/50' : 'text-embodied-navy/70'
+                    }`}>
+                      {step?.descriptor || ''}
                     </p>
                     {step.id === 'complete-profile' && (
                       <Button 
@@ -312,7 +318,7 @@ export default function Onboarding() {
                         Complete Strategy
                       </Button>
                     )}
-                    {step.id === 'book-strategy-call' && (
+                    {/* {step.id === 'book-strategy-call' && (
                       <Button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -324,7 +330,7 @@ export default function Onboarding() {
                       >
                         Book Here
                       </Button>
-                    )}
+                    )} */}
                   </div>
                   {isChecked && (
                     <Check className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
@@ -415,7 +421,7 @@ export default function Onboarding() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="text-center space-y-3 p-6 bg-embodied-coral/5 rounded-lg">
+            {/* <div className="text-center space-y-3 p-6 bg-embodied-coral/5 rounded-lg">
               <div className="w-full aspect-video rounded-lg overflow-hidden">
                 <VimeoEmbed 
                   vimeoId="1121677190/051ad17016" 
@@ -428,7 +434,7 @@ export default function Onboarding() {
                 <h4 className="editorial-subheader text-embodied-navy">Lisa - Senior Strategist</h4>
                 <p className="editorial-body text-sm text-embodied-navy/80 mt-2">She'll help develop your initial custom strategy</p>
               </div>
-            </div>
+            </div> */}
 
             <div className="text-center space-y-3 p-6 bg-embodied-blue/5 rounded-lg">
               <div className="w-full aspect-video rounded-lg overflow-hidden">
@@ -440,7 +446,7 @@ export default function Onboarding() {
                 />
               </div>
               <div>
-                <h4 className="editorial-subheader text-embodied-navy">Rena - Marketing Coach</h4>
+                <h4 className="editorial-subheader text-embodied-navy">Rena - Marketing Coach & Strategist</h4>
                 <p className="editorial-body text-sm text-embodied-navy/80 mt-2">Hosts our messaging, strategy and accountability calls every week. She's the main coach in Ignite and is here to support you every step of the way!</p>
               </div>
             </div>
