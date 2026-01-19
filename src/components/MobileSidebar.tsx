@@ -215,8 +215,9 @@ export default function MobileSidebar() {
             {user && (
               <div className="pt-4 border-t border-slate-200 mt-4">
                 <IssueReportDialog 
-                  userId={user.id} 
+                  userId={user?.id || 0} 
                   userEmail={user.email}
+                  userName={user.firstName + " " + user.lastName}
                   trigger={
                     <Button
                       variant="ghost"
