@@ -225,8 +225,9 @@ export default function Sidebar() {
             {/* Issue Report Button */}
             {user && (
               <IssueReportDialog 
-                userId={user.id} 
+                userId={user.id || 0} 
                 userEmail={user.email}
+                userName={user.firstName + " " + user.lastName}
                 trigger={
                   <Button
                     variant="ghost"

@@ -13,10 +13,11 @@ import { AlertCircle, Bug, Lightbulb, Zap } from "lucide-react";
 interface IssueReportDialogProps {
   userId: number;
   userEmail?: string;
+  userName?: string;
   trigger?: React.ReactNode;
 }
 
-export default function IssueReportDialog({ userId, userEmail, trigger }: IssueReportDialogProps) {
+export default function IssueReportDialog({ userId, userEmail,userName , trigger }: IssueReportDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     issueType: "",
@@ -37,6 +38,7 @@ export default function IssueReportDialog({ userId, userEmail, trigger }: IssueR
         priority: "medium", // Default priority since user won't select it
         userId,
         userEmail,
+        userName,
         pageUrl: window.location.href,
         browserInfo: {
           userAgent: navigator.userAgent,

@@ -103,6 +103,7 @@ export default function Header() {
                   <IssueReportDialog
                     userId={user?.id || 0}
                     userEmail={user?.email}
+                    userName={user?.firstName + " " + user?.lastName}
                     trigger={
                       <div className="flex items-center w-full cursor-pointer">
                         <AlertCircle className="w-4 h-4 mr-2" />

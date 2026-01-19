@@ -2526,36 +2526,31 @@ export default function AdminDashboard() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 my-4">
+      <div className="flex flex-col md:flex-row gap-4 my-4">
         <div>
           <label className="text-sm font-medium">Filter by Status</label>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-40 mt-1" data-testid="filter-status">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
+          <Tabs value={filterStatus} onValueChange={setFilterStatus}>
+            <TabsList className="mt-1 w-full flex flex-wrap justify-start gap-1" data-testid="filter-status">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="open">Open</TabsTrigger>
+              <TabsTrigger value="in_progress">In Progress</TabsTrigger>
+              <TabsTrigger value="resolved">Resolved</TabsTrigger>
+              {/* <TabsTrigger value="closed">Closed</TabsTrigger> */}
+            </TabsList>
+          </Tabs>
         </div>
+
         <div>
           <label className="text-sm font-medium">Filter by Type</label>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-40 mt-1" data-testid="filter-type">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="bug">Bug Report</SelectItem>
-              <SelectItem value="feature_request">Feature Request</SelectItem>
-              <SelectItem value="improvement">Improvement</SelectItem>
-              <SelectItem value="technical_issue">Technical Issue</SelectItem>
-            </SelectContent>
-          </Select>
+          <Tabs value={filterType} onValueChange={setFilterType}>
+            <TabsList className="mt-1 w-full flex flex-wrap justify-start gap-1" data-testid="filter-type">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="bug">Bug Report</TabsTrigger>
+              <TabsTrigger value="feature_request">Feature Request</TabsTrigger>
+              <TabsTrigger value="improvement">Improvement</TabsTrigger>
+              <TabsTrigger value="technical_issue">Technical Issue</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
