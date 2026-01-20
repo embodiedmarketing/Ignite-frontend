@@ -80,7 +80,7 @@ export default function BonusTrainings() {
                         Map and optimize every touchpoint in your customer's experience
                       </p>
                       <p className="text-xs text-slate-400 mt-1">
-                        3 video replays available
+                        4 video replays available
                       </p>
                     </div>
                   </div>

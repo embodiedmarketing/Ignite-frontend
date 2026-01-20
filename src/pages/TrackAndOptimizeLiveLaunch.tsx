@@ -2012,7 +2012,7 @@ export default function TrackAndOptimizeLiveLaunch() {
       pdf.text("AI Optimization Suggestions", margin, yPosition);
       yPosition += 15;
 
-      displaySuggestions.forEach((suggestion, index) => {
+      displaySuggestions.forEach((suggestion: any, index: number) => {
         if (yPosition > 250) {
           pdf.addPage();
           yPosition = 20;
@@ -2114,7 +2114,7 @@ export default function TrackAndOptimizeLiveLaunch() {
         })
       );
 
-      displaySuggestions.forEach((suggestion, index) => {
+      displaySuggestions.forEach((suggestion: any, index: number) => {
         // Suggestion title
         docParagraphs.push(
           new Paragraph({
@@ -3384,7 +3384,7 @@ export default function TrackAndOptimizeLiveLaunch() {
                                 : generateSuggestions();
 
                             return displaySuggestions.length > 0 ? (
-                              displaySuggestions.map((suggestion, index) => (
+                              displaySuggestions.map((suggestion: any, index: number) => (
                                 <Alert
                                   key={index}
                                   className={
@@ -3443,7 +3443,7 @@ export default function TrackAndOptimizeLiveLaunch() {
                                       </p>
                                       <ul className="list-disc list-inside space-y-1">
                                         {suggestion.actions.map(
-                                          (action, actionIndex) => (
+                                          (action: string, actionIndex: number) => (
                                             <li
                                               key={actionIndex}
                                               className={`text-xs ${
