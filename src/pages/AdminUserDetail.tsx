@@ -162,7 +162,7 @@ export default function AdminUserDetail() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <p className="text-sm text-slate-600">Status</p>
-                <p className="font-medium capitalize">{user.subscriptionStatus}</p>
+                <p className="font-medium capitalize">{user?.isActive !== false  ? 'Active' : 'Inactive'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-600">Joined</p>

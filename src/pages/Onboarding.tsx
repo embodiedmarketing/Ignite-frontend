@@ -194,7 +194,7 @@ export default function Onboarding() {
                 id: "book-strategy-call",
                 title: "Book Your Strategy Call",
                 description: "Your messaging strategy and intake form MUST be completed before booking.",
-                descriptor:"To book your Onboarding Call, please email Rena at rena@embodiedmarketing.com to discuss availability and get your call booked.",
+                descriptor:"To book your Strategy Call, please email Rena at rena@embodiedmarketing.com to discuss availability and get your call booked.",
                 color: "navy"
               }
             ].map((step, index) => {
