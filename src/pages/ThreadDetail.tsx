@@ -37,6 +37,7 @@ import {
   Trash2,
   CornerDownRight,
   Pencil,
+  Search,
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useParams, useLocation } from "wouter";
@@ -134,109 +135,162 @@ export default function ThreadDetail() {
     const editorElement = activeEditorRef.current;
     editorElement.focus();
     
+    // Restore selection from saved range if available
     let selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
-      console.log('No selection found, trying to get current selection');
-      // Try to restore selection
       if (mentionRangeRef.current) {
         selection = window.getSelection();
         if (selection) {
           selection.removeAllRanges();
-          selection.addRange(mentionRangeRef.current);
-        } else {
-          return;
+          selection.addRange(mentionRangeRef.current.cloneRange());
         }
-      } else {
-        return;
       }
     }
     
-    if (!selection || selection.rangeCount === 0) {
+    // Get all text content to find @ position
+    const allText = editorElement.textContent || '';
+    const lastAt = allText.lastIndexOf('@');
+    
+    if (lastAt === -1) {
+      console.log('No @ symbol found');
       return;
     }
     
-    // Get current range
-    const currentRange = selection.getRangeAt(0);
-    const textNode = currentRange.startContainer;
+    // Use TreeWalker to find the exact nodes containing the @ symbol
+    const range = document.createRange();
+    const walker = document.createTreeWalker(
+      editorElement,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
     
-    // Find @ symbol and replace text after it
-    if (textNode.nodeType === Node.TEXT_NODE) {
-      const text = textNode.textContent || '';
-      const offset = currentRange.startOffset;
-      const textBefore = text.substring(0, offset);
-      const atPos = textBefore.lastIndexOf('@');
+    let node;
+    let charCount = 0;
+    let startNode: Node | null = null;
+    let startOffset = 0;
+    let endNode: Node | null = null;
+    let endOffset = 0;
+    
+    // Find the node containing @ and the end of the text
+    while ((node = walker.nextNode())) {
+      const text = node.textContent || '';
+      const nodeStart = charCount;
+      const nodeEnd = charCount + text.length;
       
-      if (atPos !== -1) {
-        // Create range from @ to cursor
-        const rangeToReplace = document.createRange();
-        rangeToReplace.setStart(textNode, atPos);
-        rangeToReplace.setEnd(textNode, offset);
-        
-        // Delete and insert mention
-        rangeToReplace.deleteContents();
-        const mentionNode = document.createTextNode(`@${mentionText} `);
-        rangeToReplace.insertNode(mentionNode);
-        
-        // Move cursor after mention
-        rangeToReplace.setStartAfter(mentionNode);
-        rangeToReplace.collapse(true);
-        if (selection) {
-          selection.removeAllRanges();
-          selection.addRange(rangeToReplace);
-        }
+      // Check if @ is in this node
+      if (nodeStart <= lastAt && nodeEnd > lastAt && !startNode) {
+        startNode = node;
+        startOffset = lastAt - nodeStart;
+      }
+      
+      // Find the end of the text (where cursor should be)
+      if (nodeEnd >= allText.length) {
+        endNode = node;
+        endOffset = allText.length - nodeStart;
+        break;
+      }
+      
+      charCount = nodeEnd;
+    }
+    
+    if (!startNode) {
+      console.log('Could not find @ symbol in text nodes');
+      return;
+    }
+    
+    // Create range from @ to end of text
+    if (startNode && endNode && startNode.nodeType === Node.TEXT_NODE && endNode.nodeType === Node.TEXT_NODE) {
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+      range.deleteContents();
+      
+      // Insert the mention as plain text
+      const mentionNode = document.createTextNode(`@${mentionText} `);
+      range.insertNode(mentionNode);
+      
+      // Position cursor after the mention and space
+      range.setStartAfter(mentionNode);
+      range.collapse(true);
+      
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
       }
     } else {
-      // Fallback: use execCommand to insert text
-      // First, find and delete @ and text after it
-      const allText = editorElement.textContent || '';
-      const lastAt = allText.lastIndexOf('@');
-      if (lastAt !== -1) {
-        // Select from @ to end
-        const range = document.createRange();
-        const walker = document.createTreeWalker(
-          editorElement,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
+      // Fallback: try to use the current selection
+      if (selection && selection.rangeCount > 0) {
+        const currentRange = selection.getRangeAt(0);
+        const textNode = currentRange.startContainer;
         
-        let node;
-        let charCount = 0;
-        let startNode: Node | null = null;
-        let startOffset = 0;
-        let endNode: Node | null = null;
-        let endOffset = 0;
-        
-        while ((node = walker.nextNode())) {
-          const text = node.textContent || '';
-          if (charCount <= lastAt && charCount + text.length > lastAt) {
-            startNode = node;
-            startOffset = lastAt - charCount;
+        if (textNode.nodeType === Node.TEXT_NODE) {
+          const text = textNode.textContent || '';
+          const offset = currentRange.startOffset;
+          const textBefore = text.substring(0, offset);
+          const atPos = textBefore.lastIndexOf('@');
+          
+          if (atPos !== -1) {
+            const rangeToReplace = document.createRange();
+            rangeToReplace.setStart(textNode, atPos);
+            rangeToReplace.setEnd(textNode, offset);
+            rangeToReplace.deleteContents();
+            
+            // Insert mention as plain text
+            const mentionNode = document.createTextNode(`@${mentionText} `);
+            rangeToReplace.insertNode(mentionNode);
+            
+            rangeToReplace.setStartAfter(mentionNode);
+            rangeToReplace.collapse(true);
+            
+            if (selection) {
+              selection.removeAllRanges();
+              selection.addRange(rangeToReplace);
+            }
           }
-          if (charCount <= allText.length && charCount + text.length >= allText.length) {
-            endNode = node;
-            endOffset = allText.length - charCount;
-            break;
-          }
-          charCount += text.length;
         }
+      } else {
+        // Last resort: insert at end
+        const range = document.createRange();
+        range.selectNodeContents(editorElement);
+        range.collapse(false);
         
-        if (startNode && endNode && startNode.nodeType === Node.TEXT_NODE && endNode.nodeType === Node.TEXT_NODE) {
-          range.setStart(startNode, startOffset);
-          range.setEnd(endNode, endOffset);
-          range.deleteContents();
+        // Find last @ and replace
+        const allText2 = editorElement.textContent || '';
+        const lastAt2 = allText2.lastIndexOf('@');
+        if (lastAt2 !== -1) {
+          // Remove the @ from the end
+          const textNodes: Text[] = [];
+          const walker2 = document.createTreeWalker(
+            editorElement,
+            NodeFilter.SHOW_TEXT,
+            null
+          );
+          let n;
+          while ((n = walker2.nextNode())) {
+            if (n.nodeType === Node.TEXT_NODE) {
+              textNodes.push(n as Text);
+            }
+          }
           
+          if (textNodes.length > 0) {
+            const lastNode = textNodes[textNodes.length - 1];
+            const text = lastNode.textContent || '';
+            if (text.endsWith('@')) {
+              lastNode.textContent = text.slice(0, -1);
+            }
+          }
+          
+          // Insert mention as plain text
           const mentionNode = document.createTextNode(`@${mentionText} `);
-          range.insertNode(mentionNode);
+          editorElement.appendChild(mentionNode);
           
-          range.setStartAfter(mentionNode);
-          range.collapse(true);
+          // Set cursor after mention
+          const newRange = document.createRange();
+          newRange.setStartAfter(mentionNode);
+          newRange.collapse(true);
           if (selection) {
             selection.removeAllRanges();
-            selection.addRange(range);
+            selection.addRange(newRange);
           }
-        } else {
-          // Last resort: use execCommand
-          document.execCommand('insertText', false, `@${mentionText} `);
         }
       }
     }
@@ -1595,101 +1649,133 @@ export default function ThreadDetail() {
 
 
 const MentionPopup = ({mentionPopupRef, insertMention, data}: {mentionPopupRef: React.RefObject<HTMLDivElement>, insertMention: (mention: string) => void, data: any}) => {
-  return (
+  const [searchQuery, setSearchQuery] = useState("");
   
+  // Fetch all users from the API (empty query to get all users, or use search query)
+  const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery<any[]>({
+    queryKey: ['/api/forum/users/search', searchQuery || 'all'],
+    queryFn: () => {
+      const queryParam = searchQuery.trim() || '';
+      return fetch(`${import.meta.env.VITE_BASE_URL || ''}/api/forum/users/search?q=${encodeURIComponent(queryParam)}`, {
+        credentials: 'include'
+      }).then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch users');
+        }
+        return res.json();
+      });
+    },
+  });
+
+  // Filter and limit users based on search query
+  const filteredUsers = useMemo(() => {
+    if (!allUsers || allUsers.length === 0) return [];
+    
+    if (!searchQuery.trim()) {
+      // Show first 8 users when no search
+      return allUsers.slice(0, 8);
+    }
+    
+    return allUsers.slice(0, 50);
+  }, [allUsers, searchQuery]);
+
+  return (
       <div
         ref={mentionPopupRef}
-        className="absolute bottom-[80%] left-[2%] z-[9999] w-72 max-h-64 overflow-hidden bg-slate-900 rounded-lg shadow-2xl border border-slate-700"
-
+        className="absolute bottom-[80%] left-[2%] z-[9999] w-72 h-80 overflow-hidden bg-slate-900 rounded-lg shadow-2xl border border-slate-700"
         data-testid="mention-popup"
       >
         <div className="px-3 py-2 bg-slate-800 border-b border-slate-700">
-          <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+          <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 mb-2">
             <span className="text-orange-400">@</span>
             Mention someone
           </p>
+          {/* Search box */}
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 h-8 bg-slate-700 border-slate-600 text-white text-sm placeholder:text-slate-400 focus:ring-orange-400 focus:border-orange-400"
+              autoFocus
+            />
+          </div>
         </div>
-        <div className="overflow-y-auto max-h-56 py-1">
-          {/* @Everyone option */}
-          <button
-            type="button"
-            onClick={() => insertMention('everyone')}
-            className="w-full text-left px-3 py-2.5 transition-all duration-150 hover:bg-slate-800 border-l-3 border-transparent"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold bg-gradient-to-br from-orange-500 to-orange-600">
-                E
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-white truncate">
-                  Everyone
+        <div className="overflow-y-auto max-h-64 py-1">
+          {/* @Everyone option - only show when not searching */}
+          {!searchQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => insertMention('everyone')}
+              className="w-full text-left px-3 py-2.5 transition-all duration-150 hover:bg-slate-800 border-l-3 border-transparent"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold bg-gradient-to-br from-orange-500 to-orange-600">
+                  E
                 </div>
-                <div className="text-xs text-slate-400 font-medium">
-                  @everyone
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-semibold text-white truncate">
+                    Everyone
+                  </div>
+                  <div className="text-xs text-slate-400 font-medium">
+                    @everyone
+                  </div>
                 </div>
               </div>
-            </div>
-          </button>
+            </button>
+          )}
         
-{(() => {
-          // Get unique users from thread (author + all post authors)
-          const usersMap = new Map<number, any>();
-          
-          // Add thread author
-          if (data?.thread?.userId && data?.thread?.authorName) {
-            usersMap.set(data.thread.userId, {
-              userId: data.thread.userId,
-              authorName: data.thread.authorName,
-            });
-          }
-          
-          // Add all post authors
-          if (data?.posts) {
-            data.posts.forEach((post: any) => {
-              if (post.userId && post.authorName && !usersMap.has(post.userId)) {
-                usersMap.set(post.userId, {
-                  userId: post.userId,
-                  authorName: post.authorName,
-                });
-              }
-            });
-          }
-          
-          return Array.from(usersMap.values()).map((user: any, index: number) => {
-            const mentionHandle = user.authorName.split(' ')[0].toLowerCase();
-            return (
-              <button
-                key={user.userId}
-                type="button"
-                onClick={() => insertMention(mentionHandle)}
-                className="w-full text-left px-3 py-2.5 transition-all duration-150 hover:bg-slate-800 border-l-3 border-transparent"
-              >
-                <div className="flex items-center gap-3">
-                  {/* Avatar with dynamic background */}
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
-                    index % 5 === 0 ? 'bg-gradient-to-br from-orange-400 to-orange-500' :
-                    index % 5 === 1 ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
-                    index % 5 === 2 ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
-                    index % 5 === 3 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
-                    'bg-gradient-to-br from-pink-400 to-pink-500'
-                  }`}>
-                    {user.authorName.charAt(0).toUpperCase()}
-                  </div>
-                  
-                  {/* User Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">
-                      {user.authorName}
+          {/* Loading state */}
+          {isLoadingUsers ? (
+            <div className="px-3 py-4 text-center">
+              <p className="text-sm text-slate-400">Loading users...</p>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="px-3 py-4 text-center">
+              <p className="text-sm text-slate-400">
+                {searchQuery.trim() ? 'No users found' : 'No users available'}
+              </p>
+            </div>
+          ) : (
+            filteredUsers.map((user: any, index: number) => {
+              const fullName = user.authorName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'User';
+              const mentionHandle = fullName.split(' ')[0].toLowerCase();
+              
+              return (
+                <button
+                  key={user.userId || user.id || index}
+                  type="button"
+                  onClick={() => insertMention(mentionHandle)}
+                  className="w-full text-left px-3 py-2.5 transition-all duration-150 hover:bg-slate-800 border-l-3 border-transparent"
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Avatar with dynamic background */}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
+                      index % 5 === 0 ? 'bg-gradient-to-br from-orange-400 to-orange-500' :
+                      index % 5 === 1 ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
+                      index % 5 === 2 ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                      index % 5 === 3 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
+                      'bg-gradient-to-br from-pink-400 to-pink-500'
+                    }`}>
+                      {fullName.charAt(0).toUpperCase()}
                     </div>
-                    <div className="text-xs text-slate-400 font-medium">
-                      @{mentionHandle}
+                    
+                    {/* User Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-white truncate">
+                        {fullName}
+                      </div>
+                      <div className="text-xs text-slate-400 font-medium">
+                        @{mentionHandle}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </button>
-            );
-          });
-        })()}
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
     )}
