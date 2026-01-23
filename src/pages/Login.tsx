@@ -63,6 +63,9 @@ export default function Login() {
         return;
       }
 else{
+
+console.log("Registering FCM token");
+
   registerFCMToken();
   // Update auth cache immediately with the user data from login response
   // Don't refetch immediately - cookies need time to be set by the browser
