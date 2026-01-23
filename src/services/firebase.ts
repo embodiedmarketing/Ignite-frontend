@@ -185,27 +185,60 @@ const messaging = getMessaging();
 
 export const requestForToken = async () => {
   try {
-    const permission = await Notification.requestPermission();
-    console.log("permission", permission);
-    if (permission === "granted") {
-      const currentToken = await getToken(messaging, {
-        vapidKey:
-          "BPCZ33LkE2ClxMKA1RK2YFL3sR6dvpu60qAxRekkKjrqXEp-wk7RiSrp0iXcfYfCx9Ho7tHnkoAqKxvDVxoP6TU",
-        serviceWorkerRegistration: await navigator.serviceWorker.ready,
-      });
+    // Check if service worker is supported
+    if (!("serviceWorker" in navigator)) {
+      console.error("[Firebase] Service Worker not supported");
+      return undefined;
+    }
 
-      if (currentToken) {
-        return currentToken;
-      } else {
-        console.log(
-          "No registration token available. Request permission to generate one."
-        );
+    // Wait for service worker to be ready
+    let serviceWorkerRegistration: ServiceWorkerRegistration;
+    try {
+      serviceWorkerRegistration = await navigator.serviceWorker.ready;
+      console.log("[Firebase] Service worker ready");
+    } catch (swError: any) {
+      console.error("[Firebase] Service worker not ready:", swError);
+      return undefined;
+    }
+
+    const permission = await Notification.requestPermission();
+    console.log("[Firebase] Notification permission:", permission);
+    
+    if (permission === "granted") {
+      try {
+        const currentToken = await getToken(messaging, {
+          vapidKey:
+            "BPCZ33LkE2ClxMKA1RK2YFL3sR6dvpu60qAxRekkKjrqXEp-wk7RiSrp0iXcfYfCx9Ho7tHnkoAqKxvDVxoP6TU",
+          serviceWorkerRegistration: serviceWorkerRegistration,
+        });
+
+        if (currentToken) {
+          console.log("[Firebase] ✅ Token retrieved successfully");
+          return currentToken;
+        } else {
+          console.warn("[Firebase] ⚠️ No registration token available. Request permission to generate one.");
+          return undefined;
+        }
+      } catch (tokenError: any) {
+        console.error("[Firebase] ❌ Error getting token:", tokenError);
+        console.error("[Firebase] Token error details:", {
+          code: tokenError?.code,
+          message: tokenError?.message,
+        });
+        return undefined;
       }
     } else {
-      console.log("Permission for notifications denied.");
+      console.warn("[Firebase] ⚠️ Permission for notifications denied:", permission);
+      return undefined;
     }
-  } catch (err) {
-    console.log("An error occurred while retrieving token. ", err);
+  } catch (err: any) {
+    console.error("[Firebase] ❌ An error occurred while retrieving token:", err);
+    console.error("[Firebase] Error details:", {
+      name: err?.name,
+      message: err?.message,
+      stack: err?.stack,
+    });
+    return undefined;
   }
 };
 
