@@ -71,6 +71,15 @@ export default function ThreadDetail() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [threadAttachments, setThreadAttachments] = useState<File[]>([]);
   const [postAttachments, setPostAttachments] = useState<File[]>([]);
+  
+  // Mention popup state
+  const [showMentionPopup, setShowMentionPopup] = useState(false);
+  const [activeEditorWrapperId, setActiveEditorWrapperId] = useState<string | null>(null);
+  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const mentionPopupRef = useRef<HTMLDivElement | null>(null);
+  const activeEditorRef = useRef<HTMLElement | null>(null);
+  const mentionRangeRef = useRef<Range | null>(null);
+  const activeFormRef = useRef<{ setValue: (field: string, value: string) => void } | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/forum/threads", id],
@@ -114,6 +123,428 @@ export default function ThreadDetail() {
       });
     }
   }, [data?.thread, isEditingThread]);
+  
+  // Insert mention into editor
+  const insertMention = (mentionText: string) => {
+    if (!activeEditorRef.current) {
+      console.log('No active editor found');
+      return;
+    }
+    
+    const editorElement = activeEditorRef.current;
+    editorElement.focus();
+    
+    let selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      console.log('No selection found, trying to get current selection');
+      // Try to restore selection
+      if (mentionRangeRef.current) {
+        selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(mentionRangeRef.current);
+        } else {
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+    
+    if (!selection || selection.rangeCount === 0) {
+      return;
+    }
+    
+    // Get current range
+    const currentRange = selection.getRangeAt(0);
+    const textNode = currentRange.startContainer;
+    
+    // Find @ symbol and replace text after it
+    if (textNode.nodeType === Node.TEXT_NODE) {
+      const text = textNode.textContent || '';
+      const offset = currentRange.startOffset;
+      const textBefore = text.substring(0, offset);
+      const atPos = textBefore.lastIndexOf('@');
+      
+      if (atPos !== -1) {
+        // Create range from @ to cursor
+        const rangeToReplace = document.createRange();
+        rangeToReplace.setStart(textNode, atPos);
+        rangeToReplace.setEnd(textNode, offset);
+        
+        // Delete and insert mention
+        rangeToReplace.deleteContents();
+        const mentionNode = document.createTextNode(`@${mentionText} `);
+        rangeToReplace.insertNode(mentionNode);
+        
+        // Move cursor after mention
+        rangeToReplace.setStartAfter(mentionNode);
+        rangeToReplace.collapse(true);
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(rangeToReplace);
+        }
+      }
+    } else {
+      // Fallback: use execCommand to insert text
+      // First, find and delete @ and text after it
+      const allText = editorElement.textContent || '';
+      const lastAt = allText.lastIndexOf('@');
+      if (lastAt !== -1) {
+        // Select from @ to end
+        const range = document.createRange();
+        const walker = document.createTreeWalker(
+          editorElement,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        
+        let node;
+        let charCount = 0;
+        let startNode: Node | null = null;
+        let startOffset = 0;
+        let endNode: Node | null = null;
+        let endOffset = 0;
+        
+        while ((node = walker.nextNode())) {
+          const text = node.textContent || '';
+          if (charCount <= lastAt && charCount + text.length > lastAt) {
+            startNode = node;
+            startOffset = lastAt - charCount;
+          }
+          if (charCount <= allText.length && charCount + text.length >= allText.length) {
+            endNode = node;
+            endOffset = allText.length - charCount;
+            break;
+          }
+          charCount += text.length;
+        }
+        
+        if (startNode && endNode && startNode.nodeType === Node.TEXT_NODE && endNode.nodeType === Node.TEXT_NODE) {
+          range.setStart(startNode, startOffset);
+          range.setEnd(endNode, endOffset);
+          range.deleteContents();
+          
+          const mentionNode = document.createTextNode(`@${mentionText} `);
+          range.insertNode(mentionNode);
+          
+          range.setStartAfter(mentionNode);
+          range.collapse(true);
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        } else {
+          // Last resort: use execCommand
+          document.execCommand('insertText', false, `@${mentionText} `);
+        }
+      }
+    }
+    
+    // Update form value
+    if (activeFormRef.current && editorElement) {
+      const html = editorElement.innerHTML;
+      activeFormRef.current.setValue('body', html);
+    }
+    
+    // Close popup
+    setShowMentionPopup(false);
+    setActiveEditorWrapperId(null);
+    activeEditorRef.current?.focus();
+  };
+  
+  // Listen for @ symbol in RichTextEditor
+  useEffect(() => {
+    const handleInput = (e: Event) => {
+      const target = e.target as HTMLElement;
+      
+      // Check if this is a RichTextEditor contentEditable
+      if (target.getAttribute('data-testid') !== 'rich-text-editor-content') {
+        return;
+      }
+      
+      console.log('Input event detected in RichTextEditor');
+      
+      // Small delay to ensure content is updated
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+          setShowMentionPopup(false);
+          setActiveEditorWrapperId(null);
+          return;
+        }
+        
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        
+        // Get text content from the editor (use textContent to get plain text)
+        const editorElement = target as HTMLElement;
+        const allText = editorElement.textContent || '';
+        console.log('Editor text:', allText);
+        
+        // Get text before cursor
+        let textBeforeCursor = '';
+        const textNode = range.startContainer;
+        
+        if (textNode.nodeType === Node.TEXT_NODE) {
+          const text = textNode.textContent || '';
+          const offset = range.startOffset;
+          textBeforeCursor = text.substring(0, offset);
+          console.log('Text before cursor:', textBeforeCursor);
+        } else {
+          // For non-text nodes, use a simpler approach
+          // Check if the last character in the editor is @
+          const trimmedText = allText.trim();
+          if (trimmedText.endsWith('@')) {
+            console.log('@ found at end of text');
+            // Store editor and range for mention insertion
+            activeEditorRef.current = editorElement;
+            if (selection && selection.rangeCount > 0) {
+              mentionRangeRef.current = selection.getRangeAt(0).cloneRange();
+            }
+            
+            // Determine which form this editor belongs to
+            const editorWrapper = editorElement.closest('[data-editor-wrapper]');
+            let wrapperId: string | null = null;
+            if (editorWrapper) {
+              wrapperId = editorWrapper.getAttribute('data-editor-wrapper');
+              setActiveEditorWrapperId(wrapperId);
+              if (wrapperId === 'main-reply') {
+                activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+              } else if (wrapperId === 'thread-edit') {
+                activeFormRef.current = { setValue: (field: string, value: string) => editThreadForm.setValue(field as any, value) };
+              } else if (wrapperId?.startsWith('post-edit-')) {
+                activeFormRef.current = { setValue: (field: string, value: string) => editPostForm.setValue(field as any, value) };
+              } else if (wrapperId?.startsWith('reply-to-')) {
+                activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+              }
+            }
+            
+            const popupHeight = 256;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            
+            let topPosition: number;
+            if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+              topPosition = rect.bottom + 5;
+            } else {
+              topPosition = rect.top - popupHeight - 5;
+            }
+            
+            setMentionPosition({
+              top: Math.max(5, Math.min(topPosition, window.innerHeight - popupHeight - 5)),
+              left: Math.max(5, Math.min(rect.left, window.innerWidth - 288 - 5)),
+            });
+            setShowMentionPopup(true);
+            return;
+          }
+          setShowMentionPopup(false);
+          setActiveEditorWrapperId(null);
+          return;
+        }
+        
+        // Check if last character is @
+        if (textBeforeCursor.endsWith('@')) {
+          console.log('@ detected at cursor, showing popup');
+          // Store editor and range for mention insertion
+          activeEditorRef.current = editorElement;
+          if (selection && selection.rangeCount > 0) {
+            mentionRangeRef.current = selection.getRangeAt(0).cloneRange();
+          }
+          
+          // Determine which form this editor belongs to
+          const editorWrapper = editorElement.closest('[data-editor-wrapper]');
+          let wrapperId: string | null = null;
+          if (editorWrapper) {
+            wrapperId = editorWrapper.getAttribute('data-editor-wrapper');
+            setActiveEditorWrapperId(wrapperId);
+            if (wrapperId === 'main-reply') {
+              activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+            } else if (wrapperId === 'thread-edit') {
+              activeFormRef.current = { setValue: (field: string, value: string) => editThreadForm.setValue(field as any, value) };
+            } else if (wrapperId?.startsWith('post-edit-')) {
+              activeFormRef.current = { setValue: (field: string, value: string) => editPostForm.setValue(field as any, value) };
+            } else if (wrapperId?.startsWith('reply-to-')) {
+              activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+            }
+          }
+          
+          // Use getBoundingClientRect() directly for fixed positioning (viewport coordinates)
+          // Position below cursor, but check if there's enough space
+          const popupHeight = 256; // max-h-64 = 256px
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const spaceAbove = rect.top;
+          
+          let topPosition: number;
+          if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+            // Position below cursor
+            topPosition = rect.bottom + 5;
+          } else {
+            // Position above cursor if not enough space below
+            topPosition = rect.top - popupHeight - 5;
+          }
+          
+          setMentionPosition({
+            top: Math.max(5, Math.min(topPosition, window.innerHeight - popupHeight - 5)), // Keep within viewport
+            left: Math.max(5, Math.min(rect.left, window.innerWidth - 288 - 5)), // Keep within viewport (w-72 = 288px)
+          });
+          setShowMentionPopup(true);
+        } else {
+          // Check if there's @ followed by text (hide if space after @)
+          const lastAt = textBeforeCursor.lastIndexOf('@');
+          if (lastAt !== -1) {
+            const afterAt = textBeforeCursor.substring(lastAt + 1);
+            if (/\s/.test(afterAt)) {
+              console.log('Space after @, hiding popup');
+              setShowMentionPopup(false);
+              setActiveEditorWrapperId(null);
+            } else {
+              // Show popup if @ exists and no space after
+              console.log('@ found with text after, showing popup');
+              // Store editor and range for mention insertion
+              activeEditorRef.current = editorElement;
+              if (selection && selection.rangeCount > 0) {
+                mentionRangeRef.current = selection.getRangeAt(0).cloneRange();
+              }
+              
+              // Determine which form this editor belongs to
+              const editorWrapper = editorElement.closest('[data-editor-wrapper]');
+              let wrapperId: string | null = null;
+              if (editorWrapper) {
+                wrapperId = editorWrapper.getAttribute('data-editor-wrapper');
+                setActiveEditorWrapperId(wrapperId);
+                if (wrapperId === 'main-reply') {
+                  activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+                } else if (wrapperId === 'thread-edit') {
+                  activeFormRef.current = { setValue: (field: string, value: string) => editThreadForm.setValue(field as any, value) };
+                } else if (wrapperId?.startsWith('post-edit-')) {
+                  activeFormRef.current = { setValue: (field: string, value: string) => editPostForm.setValue(field as any, value) };
+                } else if (wrapperId?.startsWith('reply-to-')) {
+                  activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+                }
+              }
+              
+              const popupHeight = 256;
+              const spaceBelow = window.innerHeight - rect.bottom;
+              const spaceAbove = rect.top;
+              
+              let topPosition: number;
+              if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+                topPosition = rect.bottom + 5;
+              } else {
+                topPosition = rect.top - popupHeight - 5;
+              }
+              
+              setMentionPosition({
+                top: Math.max(5, Math.min(topPosition, window.innerHeight - popupHeight - 5)),
+                left: Math.max(5, Math.min(rect.left, window.innerWidth - 288 - 5)),
+              });
+              setShowMentionPopup(true);
+            }
+          } else {
+            console.log('No @ found, hiding popup');
+            setShowMentionPopup(false);
+            setActiveEditorWrapperId(null);
+          }
+        }
+      }, 50);
+    };
+    
+    // Also listen for keydown to catch @ keypress
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      
+      if (target.getAttribute('data-testid') !== 'rich-text-editor-content') {
+        return;
+      }
+      
+      // Check if @ key was pressed (Shift+2 on most keyboards, or @ key directly)
+      if (e.key === '@' || (e.shiftKey && e.key === '2')) {
+        console.log('@ key pressed');
+        // Small delay to let the character be inserted
+        setTimeout(() => {
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            
+            // Store editor and range for mention insertion
+            activeEditorRef.current = target as HTMLElement;
+            mentionRangeRef.current = range.cloneRange();
+            
+            // Determine which form this editor belongs to
+            const editorWrapper = target.closest('[data-editor-wrapper]');
+            let wrapperId: string | null = null;
+            if (editorWrapper) {
+              wrapperId = editorWrapper.getAttribute('data-editor-wrapper');
+              setActiveEditorWrapperId(wrapperId);
+              if (wrapperId === 'main-reply') {
+                activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+              } else if (wrapperId === 'thread-edit') {
+                activeFormRef.current = { setValue: (field: string, value: string) => editThreadForm.setValue(field as any, value) };
+              } else if (wrapperId?.startsWith('post-edit-')) {
+                activeFormRef.current = { setValue: (field: string, value: string) => editPostForm.setValue(field as any, value) };
+              } else if (wrapperId?.startsWith('reply-to-')) {
+                activeFormRef.current = { setValue: (field: string, value: string) => form.setValue(field as any, value) };
+              }
+            }
+            
+            const popupHeight = 256;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            
+            let topPosition: number;
+            if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+              topPosition = rect.bottom + 5;
+            } else {
+              topPosition = rect.top - popupHeight - 5;
+            }
+            
+            setMentionPosition({
+              top: Math.max(5, Math.min(topPosition, window.innerHeight - popupHeight - 5)),
+              left: Math.max(5, Math.min(rect.left, window.innerWidth - 288 - 5)),
+            });
+            setShowMentionPopup(true);
+            console.log('Popup should be visible now at:', topPosition, rect.left);
+          }
+        }, 100);
+      }
+    };
+    
+    // Use event delegation on document to catch all input and keydown events
+    document.addEventListener('input', handleInput, true);
+    document.addEventListener('keydown', handleKeyDown as EventListener, true);
+    
+    console.log('Mention listener attached');
+    
+    return () => {
+      document.removeEventListener('input', handleInput, true);
+      document.removeEventListener('keydown', handleKeyDown as EventListener, true);
+    };
+  }, []);
+  
+  // Debug: log when popup state changes
+  useEffect(() => {
+    console.log('showMentionPopup changed to:', showMentionPopup);
+  }, [showMentionPopup]);
+  
+  // Close popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        mentionPopupRef.current &&
+        !mentionPopupRef.current.contains(e.target as Node) &&
+        !(e.target as HTMLElement).closest('[data-testid="rich-text-editor-content"]')
+      ) {
+        setShowMentionPopup(false);
+      }
+    };
+
+    if (showMentionPopup) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMentionPopup]);
 
   const createPostMutation = useMutation({
     mutationFn: async (postData: InsertForumPost & { parentId?: number }) => {
@@ -634,14 +1065,17 @@ export default function ThreadDetail() {
                       <FormItem>
                         <FormLabel>Thread Content</FormLabel>
                         <FormControl>
-                          <RichTextEditor
-                            ref={threadEditorRef}
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            onAttachmentsChange={setThreadAttachments}
-                            placeholder="Provide more details about your question or topic. Use the toolbar to format text, add links, or attach files..."
-                            minHeight="200px"
-                          />
+                          <div className="relative" data-editor-wrapper="thread-edit">
+                            { showMentionPopup && activeEditorWrapperId === 'thread-edit' && <MentionPopup mentionPopupRef={mentionPopupRef} insertMention={insertMention} data={data} />}
+                            <RichTextEditor
+                              ref={threadEditorRef}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              onAttachmentsChange={setThreadAttachments}
+                              placeholder="Provide more details about your question or topic. Use the toolbar to format text, add links, or attach files..."
+                              minHeight="200px"
+                            />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -751,14 +1185,17 @@ export default function ThreadDetail() {
                                   <FormItem>
                                     <FormLabel>Edit Your Reply</FormLabel>
                                     <FormControl>
-                                      <RichTextEditor
-                                        ref={postEditorRef}
-                                        value={field.value || ""}
-                                        onChange={field.onChange}
-                                        onAttachmentsChange={setPostAttachments}
-                                        placeholder="Edit your reply. Use the toolbar to format text, add links, or attach files..."
-                                        minHeight="120px"
-                                      />
+                                      <div className="relative" data-editor-wrapper={`post-edit-${post.id}`}>
+                                      { showMentionPopup && activeEditorWrapperId === `post-edit-${post.id}` && <MentionPopup mentionPopupRef={mentionPopupRef} insertMention={insertMention} data={data} />}
+                                        <RichTextEditor
+                                          ref={postEditorRef}
+                                          value={field.value || ""}
+                                          onChange={field.onChange}
+                                          onAttachmentsChange={setPostAttachments}
+                                          placeholder="Edit your reply. Use the toolbar to format text, add links, or attach files..."
+                                          minHeight="120px"
+                                        />
+                                      </div>
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -886,13 +1323,18 @@ export default function ThreadDetail() {
                                   <FormItem>
                                     <FormLabel>Your Reply</FormLabel>
                                     <FormControl>
-                                      <RichTextEditor
-                                        value={field.value || ""}
-                                        onChange={field.onChange}
-                                        onAttachmentsChange={setAttachments}
-                                        placeholder="Write your reply. Use the toolbar to format text, add links, or attach files..."
-                                        minHeight="120px"
-                                      />
+                                      <div className="relative" data-editor-wrapper={`reply-to-${post.id}`}>
+{ showMentionPopup && activeEditorWrapperId === `reply-to-${post.id}` && <MentionPopup mentionPopupRef={mentionPopupRef} insertMention={insertMention} data={data} />}
+
+
+                                        <RichTextEditor
+                                          value={field.value || ""}
+                                          onChange={field.onChange}
+                                          onAttachmentsChange={setAttachments}
+                                          placeholder="Write your reply. Use the toolbar to format text, add links, or attach files..."
+                                          minHeight="120px"
+                                        />
+                                      </div>
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -966,6 +1408,9 @@ export default function ThreadDetail() {
                                         <FormItem>
                                           <FormLabel>Edit Your Reply</FormLabel>
                                           <FormControl>
+                                            <div className="relative" data-editor-wrapper={`post-edit-${reply.id}`}> 
+
+                                            { showMentionPopup && activeEditorWrapperId === `post-edit-${reply.id}` && <MentionPopup mentionPopupRef={mentionPopupRef} insertMention={insertMention} data={data} />}
                                             <RichTextEditor
                                               ref={postEditorRef}
                                               value={field.value || ""}
@@ -974,6 +1419,7 @@ export default function ThreadDetail() {
                                               placeholder="Edit your reply. Use the toolbar to format text, add links, or attach files..."
                                               minHeight="120px"
                                             />
+                                            </div>
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
@@ -1100,14 +1546,17 @@ export default function ThreadDetail() {
                       <FormItem>
                         <FormLabel>Your Reply</FormLabel>
                         <FormControl>
-                          <RichTextEditor
-                            ref={editorRef}
-                            value={field.value || ""}
-                            onChange={field.onChange}
-                            onAttachmentsChange={setAttachments}
-                            placeholder="Share your thoughts, provide help, or ask follow-up questions. Use the toolbar to format text, add links, or attach files..."
-                            minHeight="150px"
-                          />
+                          <div className="relative" data-editor-wrapper="main-reply">
+                          { showMentionPopup && activeEditorWrapperId === 'main-reply' && <MentionPopup mentionPopupRef={mentionPopupRef} insertMention={insertMention} data={data} />}
+                            <RichTextEditor
+                              ref={editorRef}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              onAttachmentsChange={setAttachments}
+                              placeholder="Share your thoughts, provide help, or ask follow-up questions. Use the toolbar to format text, add links, or attach files..."
+                              minHeight="150px"
+                            />
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1143,3 +1592,104 @@ export default function ThreadDetail() {
     </div>
   );
 }
+
+
+const MentionPopup = ({mentionPopupRef, insertMention, data}: {mentionPopupRef: React.RefObject<HTMLDivElement>, insertMention: (mention: string) => void, data: any}) => {
+  return (
+  
+      <div
+        ref={mentionPopupRef}
+        className="absolute bottom-[80%] left-[2%] z-[9999] w-72 max-h-64 overflow-hidden bg-slate-900 rounded-lg shadow-2xl border border-slate-700"
+
+        data-testid="mention-popup"
+      >
+        <div className="px-3 py-2 bg-slate-800 border-b border-slate-700">
+          <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <span className="text-orange-400">@</span>
+            Mention someone
+          </p>
+        </div>
+        <div className="overflow-y-auto max-h-56 py-1">
+          {/* @Everyone option */}
+          <button
+            type="button"
+            onClick={() => insertMention('everyone')}
+            className="w-full text-left px-3 py-2.5 transition-all duration-150 hover:bg-slate-800 border-l-3 border-transparent"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold bg-gradient-to-br from-orange-500 to-orange-600">
+                E
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-white truncate">
+                  Everyone
+                </div>
+                <div className="text-xs text-slate-400 font-medium">
+                  @everyone
+                </div>
+              </div>
+            </div>
+          </button>
+        
+{(() => {
+          // Get unique users from thread (author + all post authors)
+          const usersMap = new Map<number, any>();
+          
+          // Add thread author
+          if (data?.thread?.userId && data?.thread?.authorName) {
+            usersMap.set(data.thread.userId, {
+              userId: data.thread.userId,
+              authorName: data.thread.authorName,
+            });
+          }
+          
+          // Add all post authors
+          if (data?.posts) {
+            data.posts.forEach((post: any) => {
+              if (post.userId && post.authorName && !usersMap.has(post.userId)) {
+                usersMap.set(post.userId, {
+                  userId: post.userId,
+                  authorName: post.authorName,
+                });
+              }
+            });
+          }
+          
+          return Array.from(usersMap.values()).map((user: any, index: number) => {
+            const mentionHandle = user.authorName.split(' ')[0].toLowerCase();
+            return (
+              <button
+                key={user.userId}
+                type="button"
+                onClick={() => insertMention(mentionHandle)}
+                className="w-full text-left px-3 py-2.5 transition-all duration-150 hover:bg-slate-800 border-l-3 border-transparent"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Avatar with dynamic background */}
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-semibold ${
+                    index % 5 === 0 ? 'bg-gradient-to-br from-orange-400 to-orange-500' :
+                    index % 5 === 1 ? 'bg-gradient-to-br from-blue-500 to-blue-600' :
+                    index % 5 === 2 ? 'bg-gradient-to-br from-purple-500 to-purple-600' :
+                    index % 5 === 3 ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' :
+                    'bg-gradient-to-br from-pink-400 to-pink-500'
+                  }`}>
+                    {user.authorName.charAt(0).toUpperCase()}
+                  </div>
+                  
+                  {/* User Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-white truncate">
+                      {user.authorName}
+                    </div>
+                    <div className="text-xs text-slate-400 font-medium">
+                      @{mentionHandle}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          });
+        })()}
+        </div>
+      </div>
+    )}

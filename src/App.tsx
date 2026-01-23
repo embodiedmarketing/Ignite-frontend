@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "@/services/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -58,10 +58,12 @@ import AdminLogin from "@/pages/AdminLogin";
 import AdminUserManagement from "@/pages/AdminUserManagement"
 import AdminUserDetail from "@/pages/AdminUserDetail";
 import AccountDeactivated from "@/pages/AccountDeactivated";
+import Header from "./components/Header";
 
 function AppRouter() {
   const { isAuthenticated, isLoading, user } = useAuth();
-  const [location, setLocation] = useLocation();
+  const persistedUser = JSON.parse(localStorage.getItem("user") || "null");
+  const [path, setLocation] = useLocation();
 
   // Track page visits for "continue where you left off"
   usePageTracking();
@@ -71,12 +73,11 @@ function AppRouter() {
 
 
   useEffect(() => {
-    if (!isLoading && user && (user as any)?.isActive === false && location !== "/account-deactivated") {
+    if (!isLoading && persistedUser && (persistedUser as any)?.isActive === false && path !== "/account-deactivated") {
       setLocation("/account-deactivated");
-    }else{
-      setLocation("/");
     }
-  }, []);
+
+  }, [isLoading, persistedUser, path, setLocation]);
 
   if (isLoading) {
     return (
@@ -94,7 +95,20 @@ function AppRouter() {
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password/:token" component={ResetPassword} />
       <Route path="/reset-password" component={ResetPassword} />
-      <Route path="/account-deactivated" component={AccountDeactivated} />
+
+
+      
+      <Route path="/account-deactivated" >
+      {persistedUser && (persistedUser as any)?.isActive === false ?  <>
+      
+      <Header/>
+        <AccountDeactivated />
+      </> :
+      <Redirect to="/" replace />
+      
+      }
+      </Route>
+       
 
       {/* Admin routes */}
       <Route path="/admin/login" component={AdminLogin} />

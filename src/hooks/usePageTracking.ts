@@ -85,13 +85,42 @@ export function useAutoRedirect() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const [location, setLocation] = useLocation();
   const hasRedirected = useRef(false);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
-    // Only redirect once when user first loads the app
-    if (hasRedirected.current || isLoading || !isAuthenticated || !user) return;
+    // Skip on initial mount - wait for location to stabilize
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
 
-    // Don't redirect if user is already on a specific page (not landing/login/dashboard)
-    if (location !== "/" && location !== "/dashboard" && location !== "/login") return;
+    // Only redirect once when user first loads the app
+    if (hasRedirected.current || isLoading || !isAuthenticated || !user) {
+      console.log('[useAutoRedirect] Skipping redirect:', {
+        hasRedirected: hasRedirected.current,
+        isLoading,
+        isAuthenticated,
+        hasUser: !!user,
+      });
+      return;
+    }
+
+    // Only redirect from these specific paths: "/", "/dashboard", "/login"
+    // Don't redirect from any other path (including /account-deactivated, forum routes, etc.)
+    const redirectablePaths = ["/", "/dashboard", "/login"];
+    const isForumRoute = location.startsWith("/forum/");
+    
+    // If user is NOT on a redirectable path, don't redirect
+    if (!redirectablePaths.includes(location)) {
+      console.log('[useAutoRedirect] Not redirecting - user is on specific page:', location);
+      return;
+    }
+    
+    // Also explicitly exclude forum routes (extra safety check)
+    if (isForumRoute) {
+      console.log('[useAutoRedirect] Not redirecting - user is on forum route:', location);
+      return;
+    }
 
     // Check if user has a last visited page
     if (user.lastVisitedPath) {
@@ -100,10 +129,14 @@ export function useAutoRedirect() {
       
       // Only redirect to trackable routes
       if (TRACKABLE_ROUTES.has(targetPath)) {
-        console.log(`Redirecting to last visited page: ${targetPath}`);
+        console.log(`[useAutoRedirect] Redirecting to last visited page: ${targetPath} from ${location}`);
         setLocation(targetPath);
         hasRedirected.current = true;
+      } else {
+        console.log('[useAutoRedirect] Last visited path is not trackable:', targetPath);
       }
+    } else {
+      console.log('[useAutoRedirect] No last visited path found');
     }
   }, [user, isAuthenticated, isLoading, location, setLocation]);
 }

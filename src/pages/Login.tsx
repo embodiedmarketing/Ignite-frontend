@@ -53,10 +53,11 @@ export default function Login() {
       }
     },
     onSuccess: async (responseData) => {
-      
+
       const isActive = responseData?.user?.isActive;
       console.log("Login successful!", isActive);
       if (isActive === false) {      
+        localStorage.setItem("user", JSON.stringify(responseData.user));
         setLocation("/account-deactivated");
         return;
       }

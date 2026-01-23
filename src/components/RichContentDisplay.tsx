@@ -15,10 +15,86 @@ interface RichContentDisplayProps {
 }
 
 export default function RichContentDisplay({ content, attachments }: RichContentDisplayProps) {
+  // Process mentions: find @username patterns and wrap them in styled spans
+  const processMentions = (html: string): string => {
+    try {
+      // Create a temporary DOM element to parse HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      
+      // Function to process text nodes recursively
+      const walkAndProcess = (node: Node): void => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent || '';
+          // Regular expression to match @mentions
+          const mentionRegex = /@([a-zA-Z0-9_-]+)/g;
+          
+          if (mentionRegex.test(text)) {
+            const parent = node.parentNode;
+            if (!parent) return;
+            
+            // Split text by mentions
+            const parts: (Node | HTMLElement)[] = [];
+            let lastIndex = 0;
+            mentionRegex.lastIndex = 0; // Reset regex
+            
+            let match;
+            while ((match = mentionRegex.exec(text)) !== null) {
+              // Add text before mention
+              if (match.index > lastIndex) {
+                parts.push(document.createTextNode(text.substring(lastIndex, match.index)));
+              }
+              
+              // Create styled span for mention
+              const span = document.createElement('span');
+              span.style.color = '#2563eb';
+              span.style.fontWeight = '500';
+              span.textContent = match[0];
+              parts.push(span);
+              
+              lastIndex = mentionRegex.lastIndex;
+            }
+            
+            // Add remaining text
+            if (lastIndex < text.length) {
+              parts.push(document.createTextNode(text.substring(lastIndex)));
+            }
+            
+            // Replace text node with new nodes
+            parts.forEach((part) => {
+              parent.insertBefore(part, node);
+            });
+            parent.removeChild(node);
+          }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          // Recursively process child nodes (but skip script and style tags)
+          const tagName = (node as Element).tagName?.toLowerCase();
+          if (tagName !== 'script' && tagName !== 'style') {
+            // Create a copy of childNodes array since we'll be modifying it
+            const childNodes = Array.from(node.childNodes);
+            childNodes.forEach(walkAndProcess);
+          }
+        }
+      };
+      
+      // Process all nodes
+      Array.from(tempDiv.childNodes).forEach(walkAndProcess);
+      
+      return tempDiv.innerHTML;
+    } catch (error) {
+      // If processing fails, return original HTML
+      console.error('Error processing mentions:', error);
+      return html;
+    }
+  };
+
+  // Process mentions first, then sanitize
+  const contentWithMentions = processMentions(content);
+  
   // Sanitize HTML content to prevent XSS attacks
-  const sanitizedContent = DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li', 'b', 'i'],
-    ALLOWED_ATTR: ['href', 'target', 'rel', 'class']
+  const sanitizedContent = DOMPurify.sanitize(contentWithMentions, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li', 'b', 'i', 'span'],
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style']
   });
 
   const formatFileSize = (bytes: number) => {
