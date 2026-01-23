@@ -36,7 +36,10 @@ export default function Header() {
         title: "Logged out successfully",
         description: "You've been logged out of your account.",
       });
-
+localStorage.removeItem("user");
+localStorage.removeItem("fcmToken");
+localStorage.removeItem("fcmTokenRegistered");
+localStorage.removeItem("deviceId");
       window.location.href = "/login";
     } catch (error) {
 
@@ -114,9 +117,8 @@ export default function Header() {
   }, []);
 
 
-
+console.log("isAuthenticatedUser", isAuthenticated, user);
   useEffect(() => {
-    console.log("isAuthenticated", isAuthenticated);
     // Only register FCM token if user is authenticated
     if (!isAuthenticated || !user) {
       return;
