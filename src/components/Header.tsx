@@ -18,6 +18,78 @@ import { apiClient } from "@/services/api.config";
 import { useEffect, useState } from "react";
 import { onMessageListener, requestForToken } from "@/services/firebase";
 
+// Helper function to detect device type
+const getDeviceType = (): "ios" | "android" | "web" => {
+  const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+  
+  // Check for iOS
+  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+    return "ios";
+  }
+  
+  // Check for Android
+  if (/android/i.test(userAgent)) {
+    return "android";
+  }
+  
+  // Default to web
+  return "web";
+};
+
+// Helper function to get or create device ID
+const getDeviceId = (): string => {
+  let deviceId = localStorage.getItem("deviceId");
+  if (!deviceId) {
+    // Generate a unique device ID
+    deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem("deviceId", deviceId);
+  }
+  return deviceId;
+};
+
+// Export function to register FCM token
+export const registerFCMToken = async () => {
+  try {
+    console.log("registerFCMToken called");
+    // Check if we already have a token registered
+    const storedToken = localStorage.getItem("fcmToken");
+    const registeredToken = localStorage.getItem("fcmTokenRegistered");
+    
+    // Request new token from Firebase
+    const currentToken = await requestForToken();
+    console.log("currentToken returned", currentToken);
+    if (!currentToken) {
+      console.log("[FCM] No token available");
+      return;
+    }
+    console.log("currentToken", currentToken, storedToken, registeredToken);
+    // If token changed or not registered, send to backend
+    if (currentToken !== storedToken || !registeredToken) {
+      console.log("[FCM] Registering token with backend:", currentToken);
+      
+      const deviceType = getDeviceType();
+      const deviceId = getDeviceId();
+      
+      await apiClient.post("/api/users/fcm-token", {
+        token: currentToken,
+        deviceType: deviceType,
+        deviceId: deviceId,
+      });
+
+      localStorage.setItem("fcmToken", currentToken);
+      localStorage.setItem("fcmTokenRegistered", "true");
+      console.log("[FCM] Token registered successfully", { deviceType, deviceId });
+    } else {
+      console.log("[FCM] Token already registered");
+    }
+  } catch (error: any) {
+    console.error("[FCM] Error registering FCM token:", error);
+    if (error.response) {
+      console.error("[FCM] Error response:", error.response.data);
+    }
+  }
+};
+
 export default function Header() {
   const { user ,isAuthenticated} = useAuth();
   const persistedUser = JSON.parse(localStorage.getItem("user")!);
@@ -78,34 +150,6 @@ localStorage.removeItem("deviceId");
     window.location.href = "/login";
   };
 
-  // Helper function to detect device type
-  const getDeviceType = (): "ios" | "android" | "web" => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-    
-    // Check for iOS
-    if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
-      return "ios";
-    }
-    
-    // Check for Android
-    if (/android/i.test(userAgent)) {
-      return "android";
-    }
-    
-    // Default to web
-    return "web";
-  };
-
-  // Helper function to get or create device ID
-  const getDeviceId = (): string => {
-    let deviceId = localStorage.getItem("deviceId");
-    if (!deviceId) {
-      // Generate a unique device ID
-      deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      localStorage.setItem("deviceId", deviceId);
-    }
-    return deviceId;
-  };
 
   // Track notification permission changes
   useEffect(() => {
@@ -117,58 +161,59 @@ localStorage.removeItem("deviceId");
   }, []);
 
 
-console.log("isAuthenticatedUser", isAuthenticated, user);
-  useEffect(() => {
-    // Only register FCM token if user is authenticated
-    if (!isAuthenticated || !user) {
-      return;
-    }
 
-    const registerFCMToken = async () => {
-      try {
+// console.log("isAuthenticatedUser", isAuthenticated, user);
+//   useEffect(() => {
+//     // Only register FCM token if user is authenticated
+//     if (!isAuthenticated || !user) {
+//       return;
+//     }
 
-        console.log("registerFCMToken called");
-        // Check if we already have a token registered
-        const storedToken = localStorage.getItem("fcmToken");
-        const registeredToken = localStorage.getItem("fcmTokenRegistered");
+//     const registerFCMToken = async () => {
+//       try {
+
+//         console.log("registerFCMToken called");
+//         // Check if we already have a token registered
+//         const storedToken = localStorage.getItem("fcmToken");
+//         const registeredToken = localStorage.getItem("fcmTokenRegistered");
         
-        // Request new token from Firebase
-        const currentToken = await requestForToken();
-        console.log("currentToken returned", currentToken);
-        if (!currentToken) {
-          console.log("[FCM] No token available");
-          return;
-        }
-console.log("currentToken", currentToken, storedToken, registeredToken);
-        // If token changed or not registered, send to backend
-        if (currentToken !== storedToken || !registeredToken) {
-          console.log("[FCM] Registering token with backend:", currentToken);
+//         // Request new token from Firebase
+//         const currentToken = await requestForToken();
+//         console.log("currentToken returned", currentToken);
+//         if (!currentToken) {
+//           console.log("[FCM] No token available");
+//           return;
+//         }
+// console.log("currentToken", currentToken, storedToken, registeredToken);
+//         // If token changed or not registered, send to backend
+//         if (currentToken !== storedToken || !registeredToken) {
+//           console.log("[FCM] Registering token with backend:", currentToken);
           
-          const deviceType = getDeviceType();
-          const deviceId = getDeviceId();
+//           const deviceType = getDeviceType();
+//           const deviceId = getDeviceId();
           
-          await apiClient.post("/api/users/fcm-token", {
-            token: currentToken,
-            deviceType: deviceType,
-            deviceId: deviceId,
-          });
+//           await apiClient.post("/api/users/fcm-token", {
+//             token: currentToken,
+//             deviceType: deviceType,
+//             deviceId: deviceId,
+//           });
 
-          localStorage.setItem("fcmToken", currentToken);
-          localStorage.setItem("fcmTokenRegistered", "true");
-          console.log("[FCM] Token registered successfully", { deviceType, deviceId });
-        } else {
-          console.log("[FCM] Token already registered");
-        }
-      } catch (error: any) {
-        console.error("[FCM] Error registering FCM token:", error);
-        if (error.response) {
-          console.error("[FCM] Error response:", error.response.data);
-        }
-      }
-    };
+//           localStorage.setItem("fcmToken", currentToken);
+//           localStorage.setItem("fcmTokenRegistered", "true");
+//           console.log("[FCM] Token registered successfully", { deviceType, deviceId });
+//         } else {
+//           console.log("[FCM] Token already registered");
+//         }
+//       } catch (error: any) {
+//         console.error("[FCM] Error registering FCM token:", error);
+//         if (error.response) {
+//           console.error("[FCM] Error response:", error.response.data);
+//         }
+//       }
+//     };
 
-    registerFCMToken();
-  }, [isAuthenticated, user]);
+//     registerFCMToken();
+//   }, [isAuthenticated, user]);
 
 
 
