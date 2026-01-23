@@ -15,11 +15,19 @@ import { useToast } from "@/hooks/use-toast";
 import IssueReportDialog from "./IssueReportDialog";
 import NotificationBell from "./NotificationBell";
 import { apiClient } from "@/services/api.config";
+import { useEffect, useState } from "react";
+import { onMessageListener, requestForToken } from "@/services/firebase";
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user ,isAuthenticated} = useAuth();
+  const persistedUser = JSON.parse(localStorage.getItem("user")!);
   const { toast } = useToast();
-
+  const [notification, setNotification] = useState([{ title: "", body: "" }]);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
+    typeof window !== "undefined" && "Notification" in window 
+      ? Notification.permission 
+      : "denied"
+  );
   const handleLogout = async () => {
     try {
       console.log("Logging out...");
@@ -28,8 +36,10 @@ export default function Header() {
         title: "Logged out successfully",
         description: "You've been logged out of your account.",
       });
+
       window.location.href = "/login";
     } catch (error) {
+
       toast({
         title: "Logout failed",
         description: "There was an issue logging you out. Please try again.",
@@ -48,6 +58,187 @@ export default function Header() {
     return "U";
   };
 
+
+  const getPersistedUserInitials = () => {
+    if (persistedUser?.firstName && persistedUser?.lastName) {
+      return `${persistedUser.firstName[0]}${persistedUser.lastName[0]}`.toUpperCase();
+    }
+    if (persistedUser?.email) {
+      return persistedUser.email[0].toUpperCase();
+    }
+    return "U";
+  };
+
+
+  const logout = () => {
+    localStorage.removeItem("user");
+    window.location.href = "/login";
+  };
+
+  // Helper function to detect device type
+  const getDeviceType = (): "ios" | "android" | "web" => {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    
+    // Check for iOS
+    if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+      return "ios";
+    }
+    
+    // Check for Android
+    if (/android/i.test(userAgent)) {
+      return "android";
+    }
+    
+    // Default to web
+    return "web";
+  };
+
+  // Helper function to get or create device ID
+  const getDeviceId = (): string => {
+    let deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) {
+      // Generate a unique device ID
+      deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem("deviceId", deviceId);
+    }
+    return deviceId;
+  };
+
+  // Track notification permission changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      const currentPermission = Notification.permission;
+      setNotificationPermission(currentPermission);
+      console.log("[Header] Current notification permission:", currentPermission);
+    }
+  }, []);
+
+
+
+  useEffect(() => {
+    console.log("isAuthenticated", isAuthenticated);
+    // Only register FCM token if user is authenticated
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    const registerFCMToken = async () => {
+      try {
+
+        console.log("registerFCMToken called");
+        // Check if we already have a token registered
+        const storedToken = localStorage.getItem("fcmToken");
+        const registeredToken = localStorage.getItem("fcmTokenRegistered");
+        
+        // Request new token from Firebase
+        const currentToken = await requestForToken();
+        console.log("currentToken returned", currentToken);
+        if (!currentToken) {
+          console.log("[FCM] No token available");
+          return;
+        }
+console.log("currentToken", currentToken, storedToken, registeredToken);
+        // If token changed or not registered, send to backend
+        if (currentToken !== storedToken || !registeredToken) {
+          console.log("[FCM] Registering token with backend:", currentToken);
+          
+          const deviceType = getDeviceType();
+          const deviceId = getDeviceId();
+          
+          await apiClient.post("/api/users/fcm-token", {
+            token: currentToken,
+            deviceType: deviceType,
+            deviceId: deviceId,
+          });
+
+          localStorage.setItem("fcmToken", currentToken);
+          localStorage.setItem("fcmTokenRegistered", "true");
+          console.log("[FCM] Token registered successfully", { deviceType, deviceId });
+        } else {
+          console.log("[FCM] Token already registered");
+        }
+      } catch (error: any) {
+        console.error("[FCM] Error registering FCM token:", error);
+        if (error.response) {
+          console.error("[FCM] Error response:", error.response.data);
+        }
+      }
+    };
+
+    registerFCMToken();
+  }, [isAuthenticated, user]);
+
+
+
+
+
+  const handleMessage = (payload: any) => {
+    console.log("[Header] FCM message received:", payload);
+    
+    const notificationTitle = payload?.notification?.title;
+    const notificationBody = payload?.notification?.body
+    
+    // setNotification([
+    //   {
+    //     title: notificationTitle,
+    //     body: notificationBody,
+    //   },
+    // ]);
+
+    if ("Notification" in window) {
+      const currentPermission = Notification.permission;
+      setNotificationPermission(currentPermission);
+      
+      if (currentPermission === "granted") {
+        console.log("[Header] ✅ Showing browser notification");
+        try {
+          const browserNotification = new Notification(notificationTitle, {
+            body: notificationBody,
+            tag: payload?.messageId || `notification-${Date.now()}`,
+            data: payload?.data,
+          });
+
+          browserNotification.onclick = () => {
+            console.log("[Header] Notification clicked");
+            window.focus();
+            browserNotification.close();
+            
+            // Navigate to the link if available
+            if (payload?.data?.link) {
+              window.location.href = payload.data.link;
+            }
+          };
+
+          setTimeout(() => {
+            browserNotification.close();
+          }, 5000);
+        } catch (error: any) {
+          console.error("[Header] Error showing browser notification:", error);
+        }
+      } else if (currentPermission === "default") {
+        console.log("[Header] ⚠️ Notification permission not yet requested");
+        console.log("[Header] Permission will be requested when FCM token is registered");
+      } else {
+        console.warn("[Header] ❌ Notification permission denied");
+        console.warn("[Header] To enable notifications:");
+        console.warn("  1. Click the lock icon (🔒) in the address bar");
+        console.warn("  2. Find 'Notifications' and set it to 'Allow'");
+        console.warn("  3. Refresh the page");
+      }
+    } else {
+      console.warn("[Header] ❌ Browser does not support notifications");
+    }
+
+ 
+  };
+  onMessageListener(handleMessage);
+
+
+
+
+
+
+
   return (
     <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -61,7 +252,7 @@ export default function Header() {
             </h1>
           </div>
 
-          <div className="flex items-center space-x-2 md:space-x-3">
+         {isAuthenticated ? <div className="flex items-center space-x-2 md:space-x-3">
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -119,6 +310,42 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+          
+        :  <div className="flex items-center space-x-2 md:space-x-3">
+           <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="p-0 h-auto">
+                  <Avatar className="w-7 h-7 md:w-8 md:h-8">
+                    <AvatarImage
+                      src={persistedUser?.profileImageUrl || undefined}
+                      alt={persistedUser?.firstName || "User"}
+                    />
+                    <AvatarFallback className="bg-slate-300 text-xs md:text-sm">
+                      {getPersistedUserInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem className="flex-col items-start">
+                  <div className="font-medium">
+                    {persistedUser?.firstName && persistedUser?.lastName
+                      ? `${persistedUser.firstName} ${persistedUser.lastName}`
+                      : persistedUser?.email || "User"}
+                  </div>
+                  {persistedUser?.email && (
+                    <div className="text-sm text-slate-500">{persistedUser.email}</div>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        }
         </div>
       </div>
     </header>

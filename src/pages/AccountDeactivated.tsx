@@ -2,9 +2,13 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, Mail } from "lucide-react";
+import { useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AccountDeactivated() {
   const [, setLocation] = useLocation();
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-embodied-cream to-white flex items-center justify-center p-4">
@@ -28,13 +32,13 @@ export default function AccountDeactivated() {
           </div>
           
           <div className="flex flex-col gap-3">
-            <Button
+            {/* <Button
               onClick={() => setLocation("/login")}
               variant="outline"
               className="w-full"
             >
               Back to Login
-            </Button>
+            </Button> */}
             
             <Button
               onClick={() => window.location.href = "mailto:team@embodiedmarketing.com"}
