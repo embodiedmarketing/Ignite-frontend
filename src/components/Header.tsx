@@ -47,45 +47,151 @@ const getDeviceId = (): string => {
   return deviceId;
 };
 
-// Export function to register FCM token
-export const registerFCMToken = async () => {
+// Register service worker for Firebase messaging
+const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
+  if (!("serviceWorker" in navigator)) {
+    console.error("[FCM] ❌ Service Worker not supported in this browser");
+    return null;
+  }
+
   try {
-    console.log("registerFCMToken called");
+    // Check if service worker is already registered
+    const existingRegistration = await navigator.serviceWorker.getRegistration();
+    if (existingRegistration) {
+      console.log("[FCM] ✅ Service worker already registered");
+      // Wait for it to be ready
+      await navigator.serviceWorker.ready;
+      return existingRegistration;
+    }
+
+    // Register the service worker
+    console.log("[FCM] Registering service worker...");
+    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
+      scope: "/",
+    });
+    
+    console.log("[FCM] ✅ Service worker registered:", registration);
+    
+    // Wait for service worker to be ready
+    await navigator.serviceWorker.ready;
+    console.log("[FCM] ✅ Service worker ready");
+    
+    return registration;
+  } catch (error: any) {
+    console.error("[FCM] ❌ Error registering service worker:", error);
+    console.error("[FCM] Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+    });
+    return null;
+  }
+};
+
+// Export function to register FCM token
+export const registerFCMToken = async (retryCount = 0, maxRetries = 3) => {
+  try {
+    console.log(`[FCM] registerFCMToken called (attempt ${retryCount + 1}/${maxRetries + 1})`);
+    
+    // Check if we're in a secure context (HTTPS or localhost)
+    if (typeof window !== "undefined" && !window.isSecureContext && window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+      console.warn("[FCM] ⚠️ Not in a secure context. FCM requires HTTPS in production.");
+      return;
+    }
+
+    // Register service worker first
+    const registration = await registerServiceWorker();
+    if (!registration) {
+      console.error("[FCM] ❌ Failed to register service worker");
+      if (retryCount < maxRetries) {
+        console.log(`[FCM] Retrying in 2 seconds... (${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => registerFCMToken(retryCount + 1, maxRetries), 2000);
+      }
+      return;
+    }
+
     // Check if we already have a token registered
     const storedToken = localStorage.getItem("fcmToken");
     const registeredToken = localStorage.getItem("fcmTokenRegistered");
     
     // Request new token from Firebase
+    console.log("[FCM] Requesting token from Firebase...");
     const currentToken = await requestForToken();
-    console.log("currentToken returned", currentToken);
+    console.log("[FCM] Token received from Firebase:", currentToken ? "Yes" : "No");
+    
     if (!currentToken) {
-      console.log("[FCM] No token available");
+      console.log("[FCM] ⚠️ No token available from Firebase");
+      if (retryCount < maxRetries) {
+        console.log(`[FCM] Retrying in 2 seconds... (${retryCount + 1}/${maxRetries})`);
+        setTimeout(() => registerFCMToken(retryCount + 1, maxRetries), 2000);
+      }
       return;
     }
-    console.log("currentToken", currentToken, storedToken, registeredToken);
+    
+    console.log("[FCM] Token comparison:", {
+      currentToken: currentToken.substring(0, 20) + "...",
+      storedToken: storedToken ? storedToken.substring(0, 20) + "..." : "null",
+      registeredToken: registeredToken || "false",
+    });
+    
     // If token changed or not registered, send to backend
     if (currentToken !== storedToken || !registeredToken) {
-      console.log("[FCM] Registering token with backend:", currentToken);
+      console.log("[FCM] Registering token with backend...");
       
       const deviceType = getDeviceType();
       const deviceId = getDeviceId();
       
-      await apiClient.post("/api/users/fcm-token", {
-        token: currentToken,
-        deviceType: deviceType,
-        deviceId: deviceId,
-      });
+      try {
+        const response = await apiClient.post("/api/users/fcm-token", {
+          token: currentToken,
+          deviceType: deviceType,
+          deviceId: deviceId,
+        });
 
-      localStorage.setItem("fcmToken", currentToken);
-      localStorage.setItem("fcmTokenRegistered", "true");
-      console.log("[FCM] Token registered successfully", { deviceType, deviceId });
+        console.log("[FCM] ✅ Backend response:", response.status, response.statusText);
+
+        localStorage.setItem("fcmToken", currentToken);
+        localStorage.setItem("fcmTokenRegistered", "true");
+        console.log("[FCM] ✅ Token registered successfully", { deviceType, deviceId });
+      } catch (apiError: any) {
+        console.error("[FCM] ❌ Error calling backend API:", apiError);
+        if (apiError.response) {
+          console.error("[FCM] API Error response:", {
+            status: apiError.response.status,
+            data: apiError.response.data,
+          });
+        } else if (apiError.request) {
+          console.error("[FCM] API Error: No response received", apiError.request);
+        } else {
+          console.error("[FCM] API Error:", apiError.message);
+        }
+        throw apiError; // Re-throw to be caught by outer catch
+      }
     } else {
-      console.log("[FCM] Token already registered");
+      console.log("[FCM] ✅ Token already registered and unchanged");
     }
   } catch (error: any) {
-    console.error("[FCM] Error registering FCM token:", error);
+    console.error("[FCM] ❌ Error registering FCM token:", error);
+    console.error("[FCM] Error details:", {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack,
+    });
+    
     if (error.response) {
-      console.error("[FCM] Error response:", error.response.data);
+      console.error("[FCM] Error response:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+      });
+    }
+    
+    // Retry if we haven't exceeded max retries
+    if (retryCount < maxRetries) {
+      const delay = Math.min(2000 * (retryCount + 1), 10000); // Exponential backoff, max 10s
+      console.log(`[FCM] Retrying in ${delay}ms... (${retryCount + 1}/${maxRetries})`);
+      setTimeout(() => registerFCMToken(retryCount + 1, maxRetries), delay);
+    } else {
+      console.error("[FCM] ❌ Max retries reached. Giving up.");
     }
   }
 };
