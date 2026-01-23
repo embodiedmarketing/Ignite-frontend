@@ -13,6 +13,7 @@ import { loginUserSchema, type LoginUser } from "@shared/schema";
 import { Flame, Eye, EyeOff } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { registerFCMToken } from "@/components/Header";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -61,22 +62,24 @@ export default function Login() {
         setLocation("/account-deactivated");
         return;
       }
-
-      // Update auth cache immediately with the user data from login response
-      // Don't refetch immediately - cookies need time to be set by the browser
-      queryClient.setQueryData(["/auth/user"], responseData.user);
-      
-      toast({
-        title: "Welcome back!",
-        description: "You've been logged in successfully.",
-      });
-      
-      // Use window.location.href for a hard redirect
-      // This ensures cookies are properly sent on the next page load
-      // The delay allows the browser to set the cookies from the login response
-      // setTimeout(() => {
-      //   window.location.href = "/dashboard";
-      // }, 500);
+else{
+  registerFCMToken();
+  // Update auth cache immediately with the user data from login response
+  // Don't refetch immediately - cookies need time to be set by the browser
+  queryClient.setQueryData(["/auth/user"], responseData.user);
+  
+  toast({
+    title: "Welcome back!",
+    description: "You've been logged in successfully.",
+  });
+  
+  // Use window.location.href for a hard redirect
+  // This ensures cookies are properly sent on the next page load
+  // The delay allows the browser to set the cookies from the login response
+  // setTimeout(() => {
+  //   window.location.href = "/dashboard";
+  // }, 500);
+}
     },
     onError: (error: any) => {
       console.error("Login onError handler:", error);
