@@ -1667,9 +1667,14 @@ const MentionPopup = ({mentionPopupRef, insertMention, data}: {mentionPopupRef: 
     },
   });
 
+console.log("allUsers",allUsers);
+
   // Filter and limit users based on search query
   const filteredUsers = useMemo(() => {
     if (!allUsers || allUsers.length === 0) return [];
+
+
+
     
     if (!searchQuery.trim()) {
       // Show first 8 users when no search
