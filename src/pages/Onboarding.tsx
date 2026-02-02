@@ -59,6 +59,44 @@ interface TeamMemberFormData {
   backgroundColor: 'blue' | 'coral' | 'orange' | 'navy';
 }
 
+interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+  order?: number;
+}
+
+interface FAQFormData {
+  question: string;
+  answer: string;
+}
+
+interface JourneyStep {
+  id: string;
+  title: string;
+  description: string;
+  color: OnboardingStepColor;
+  order?: number;
+}
+
+interface JourneyStepFormData {
+  title: string;
+  description: string;
+  color: OnboardingStepColor;
+}
+
+interface OrientationVideo {
+  id: string;
+  vimeoId: string;
+  title: string;
+  stepNumber: number;
+}
+
+interface OrientationVideoFormData {
+  vimeoId: string;
+  title: string;
+}
+
 export default function Onboarding() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -97,6 +135,40 @@ export default function Onboarding() {
     backgroundColor: "blue"
   });
   const [teamMemberFormErrors, setTeamMemberFormErrors] = useState<Partial<Record<keyof TeamMemberFormData, string>>>({});
+  
+  // FAQ states
+  const [isFAQModalOpen, setIsFAQModalOpen] = useState(false);
+  const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
+  const [isDeleteFAQModalOpen, setIsDeleteFAQModalOpen] = useState(false);
+  const [faqToDelete, setFaqToDelete] = useState<FAQ | null>(null);
+  const [faqFormData, setFaqFormData] = useState<FAQFormData>({
+    question: "",
+    answer: ""
+  });
+  const [faqFormErrors, setFaqFormErrors] = useState<Partial<Record<keyof FAQFormData, string>>>({});
+  
+  // Journey Step states
+  const [isJourneyStepModalOpen, setIsJourneyStepModalOpen] = useState(false);
+  const [editingJourneyStep, setEditingJourneyStep] = useState<JourneyStep | null>(null);
+  const [isDeleteJourneyStepModalOpen, setIsDeleteJourneyStepModalOpen] = useState(false);
+  const [journeyStepToDelete, setJourneyStepToDelete] = useState<JourneyStep | null>(null);
+  const [journeyStepFormData, setJourneyStepFormData] = useState<JourneyStepFormData>({
+    title: "",
+    description: "",
+    color: "blue"
+  });
+  const [journeyStepFormErrors, setJourneyStepFormErrors] = useState<Partial<Record<keyof JourneyStepFormData, string>>>({});
+  
+  // Orientation Video states
+  const [isOrientationVideoModalOpen, setIsOrientationVideoModalOpen] = useState(false);
+  const [editingOrientationVideo, setEditingOrientationVideo] = useState<OrientationVideo | null>(null);
+  const [isDeleteOrientationVideoModalOpen, setIsDeleteOrientationVideoModalOpen] = useState(false);
+  const [orientationVideoToDelete, setOrientationVideoToDelete] = useState<OrientationVideo | null>(null);
+  const [orientationVideoFormData, setOrientationVideoFormData] = useState<OrientationVideoFormData>({
+    vimeoId: "",
+    title: ""
+  });
+  const [orientationVideoFormErrors, setOrientationVideoFormErrors] = useState<Partial<Record<keyof OrientationVideoFormData, string>>>({});
 
   // Fetch onboarding steps from API
   const { data: onboardingSteps = [], isLoading: isLoadingSteps, error: stepsError } = useQuery({
@@ -650,6 +722,367 @@ export default function Onboarding() {
     }
   });
 
+  // Fetch FAQs from API
+  const { data: faqs = [], isLoading: isLoadingFAQs, error: faqsError } = useQuery({
+    queryKey: ['/api/faqs'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', '/api/faqs');
+        const data = await response.json();
+        return Array.isArray(data) 
+          ? data.sort((a: FAQ, b: FAQ) => (a.order || 0) - (b.order || 0))
+          : [];
+      } catch (error) {
+        console.error('Error fetching FAQs:', error);
+        return [];
+      }
+    },
+    retry: 1
+  });
+
+  // Create FAQ mutation
+  const createFAQMutation = useMutation({
+    mutationFn: async (data: FAQFormData & { order?: number }) => {
+      const response = await apiRequest('POST', '/api/faqs', data);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to create FAQ:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to create the FAQ. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: FAQ) => {
+      // Update state only after successful API response
+      queryClient.setQueryData<FAQ[]>(['/api/faqs'], (old = []) => {
+        const updated = [...old, data];
+        return updated.sort((a, b) => (a.order || 0) - (b.order || 0));
+      });
+      
+      // Invalidate and refetch to ensure we have the latest data from database
+      queryClient.invalidateQueries({ queryKey: ['/api/faqs'] });
+      
+      // Close modal and reset form after successful creation
+      setIsFAQModalOpen(false);
+      setFaqFormData({
+        question: "",
+        answer: ""
+      });
+      setEditingFAQ(null);
+      setFaqFormErrors({});
+      
+      toast({
+        title: "FAQ Created",
+        description: "The FAQ has been created successfully and is now visible.",
+      });
+    }
+  });
+
+  // Update FAQ mutation
+  const updateFAQMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<FAQFormData> }) => {
+      const response = await apiRequest('PUT', `/api/faqs/${id}`, data);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to update FAQ:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update the FAQ. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: FAQ) => {
+      // Update state only after successful API response
+      queryClient.setQueryData<FAQ[]>(['/api/faqs'], (old = []) => {
+        return old.map(faq => faq.id === data.id ? data : faq)
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+      });
+      
+      // Invalidate and refetch to ensure we have the latest data from database
+      queryClient.invalidateQueries({ queryKey: ['/api/faqs'] });
+      
+      // Close modal and reset form after successful update
+      setIsFAQModalOpen(false);
+      setFaqFormData({
+        question: "",
+        answer: ""
+      });
+      setEditingFAQ(null);
+      setFaqFormErrors({});
+      
+      toast({
+        title: "FAQ Updated",
+        description: "The FAQ has been updated successfully.",
+      });
+    }
+  });
+
+  // Delete FAQ mutation
+  const deleteFAQMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest('DELETE', `/api/faqs/${id}`);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to delete FAQ:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete the FAQ. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      // Update state only after successful API response
+      queryClient.invalidateQueries({ queryKey: ['/api/faqs'] });
+      
+      // Close modal after successful deletion
+      setIsDeleteFAQModalOpen(false);
+      setFaqToDelete(null);
+      
+      toast({
+        title: "FAQ Deleted",
+        description: "The FAQ has been deleted successfully.",
+      });
+    }
+  });
+
+  // Fetch journey steps from API
+  const { data: journeySteps = [], isLoading: isLoadingJourneySteps, error: journeyStepsError } = useQuery({
+    queryKey: ['/api/journey-steps'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', '/api/journey-steps');
+        const data = await response.json();
+        return Array.isArray(data) 
+          ? data.sort((a: JourneyStep, b: JourneyStep) => (a.order || 0) - (b.order || 0))
+          : [];
+      } catch (error) {
+        console.error('Error fetching journey steps:', error);
+        return [];
+      }
+    },
+    retry: 1
+  });
+
+  // Create journey step mutation
+  const createJourneyStepMutation = useMutation({
+    mutationFn: async (data: JourneyStepFormData & { order?: number }) => {
+      const response = await apiRequest('POST', '/api/journey-steps', data);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to create journey step:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to create the journey step. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: JourneyStep) => {
+      queryClient.setQueryData<JourneyStep[]>(['/api/journey-steps'], (old = []) => {
+        const updated = [...old, data];
+        return updated.sort((a, b) => (a.order || 0) - (b.order || 0));
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/journey-steps'] });
+      
+      setIsJourneyStepModalOpen(false);
+      setJourneyStepFormData({
+        title: "",
+        description: "",
+        color: "blue"
+      });
+      setEditingJourneyStep(null);
+      setJourneyStepFormErrors({});
+      
+      toast({
+        title: "Journey Step Created",
+        description: "The journey step has been created successfully.",
+      });
+    }
+  });
+
+  // Update journey step mutation
+  const updateJourneyStepMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<JourneyStepFormData> }) => {
+      const response = await apiRequest('PUT', `/api/journey-steps/${id}`, data);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to update journey step:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update the journey step. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: JourneyStep) => {
+      queryClient.setQueryData<JourneyStep[]>(['/api/journey-steps'], (old = []) => {
+        return old.map(step => step.id === data.id ? data : step)
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/journey-steps'] });
+      
+      setIsJourneyStepModalOpen(false);
+      setJourneyStepFormData({
+        title: "",
+        description: "",
+        color: "blue"
+      });
+      setEditingJourneyStep(null);
+      setJourneyStepFormErrors({});
+      
+      toast({
+        title: "Journey Step Updated",
+        description: "The journey step has been updated successfully.",
+      });
+    }
+  });
+
+  // Delete journey step mutation
+  const deleteJourneyStepMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest('DELETE', `/api/journey-steps/${id}`);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to delete journey step:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete the journey step. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/journey-steps'] });
+      
+      setIsDeleteJourneyStepModalOpen(false);
+      setJourneyStepToDelete(null);
+      
+      toast({
+        title: "Journey Step Deleted",
+        description: "The journey step has been deleted successfully.",
+      });
+    }
+  });
+
+  // Fetch orientation video from API
+  const { data: orientationVideo, isLoading: isLoadingOrientationVideo, error: orientationVideoError } = useQuery({
+    queryKey: ['/api/orientation-video'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', '/api/orientation-video');
+        if (response.status === 404) {
+          return null; // No orientation video set yet
+        }
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error fetching orientation video:', error);
+        return null;
+      }
+    },
+    retry: 1
+  });
+
+  // Create orientation video mutation
+  const createOrientationVideoMutation = useMutation({
+    mutationFn: async (data: OrientationVideoFormData) => {
+      const response = await apiRequest('POST', '/api/orientation-video', { ...data, stepNumber: 0 });
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to create orientation video:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to create the orientation video. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: OrientationVideo) => {
+      queryClient.setQueryData(['/api/orientation-video'], data);
+      queryClient.invalidateQueries({ queryKey: ['/api/orientation-video'] });
+      
+      setIsOrientationVideoModalOpen(false);
+      setOrientationVideoFormData({
+        vimeoId: "",
+        title: ""
+      });
+      setEditingOrientationVideo(null);
+      setOrientationVideoFormErrors({});
+      
+      toast({
+        title: "Orientation Video Created",
+        description: "The orientation video has been created successfully.",
+      });
+    }
+  });
+
+  // Update orientation video mutation
+  const updateOrientationVideoMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<OrientationVideoFormData> }) => {
+      const response = await apiRequest('PUT', `/api/orientation-video/${id}`, data);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to update orientation video:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update the orientation video. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: (data: OrientationVideo) => {
+      queryClient.setQueryData(['/api/orientation-video'], data);
+      queryClient.invalidateQueries({ queryKey: ['/api/orientation-video'] });
+      
+      setIsOrientationVideoModalOpen(false);
+      setOrientationVideoFormData({
+        vimeoId: "",
+        title: ""
+      });
+      setEditingOrientationVideo(null);
+      setOrientationVideoFormErrors({});
+      
+      toast({
+        title: "Orientation Video Updated",
+        description: "The orientation video has been updated successfully.",
+      });
+    }
+  });
+
+  // Delete orientation video mutation
+  const deleteOrientationVideoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest('DELETE', `/api/orientation-video/${id}`);
+      return response.json();
+    },
+    onError: (error: any) => {
+      console.error('Failed to delete orientation video:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete the orientation video. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['/api/orientation-video'], null);
+      queryClient.invalidateQueries({ queryKey: ['/api/orientation-video'] });
+      
+      setIsDeleteOrientationVideoModalOpen(false);
+      setOrientationVideoToDelete(null);
+      
+      toast({
+        title: "Orientation Video Deleted",
+        description: "The orientation video has been deleted successfully.",
+      });
+    }
+  });
+
   useEffect(() => {
     // Check if user has watched the welcome video
     const hasWatched = localStorage.getItem('welcome-video-watched');
@@ -677,6 +1110,282 @@ export default function Onboarding() {
 
   const toggleFaq = (faqId: string) => {
     setExpandedFaq(expandedFaq === faqId ? null : faqId);
+  };
+
+  // FAQ handlers
+  const handleOpenFAQModal = (faq?: FAQ) => {
+    if (faq) {
+      setEditingFAQ(faq);
+      setFaqFormData({
+        question: faq.question,
+        answer: faq.answer
+      });
+    } else {
+      setEditingFAQ(null);
+      setFaqFormData({
+        question: "",
+        answer: ""
+      });
+    }
+    setFaqFormErrors({});
+    setIsFAQModalOpen(true);
+  };
+
+  const handleCloseFAQModal = () => {
+    setIsFAQModalOpen(false);
+    setEditingFAQ(null);
+    setFaqFormData({
+      question: "",
+      answer: ""
+    });
+    setFaqFormErrors({});
+  };
+
+  const validateFAQForm = (): boolean => {
+    const errors: Partial<Record<keyof FAQFormData, string>> = {};
+
+    if (!faqFormData.question.trim()) {
+      errors.question = "Question is required";
+    } else if (faqFormData.question.trim().length < 5) {
+      errors.question = "Question must be at least 5 characters";
+    }
+
+    if (!faqFormData.answer.trim()) {
+      errors.answer = "Answer is required";
+    } else if (faqFormData.answer.trim().length < 10) {
+      errors.answer = "Answer must be at least 10 characters";
+    }
+
+    setFaqFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleFAQSubmit = () => {
+    if (!validateFAQForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in the form before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingFAQ) {
+      updateFAQMutation.mutate({ id: editingFAQ.id, data: faqFormData });
+    } else {
+      createFAQMutation.mutate({ ...faqFormData, order: faqs.length });
+    }
+  };
+
+  const handleFAQFieldChange = (field: keyof FAQFormData, value: string) => {
+    setFaqFormData({ ...faqFormData, [field]: value });
+    // Clear error for this field when user starts typing
+    if (faqFormErrors[field]) {
+      setFaqFormErrors({ ...faqFormErrors, [field]: undefined });
+    }
+  };
+
+  const handleFAQDeleteClick = (faq: FAQ) => {
+    setFaqToDelete(faq);
+    setIsDeleteFAQModalOpen(true);
+  };
+
+  const handleFAQDeleteConfirm = () => {
+    if (faqToDelete) {
+      deleteFAQMutation.mutate(faqToDelete.id);
+    }
+  };
+
+  const handleFAQDeleteCancel = () => {
+    setIsDeleteFAQModalOpen(false);
+    setFaqToDelete(null);
+  };
+
+  // Journey Step handlers
+  const handleOpenJourneyStepModal = (step?: JourneyStep) => {
+    setJourneyStepFormErrors({});
+    if (step) {
+      setEditingJourneyStep(step);
+      setJourneyStepFormData({
+        title: step.title,
+        description: step.description,
+        color: step.color
+      });
+    } else {
+      setEditingJourneyStep(null);
+      setJourneyStepFormData({
+        title: "",
+        description: "",
+        color: "blue"
+      });
+    }
+    setIsJourneyStepModalOpen(true);
+  };
+
+  const handleCloseJourneyStepModal = () => {
+    setIsJourneyStepModalOpen(false);
+    setEditingJourneyStep(null);
+    setJourneyStepFormData({
+      title: "",
+      description: "",
+      color: "blue"
+    });
+    setJourneyStepFormErrors({});
+  };
+
+  const validateJourneyStepForm = (): boolean => {
+    const errors: Partial<Record<keyof JourneyStepFormData, string>> = {};
+
+    if (!journeyStepFormData.title.trim()) {
+      errors.title = "Title is required";
+    } else if (journeyStepFormData.title.trim().length < 3) {
+      errors.title = "Title must be at least 3 characters";
+    }
+
+    if (!journeyStepFormData.description.trim()) {
+      errors.description = "Description is required";
+    } else if (journeyStepFormData.description.trim().length < 10) {
+      errors.description = "Description must be at least 10 characters";
+    }
+
+    setJourneyStepFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleJourneyStepSubmit = () => {
+    if (!validateJourneyStepForm()) {
+      return;
+    }
+
+    if (editingJourneyStep) {
+      updateJourneyStepMutation.mutate({
+        id: editingJourneyStep.id,
+        data: journeyStepFormData
+      });
+    } else {
+      createJourneyStepMutation.mutate({
+        ...journeyStepFormData,
+        order: journeySteps.length
+      });
+    }
+  };
+
+  const handleJourneyStepFieldChange = (field: keyof JourneyStepFormData, value: string | OnboardingStepColor) => {
+    setJourneyStepFormData({ ...journeyStepFormData, [field]: value });
+    if (journeyStepFormErrors[field]) {
+      setJourneyStepFormErrors({ ...journeyStepFormErrors, [field]: undefined });
+    }
+  };
+
+  const handleJourneyStepDeleteClick = (step: JourneyStep) => {
+    setJourneyStepToDelete(step);
+    setIsDeleteJourneyStepModalOpen(true);
+  };
+
+  const handleJourneyStepDeleteConfirm = () => {
+    if (journeyStepToDelete) {
+      deleteJourneyStepMutation.mutate(journeyStepToDelete.id);
+    }
+  };
+
+  const handleJourneyStepDeleteCancel = () => {
+    setIsDeleteJourneyStepModalOpen(false);
+    setJourneyStepToDelete(null);
+  };
+
+  // Orientation Video handlers
+  const handleOpenOrientationVideoModal = (video?: OrientationVideo) => {
+    setOrientationVideoFormErrors({});
+    if (video) {
+      setEditingOrientationVideo(video);
+      setOrientationVideoFormData({
+        vimeoId: video.vimeoId,
+        title: video.title
+      });
+    } else {
+      setEditingOrientationVideo(null);
+      setOrientationVideoFormData({
+        vimeoId: "",
+        title: ""
+      });
+    }
+    setIsOrientationVideoModalOpen(true);
+  };
+
+  const handleCloseOrientationVideoModal = () => {
+    setIsOrientationVideoModalOpen(false);
+    setEditingOrientationVideo(null);
+    setOrientationVideoFormData({
+      vimeoId: "",
+      title: ""
+    });
+    setOrientationVideoFormErrors({});
+  };
+
+  const validateOrientationVideoForm = (): boolean => {
+    const errors: Partial<Record<keyof OrientationVideoFormData, string>> = {};
+
+    if (!orientationVideoFormData.title.trim()) {
+      errors.title = "Title is required";
+    } else if (orientationVideoFormData.title.trim().length < 3) {
+      errors.title = "Title must be at least 3 characters";
+    }
+
+    if (!orientationVideoFormData.vimeoId.trim()) {
+      errors.vimeoId = "Vimeo ID is required";
+    } else {
+      // Validate Vimeo ID format (e.g., "1123902105/e223b2adb0" or just "1123902105")
+      const vimeoIdPattern = /^[\d]+(\/[\w]+)?$/;
+      if (!vimeoIdPattern.test(orientationVideoFormData.vimeoId.trim())) {
+        errors.vimeoId = "Invalid Vimeo ID format. Use format like '1123902105' or '1123902105/e223b2adb0'";
+      }
+    }
+
+    setOrientationVideoFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleOrientationVideoSubmit = () => {
+    if (!validateOrientationVideoForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix the errors in the form before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingOrientationVideo) {
+      updateOrientationVideoMutation.mutate({
+        id: editingOrientationVideo.id,
+        data: orientationVideoFormData
+      });
+    } else {
+      createOrientationVideoMutation.mutate(orientationVideoFormData);
+    }
+  };
+
+  const handleOrientationVideoFieldChange = (field: keyof OrientationVideoFormData, value: string) => {
+    setOrientationVideoFormData({ ...orientationVideoFormData, [field]: value });
+    if (orientationVideoFormErrors[field]) {
+      setOrientationVideoFormErrors({ ...orientationVideoFormErrors, [field]: undefined });
+    }
+  };
+
+  const handleOrientationVideoDeleteClick = (video: OrientationVideo) => {
+    setOrientationVideoToDelete(video);
+    setIsDeleteOrientationVideoModalOpen(true);
+  };
+
+  const handleOrientationVideoDeleteConfirm = () => {
+    if (orientationVideoToDelete) {
+      deleteOrientationVideoMutation.mutate(orientationVideoToDelete.id);
+    }
+  };
+
+  const handleOrientationVideoDeleteCancel = () => {
+    setIsDeleteOrientationVideoModalOpen(false);
+    setOrientationVideoToDelete(null);
   };
 
   const toggleStep = (stepId: string) => {
@@ -829,38 +1538,94 @@ export default function Onboarding() {
                 <Video className="w-5 h-5 mr-2 text-embodied-coral" />
                 Start Here: Your IGNITE Orientation
               </CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => setShowWelcomeVideo(false)}
-                className="text-embodied-navy hover:text-embodied-coral"
-              >
-                <X className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center space-x-2">
+                {user && user.isAdmin  && orientationVideo?.vimeoId&& (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenOrientationVideoModal(orientationVideo || undefined)}
+                      className="text-embodied-navy hover:text-embodied-blue"
+                    >
+                      <Edit className="w-4 h-4 mr-1" />
+                      {orientationVideo ? 'Edit' : 'Add'}
+                    </Button>
+                    {orientationVideo && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOrientationVideoDeleteClick(orientationVideo)}
+                        className="text-embodied-navy hover:text-red-600"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </>
+                )}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowWelcomeVideo(false)}
+                  className="text-embodied-navy hover:text-embodied-coral"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              
-              {/* Welcome Video */}
-              <div className="max-w-2xl mx-auto">
-                <VimeoEmbed 
-                  vimeoId="1123902105/e223b2adb0" 
-                  title="Welcome to IGNITE!"
-                  userId={user?.id || 0}
-                  stepNumber={0}
-                />
-              </div>
+              {isLoadingOrientationVideo ? (
+                <div className="max-w-2xl mx-auto">
+                  <Skeleton className="w-full aspect-video rounded-lg" />
+                </div>
+              ) : orientationVideoError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-600 mb-2">Error loading orientation video</p>
+                  <p className="text-sm text-embodied-navy/60">
+                    {orientationVideoError instanceof Error ? orientationVideoError.message : 'Unknown error occurred'}
+                  </p>
+                </div>
+              ) : !orientationVideo ? (
+                <div className="text-center py-8 text-embodied-navy/60">
+                  {user && user.isAdmin ? (
+                    <>
+                      <p className="mb-4">No orientation video set.</p>
+                      <Button
+                        onClick={() => handleOpenOrientationVideoModal()}
+                        className="bg-embodied-coral hover:bg-embodied-coral/90 text-white"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Orientation Video
+                      </Button>
+                    </>
+                  ) : (
+                    <p>Orientation video coming soon.</p>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Welcome Video */}
+                  <div className="max-w-2xl mx-auto">
+                    <VimeoEmbed 
+                      vimeoId={orientationVideo.vimeoId} 
+                      title={orientationVideo.title}
+                      userId={user?.id || 0}
+                      stepNumber={0}
+                    />
+                  </div>
 
-              <div className="flex space-x-3 justify-center">
-                <Button onClick={handleVideoWatched} className="bg-embodied-blue hover:bg-embodied-navy">
-                  <Play className="w-4 h-4 mr-2" />
-                  Mark as Watched
-                </Button>
-                <Button variant="outline" onClick={() => setShowWelcomeVideo(false)} className="border-embodied-coral text-embodied-coral hover:bg-embodied-coral hover:text-white">
-                  Skip for Now
-                </Button>
-              </div>
+                  <div className="flex space-x-3 justify-center">
+                    <Button onClick={handleVideoWatched} className="bg-embodied-blue hover:bg-embodied-navy">
+                      <Play className="w-4 h-4 mr-2" />
+                      Mark as Watched
+                    </Button>
+                    <Button variant="outline" onClick={() => setShowWelcomeVideo(false)} className="border-embodied-coral text-embodied-coral hover:bg-embodied-coral hover:text-white">
+                      Skip for Now
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1449,71 +2214,445 @@ export default function Onboarding() {
         </DialogContent>
       </Dialog>
 
+      {/* Add/Edit FAQ Modal */}
+      <Dialog open={isFAQModalOpen} onOpenChange={setIsFAQModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingFAQ ? "Edit FAQ" : "Add New FAQ"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingFAQ 
+                ? "Update the FAQ details below."
+                : "Fill in the details to add a new FAQ."
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="faqQuestion" className="text-sm font-medium text-embodied-navy">
+                Question *
+              </label>
+              <Input
+                id="faqQuestion"
+                value={faqFormData.question}
+                onChange={(e) => handleFAQFieldChange('question', e.target.value)}
+                placeholder="e.g., What should I do first when I join?"
+                className={`w-full ${faqFormErrors.question ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {faqFormErrors.question && (
+                <p className="text-xs text-red-600 mt-1">{faqFormErrors.question}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="faqAnswer" className="text-sm font-medium text-embodied-navy">
+                Answer *
+              </label>
+              <Textarea
+                id="faqAnswer"
+                value={faqFormData.answer}
+                onChange={(e) => handleFAQFieldChange('answer', e.target.value)}
+                placeholder="Enter the answer to this question"
+                className={`w-full min-h-[120px] ${faqFormErrors.answer ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {faqFormErrors.answer && (
+                <p className="text-xs text-red-600 mt-1">{faqFormErrors.answer}</p>
+              )}
+              <p className="text-xs text-embodied-navy/60">
+                You can use line breaks (Enter) to format your answer. They will be preserved when displayed.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseFAQModal}
+              disabled={createFAQMutation.isPending || updateFAQMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleFAQSubmit}
+              disabled={createFAQMutation.isPending || updateFAQMutation.isPending}
+              className="bg-embodied-navy hover:bg-embodied-navy/90 text-white disabled:opacity-50"
+            >
+              {createFAQMutation.isPending || updateFAQMutation.isPending
+                ? "Saving..."
+                : editingFAQ
+                ? "Update FAQ"
+                : "Add FAQ"
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete FAQ Confirmation Modal */}
+      <Dialog open={isDeleteFAQModalOpen} onOpenChange={setIsDeleteFAQModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete FAQ</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this FAQ? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleFAQDeleteCancel}
+              disabled={deleteFAQMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleFAQDeleteConfirm}
+              disabled={deleteFAQMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteFAQMutation.isPending ? "Deleting..." : "Delete FAQ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Journey Step Modal */}
+      <Dialog open={isJourneyStepModalOpen} onOpenChange={setIsJourneyStepModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingJourneyStep ? "Edit Journey Step" : "Add New Journey Step"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingJourneyStep 
+                ? "Update the journey step details below."
+                : "Fill in the details to create a new journey step."
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="journeyStepTitle" className="text-sm font-medium text-embodied-navy">
+                Title *
+              </label>
+              <Input
+                id="journeyStepTitle"
+                value={journeyStepFormData.title}
+                onChange={(e) => handleJourneyStepFieldChange('title', e.target.value)}
+                onBlur={() => {
+                  if (journeyStepFormData.title.trim() && journeyStepFormData.title.trim().length < 3) {
+                    setJourneyStepFormErrors({ ...journeyStepFormErrors, title: "Title must be at least 3 characters" });
+                  }
+                }}
+                placeholder="e.g., Your Foundation"
+                className={`w-full ${journeyStepFormErrors.title ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {journeyStepFormErrors.title && (
+                <p className="text-xs text-red-600 mt-1">{journeyStepFormErrors.title}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="journeyStepDescription" className="text-sm font-medium text-embodied-navy">
+                Description *
+              </label>
+              <Textarea
+                id="journeyStepDescription"
+                value={journeyStepFormData.description}
+                onChange={(e) => handleJourneyStepFieldChange('description', e.target.value)}
+                onBlur={() => {
+                  if (journeyStepFormData.description.trim() && journeyStepFormData.description.trim().length < 10) {
+                    setJourneyStepFormErrors({ ...journeyStepFormErrors, description: "Description must be at least 10 characters" });
+                  }
+                }}
+                placeholder="e.g., Master your messaging and define your irresistible offers so that the rest of your marketing is easy!"
+                className={`w-full min-h-[100px] ${journeyStepFormErrors.description ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {journeyStepFormErrors.description && (
+                <p className="text-xs text-red-600 mt-1">{journeyStepFormErrors.description}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="journeyStepColor" className="text-sm font-medium text-embodied-navy">
+                Color *
+              </label>
+              <Select
+                value={journeyStepFormData.color}
+                onValueChange={(value: OnboardingStepColor) => handleJourneyStepFieldChange('color', value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a color" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blue">Blue</SelectItem>
+                  <SelectItem value="coral">Coral</SelectItem>
+                  <SelectItem value="orange">Orange</SelectItem>
+                  <SelectItem value="navy">Navy</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseJourneyStepModal}
+              disabled={createJourneyStepMutation.isPending || updateJourneyStepMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleJourneyStepSubmit}
+              disabled={createJourneyStepMutation.isPending || updateJourneyStepMutation.isPending}
+              className="bg-embodied-coral hover:bg-embodied-coral/90 text-white disabled:opacity-50"
+            >
+              {createJourneyStepMutation.isPending || updateJourneyStepMutation.isPending
+                ? "Saving..."
+                : editingJourneyStep
+                ? "Update Step"
+                : "Add Step"
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Journey Step Confirmation Modal */}
+      <Dialog open={isDeleteJourneyStepModalOpen} onOpenChange={setIsDeleteJourneyStepModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Journey Step</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this journey step? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleJourneyStepDeleteCancel}
+              disabled={deleteJourneyStepMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleJourneyStepDeleteConfirm}
+              disabled={deleteJourneyStepMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteJourneyStepMutation.isPending ? "Deleting..." : "Delete Step"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Orientation Video Modal */}
+      <Dialog open={isOrientationVideoModalOpen} onOpenChange={setIsOrientationVideoModalOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {editingOrientationVideo ? "Edit Orientation Video" : "Add Orientation Video"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingOrientationVideo 
+                ? "Update the orientation video details below."
+                : "Fill in the details to add an orientation video."
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="orientationVideoTitle" className="text-sm font-medium text-embodied-navy">
+                Title *
+              </label>
+              <Input
+                id="orientationVideoTitle"
+                value={orientationVideoFormData.title}
+                onChange={(e) => handleOrientationVideoFieldChange('title', e.target.value)}
+                onBlur={() => {
+                  if (orientationVideoFormData.title.trim() && orientationVideoFormData.title.trim().length < 3) {
+                    setOrientationVideoFormErrors({ ...orientationVideoFormErrors, title: "Title must be at least 3 characters" });
+                  }
+                }}
+                placeholder="e.g., Welcome to IGNITE!"
+                className={`w-full ${orientationVideoFormErrors.title ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {orientationVideoFormErrors.title && (
+                <p className="text-xs text-red-600 mt-1">{orientationVideoFormErrors.title}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="orientationVideoVimeoId" className="text-sm font-medium text-embodied-navy">
+                Vimeo ID *
+              </label>
+              <Input
+                id="orientationVideoVimeoId"
+                value={orientationVideoFormData.vimeoId}
+                onChange={(e) => handleOrientationVideoFieldChange('vimeoId', e.target.value)}
+                onBlur={() => {
+                  if (orientationVideoFormData.vimeoId.trim()) {
+                    const vimeoIdPattern = /^[\d]+(\/[\w]+)?$/;
+                    if (!vimeoIdPattern.test(orientationVideoFormData.vimeoId.trim())) {
+                      setOrientationVideoFormErrors({ ...orientationVideoFormErrors, vimeoId: "Invalid Vimeo ID format. Use format like '1123902105' or '1123902105/e223b2adb0'" });
+                    }
+                  }
+                }}
+                placeholder="e.g., 1123902105/e223b2adb0 or 1123902105"
+                className={`w-full ${orientationVideoFormErrors.vimeoId ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {orientationVideoFormErrors.vimeoId && (
+                <p className="text-xs text-red-600 mt-1">{orientationVideoFormErrors.vimeoId}</p>
+              )}
+              <p className="text-xs text-embodied-navy/60">
+                Enter the Vimeo video ID. You can find this in the Vimeo video URL or embed code.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseOrientationVideoModal}
+              disabled={createOrientationVideoMutation.isPending || updateOrientationVideoMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOrientationVideoSubmit}
+              disabled={createOrientationVideoMutation.isPending || updateOrientationVideoMutation.isPending}
+              className="bg-embodied-coral hover:bg-embodied-coral/90 text-white disabled:opacity-50"
+            >
+              {createOrientationVideoMutation.isPending || updateOrientationVideoMutation.isPending
+                ? "Saving..."
+                : editingOrientationVideo
+                ? "Update Video"
+                : "Add Video"
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Orientation Video Confirmation Modal */}
+      <Dialog open={isDeleteOrientationVideoModalOpen} onOpenChange={setIsDeleteOrientationVideoModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Orientation Video</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this orientation video? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleOrientationVideoDeleteCancel}
+              disabled={deleteOrientationVideoMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleOrientationVideoDeleteConfirm}
+              disabled={deleteOrientationVideoMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleteOrientationVideoMutation.isPending ? "Deleting..." : "Delete Video"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Onboarding Steps Overview */}
       <Card className="border-embodied-coral/20">
         <CardHeader>
-          <CardTitle className="editorial-header flex items-center text-embodied-navy">
-            <Rocket className="w-5 h-5 mr-2 text-embodied-coral" />
-            Your IGNITE Journey
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="editorial-header flex items-center text-embodied-navy">
+              <Rocket className="w-5 h-5 mr-2 text-embodied-coral" />
+              Your IGNITE Journey
+            </CardTitle>
+            {user && user.isAdmin && (
+              <Button
+                onClick={() => handleOpenJourneyStepModal()}
+                className="bg-embodied-coral hover:bg-embodied-coral/90 text-white"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Journey
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* Step 1 */}
-            <div className="text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50">
-              <div className="w-12 h-12 rounded-full bg-embodied-blue flex items-center justify-center mx-auto shadow-lg">
-                <span className="text-white font-bold">1</span>
-              </div>
-              <div>
-                <h3 className="editorial-subheader text-embodied-navy">Your Foundation</h3>
-                <p className="editorial-body text-sm">Master your messaging and define your irresistible offers so that the rest of your marketing is easy!</p>
-              </div>
+          {isLoadingJourneySteps ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50 animate-pulse">
+                  <Skeleton className="w-12 h-12 rounded-full mx-auto" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-5 w-3/4 mx-auto" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-5/6 mx-auto" />
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : journeyStepsError ? (
+            <div className="text-center py-8">
+              <p className="text-red-600 mb-2">Error loading journey steps</p>
+              <p className="text-sm text-embodied-navy/60">
+                {journeyStepsError instanceof Error ? journeyStepsError.message : 'Unknown error occurred'}
+              </p>
+            </div>
+          ) : journeySteps.length === 0 ? (
+            <div className="text-center py-8 text-embodied-navy/60">
+              No journey steps found. {user && user.isAdmin && 'Click "Add Step" to create one.'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {journeySteps.map((step: JourneyStep, index: number) => {
+                const stepNumber = step.order !== undefined ? step.order + 1 : index + 1;
+                const colorClasses = {
+                  blue: "bg-embodied-blue",
+                  coral: "bg-embodied-coral",
+                  orange: "bg-embodied-orange",
+                  navy: "bg-embodied-navy"
+                };
+                const badgeColor = colorClasses[step.color as keyof typeof colorClasses] || "bg-embodied-blue";
 
-            {/* Step 2 */}
-            <div className="text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50">
-              <div className="w-12 h-12 rounded-full bg-embodied-coral flex items-center justify-center mx-auto shadow-lg">
-                <span className="text-white font-bold">2</span>
-              </div>
-              <div>
-                <h3 className="editorial-subheader text-embodied-navy">Audience Growth</h3>
-                <p className="editorial-body text-sm">Launch your visibility ad and start growing your audience quickly with quality leads!</p>
-              </div>
+                return (
+                  <div key={step.id} className="relative text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50 group">
+                    {user && user.isAdmin && (
+                      <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenJourneyStepModal(step);
+                          }}
+                          className="h-7 w-7 p-0 text-embodied-navy hover:text-embodied-blue bg-white/90 hover:bg-white shadow-sm"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleJourneyStepDeleteClick(step);
+                          }}
+                          className="h-7 w-7 p-0 text-embodied-navy hover:text-red-600 bg-white/90 hover:bg-white shadow-sm"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                    <div className={`w-12 h-12 rounded-full ${badgeColor} flex items-center justify-center mx-auto shadow-lg`}>
+                      <span className="text-white font-bold">{stepNumber}</span>
+                    </div>
+                    <div>
+                      <h3 className="editorial-subheader text-embodied-navy">{step.title}</h3>
+                      <p className="editorial-body text-sm">{step.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Step 3 */}
-            <div className="text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50">
-              <div className="w-12 h-12 rounded-full bg-embodied-orange flex items-center justify-center mx-auto shadow-lg">
-                <span className="text-white font-bold">3</span>
-              </div>
-              <div>
-                <h3 className="editorial-subheader text-embodied-navy">Lead Generation</h3>
-                <p className="editorial-body text-sm">Launch your lead gen funnel, start growing your email list and offsetting your ad cost with your tripwire product</p>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50">
-              <div className="w-12 h-12 rounded-full bg-embodied-navy flex items-center justify-center mx-auto shadow-lg">
-                <span className="text-white font-bold">4</span>
-              </div>
-              <div>
-                <h3 className="editorial-subheader text-embodied-navy">Live Launch</h3>
-                <p className="editorial-body text-sm">Time to launch your core offer! Capitalize on all the leads you've brought in and host your live launch experience.</p>
-              </div>
-            </div>
-
-            {/* Step 5 */}
-            <div className="text-center space-y-4 p-4 rounded-lg bg-embodied-cream/50">
-              <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center mx-auto shadow-lg">
-                <span className="text-white font-bold">5</span>
-              </div>
-              <div>
-                <h3 className="editorial-subheader text-embodied-navy">Ongoing Optimization</h3>
-                <p className="editorial-body text-sm">Continue to grow your list, host your next live launch and scale your business!</p>
-              </div>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1624,65 +2763,90 @@ export default function Onboarding() {
       {/* FAQ's */}
       <Card className="border-embodied-navy/20">
         <CardHeader>
-          <CardTitle className="editorial-header flex items-center text-embodied-navy">
-            <HelpCircle className="w-5 h-5 mr-2 text-embodied-navy" />
-            FAQ's
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="editorial-header flex items-center text-embodied-navy">
+              <HelpCircle className="w-5 h-5 mr-2 text-embodied-navy" />
+              FAQ's
+            </CardTitle>
+            {user && user.isAdmin && (
+              <Button
+                onClick={() => handleOpenFAQModal()}
+                className="bg-embodied-navy hover:bg-embodied-navy/90 text-white"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add FAQ
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {[
-              {
-                id: "first-steps",
-                question: "What should I do first when I join?",
-                answer: "Start by watching the welcome video above then complete the onboarding steps. \n\nOnce your onboarding steps are complete, you'll have your initial strategy call and dive into the first phase: Foundation!"
-              },
-              {
-                id: "program-structure",
-                question: "How is the program structured?",
-                answer: "IGNITE follows a 5-step journey: Foundation (messaging & offer), Audience Growth, Lead Generation, Live Launch, and Ongoing Optimization. Each step builds on the previous one to create your complete marketing system. \n\nEach phase will have training videos and interactive components where our system completes things for you based on questions you fill out. \n\nLeverage our coaching calls to get live support and feedback on all the components of your marketing, making sure everything you create and launch is to the highest standard and set up for success!"
-              },
-              {
-                id: "order-completion",
-                question: "Do I need to go through everything in order?",
-                answer: "Yes. This system is intended for you to go through it in order. If there is anything custom or specific to you and your business we will highlight that in your strategy call."
-              },
-              {
-                id: "results-timeline",
-                question: "How long will it take to start seeing results?",
-                answer: "It depends how quickly you implement. Once your lead gen funnel is live (appx 6 weeks from onboarding) you will start generating leads and once you live launch you'll see sales for your core offer.  For most people this is within 90 days and then we spend the next 90 days optimizing and improving results."
-              },
-              {
-                id: "getting-support",
-                question: "How do I get support if I'm stuck?",
-                answer: "We have many ways to support you! The best one being all of our live coaching options each week. Jump on any live coaching call you need that week to get 1:1 guidance. You can also leverage the community forum where our coaches are ready to support in between calls. \n\nThroughout this platform there is also programmed AI support so that as you're answering questions and working through the content you can get support in real time."
-              },
-              {
-                id: "work-review",
-                question: "Will someone review my work or give feedback?",
-                answer: "Yes! Bring any copy from funnel copy to emails to our live support calls, screenshare and get real time feedback. You can also screenshare and get feedback on your ads on any of our ad support calls."
-              }
-            ].map((faq) => (
-              <div key={faq.id} className="border border-embodied-navy/10 rounded-lg">
-                <button
-                  onClick={() => toggleFaq(faq.id)}
-                  className="w-full text-left p-4 flex items-center justify-between hover:bg-embodied-navy/5 transition-colors"
-                >
-                  <span className="editorial-subheader text-embodied-navy">{faq.question}</span>
-                  {expandedFaq === faq.id ? (
-                    <ChevronDown className="w-5 h-5 text-embodied-navy" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5 text-embodied-navy" />
-                  )}
-                </button>
-                {expandedFaq === faq.id && (
-                  <div className="px-4 pb-4 pt-0">
-                    <p className="editorial-body text-embodied-navy/80">{faq.answer}</p>
+          {isLoadingFAQs ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, index) => (
+                <div key={`faq-skeleton-${index}`} className="border border-embodied-navy/10 rounded-lg p-4 animate-pulse">
+                  <Skeleton className="h-6 w-3/4 mb-2" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : faqsError ? (
+            <div className="text-center py-8">
+              <p className="text-red-600 mb-2">Error loading FAQs</p>
+              <p className="text-sm text-embodied-navy/60">
+                {faqsError instanceof Error ? faqsError.message : 'Unknown error occurred'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {faqs.length === 0 ? (
+                <div className="text-center py-8 text-embodied-navy/60">
+                  No FAQs found. {user && user.isAdmin && 'Click "Add FAQ" to create one.'}
+                </div>
+              ) : (
+                faqs.map((faq: FAQ) => (
+                  <div key={faq.id} className="border border-embodied-navy/10 rounded-lg relative group">
+                    {user && user.isAdmin && (
+                      <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenFAQModal(faq)}
+                          className="h-7 w-7 p-0 text-embodied-navy hover:text-embodied-blue bg-white/90 hover:bg-white"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleFAQDeleteClick(faq)}
+                          className="h-7 w-7 p-0 text-embodied-navy hover:text-red-600 bg-white/90 hover:bg-white"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => toggleFaq(faq.id)}
+                      className="w-full text-left p-4 flex items-center justify-between hover:bg-embodied-navy/5 transition-colors"
+                    >
+                      <span className="editorial-subheader text-embodied-navy pr-8">{faq.question}</span>
+                      {expandedFaq === faq.id ? (
+                        <ChevronDown className="w-5 h-5 text-embodied-navy flex-shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-embodied-navy flex-shrink-0" />
+                      )}
+                    </button>
+                    {expandedFaq === faq.id && (
+                      <div className="px-4 pb-4 pt-0">
+                        <p className="editorial-body text-embodied-navy/80 whitespace-pre-line">{faq.answer}</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
