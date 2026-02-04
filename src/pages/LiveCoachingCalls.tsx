@@ -103,6 +103,7 @@ export default function LiveCoachingCalls() {
     vimeoId: "",
     description: "",
     transcript: "",
+    timestamps: "",
     category: "strategy"
   });
   const [isFetchingTranscript, setIsFetchingTranscript] = useState(false);
@@ -467,8 +468,8 @@ export default function LiveCoachingCalls() {
       console.log("expandedCalls", expandedCalls);
       setCalls(expandedCalls);
       setCallsLoading(false);
-      const weeksData = generateWeeksData();
-      console.log("weeksData",weeksData)
+      // const weeksData = generateWeeksData();
+      // console.log("weeksData",weeksData)
     }).catch((error) => {
       console.error("Error fetching calls:", error);
     
@@ -718,6 +719,7 @@ const sortAndGroupRecordings = (data: any[]) => {
       date: recording.date,
       duration: recording.duration,
       description: recording.description,
+      timestamps: recording.timestamps,
       transcript: recording.transcript
     });
     
@@ -746,6 +748,7 @@ useEffect(() => {
       vimeoId: string;
       description: string;
       transcript: string;
+      timestamps: string;
       category: string;
     }) => {
       // API Payload
@@ -755,6 +758,7 @@ useEffect(() => {
         duration: recordingData.duration || "60 min",
         vimeoId: recordingData.vimeoId,
         description: recordingData.description || "",
+        timestamps: recordingData.timestamps || "",
         transcript: recordingData.transcript || "",
         category: recordingData.category
       };
@@ -784,7 +788,8 @@ useEffect(() => {
         duration: data.duration,
         vimeoId: data.vimeoId,
         description: data.description,
-        transcript: data.transcript
+        transcript: data.transcript,
+        timestamps: data.timestamps,
       };
 
       setRecordings((prev: any) => ({
@@ -800,6 +805,7 @@ useEffect(() => {
         vimeoId: "",
         description: "",
         transcript: "",
+        timestamps: "",
         category: selectedRecordingCategory
       });
       setIsAddRecordingModalOpen(false);
@@ -866,6 +872,7 @@ useEffect(() => {
         vimeoId: data.vimeoId,
         description: data.description || "",
         transcript: data.transcript || "",
+        timestamps: data.timestamps || "",
         category: data.category
       };
 
@@ -935,16 +942,18 @@ useEffect(() => {
 
       const data = await response.json();
       const transcript = data.transcript || data.text || data.content || "";
-
+      const timestamps = data.timestamps || data.text || data.content || "";;
       if (isEdit) {
         setEditingRecording((prev: any) => ({
           ...prev,
-          transcript: transcript
+          transcript: transcript,
+          timestamps: timestamps
         }));
       } else {
         setNewRecording(prev => ({
           ...prev,
-          transcript: transcript
+          transcript: transcript,
+          timestamps: timestamps
         }));
       }
 
@@ -1000,12 +1009,14 @@ useEffect(() => {
       if (isEdit) {
         setEditingRecording((prev: any) => ({
           ...prev,
-          transcript: ""
+          transcript: "",
+          timestamps: ""
         }));
       } else {
         setNewRecording(prev => ({
           ...prev,
-          transcript: ""
+          transcript: "",
+          timestamps: ""
         }));
       }
       return;
@@ -1024,7 +1035,7 @@ useEffect(() => {
   };
 
   // Handle add recording
-  const handleAddRecording = () => {
+  const   handleAddRecording = () => {
     // 1. Validation check using .trim() to ensure fields aren't just whitespace
     if (!newRecording.title?.trim() || !newRecording.date?.trim() || !newRecording.vimeoId?.trim()) {
       toast({
@@ -1057,6 +1068,7 @@ useEffect(() => {
       vimeoId: recording.vimeoId,
       description: recording.description || "",
       transcript: recording.transcript || "",
+      timestamps: recording.timestamps || "",
       category: category
     });
     setIsEditRecordingModalOpen(true);
@@ -1554,6 +1566,12 @@ useEffect(() => {
       deleteCallMutation.mutate(callToDelete.id);
     }
   };
+  const [shortSummaryRecordingId, setShortSummaryRecordingId] = useState<string | null>(null);
+
+  const handleShortSummary = (recording: { id: string }) => {
+    setShortSummaryRecordingId((prev) => (prev === recording.id ? null : recording.id));
+  };
+
 
   return (
     <div>
@@ -2276,15 +2294,23 @@ useEffect(() => {
                                     </Button>
                                   </div>)}
                                 </div>
-
+{console.log("recording",recording)as any}
                                 {/* Transcript Section */}
                                 <div className="bg-slate-50 rounded-lg p-4">
-                                  <div className="flex items-center gap-2 mb-3">
+                                  <div className="flex items-center justify-between gap-2 mb-3">
+                                    <div className="flex items-center gap-2">
                                     <FileText className="w-4 h-4 text-slate-600" />
                                     <h5 className="font-medium text-slate-900">Timestamps & Questions</h5>
+                                    </div>
+                                    {/* <div>
+                                      <Button variant="ghost" size="sm" className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" onClick={() => handleShortSummary(recording)}>
+                                        <FileText className="w-4 h-4 text-slate-600" />
+                                        {shortSummaryRecordingId === recording.id ? 'Full Transcript' : 'Short Summary'}
+                                      </Button>
+                                    </div> */}
                                   </div>
                                   <div className="text-sm text-slate-700 leading-relaxed space-y-2 max-h-[200px] overflow-y-auto">
-                                    {(recording.transcript || '').split('\n').filter((line: string) => line.trim()).map((line: string, lineIndex: number) => {
+                                    {shortSummaryRecordingId === recording.id ? (recording.timestamps || '').split('\n').filter((line: string) => line.trim()).map((line: string, lineIndex: number) => {
                                       const timestampMatch = line.match(/\[([^\]]+)\]/);
                                       const timestamp = timestampMatch ? timestampMatch[0] : '';
                                       const content = line.replace(/\[([^\]]+)\]\s*/, '');
@@ -2300,9 +2326,30 @@ useEffect(() => {
                                               {timestampMatch?.[1] || ''}
                                             </button>
                                           )}
-                                          <span className="flex-1">
-                                            {content}
-                                          </span>
+                                            <span className="flex-1"> 
+                                              {content}
+                                            </span>
+                                        </div>
+                                      );
+                                    }): (recording.transcript || '').split('\n').filter((line: string) => line.trim()).map((line: string, lineIndex: number) => {
+                                      const timestampMatch = line.match(/\[([^\]]+)\]/);
+                                      const timestamp = timestampMatch ? timestampMatch[0] : '';
+                                      const content = line.replace(/\[([^\]]+)\]\s*/, '');
+                                      
+                                      return (
+                                        <div key={lineIndex} className="flex gap-3">
+                                          {timestamp && (
+                                            <button
+                                              onClick={() => handleTimestampClick(recording.id, timestamp)}
+                                              className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-xs mt-0.5 flex-shrink-0 cursor-pointer transition-colors"
+                                              data-testid={`timestamp-${recording.id}-${lineIndex}`}
+                                            >
+                                              {timestampMatch?.[1] || ''}
+                                            </button>
+                                          )}
+                                            <span className="flex-1"> 
+                                              {content}
+                                            </span>
                                         </div>
                                       );
                                     })}
