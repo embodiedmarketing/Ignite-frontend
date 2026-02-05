@@ -9425,7 +9425,7 @@ export default function InteractiveStep({
                                   )}
 
                                   {/* Real-Time AI Coaching Panel - Only shows feedback when user clicks button */}
-                                  {stepNumber === 1 &&
+                                  {/* {stepNumber === 1 &&
                                     !questionText.startsWith(
                                       "What is your ideal customer's demographics?"
                                     ) && (
@@ -9445,7 +9445,25 @@ export default function InteractiveStep({
                                           )
                                         }
                                       />
-                                    )}
+                                    )} */}
+
+
+
+{stepNumber === 1 && (
+                                    <RealTimeFeedbackPanel
+                                      question={questionText}
+                                      userResponse={
+                                        getCurrentValue(promptKey) || ""
+                                      }
+                                      sectionContext={section.title}
+                                      onAddRewording={(rewording) =>
+                                        handleResponseChange(
+                                          promptKey,
+                                          rewording,
+                                        )
+                                      }
+                                    />
+                                  )}
                                 </div>
 
                                 {/* Enhanced AI Coaching with Follow-up Questions */}
