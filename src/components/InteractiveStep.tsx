@@ -774,6 +774,9 @@ export default function InteractiveStep({
     {}
   );
 
+  // Track which section is currently being saved (for immediate loading state)
+  const [savingSection, setSavingSection] = useState<string | null>(null);
+
   // Debug tracking for transfer button activity
   const [transferButtonHistory, setTransferButtonHistory] = useState<
     Array<{
@@ -4081,29 +4084,71 @@ export default function InteractiveStep({
   };
 
   const toggleSectionCompletion = async (sectionTitle: string) => {
-    const isCompleted = isSectionCompleted(sectionTitle);
+    // Set loading state immediately on button click
+    setSavingSection(sectionTitle);
 
-    if (isCompleted) {
-      // Unmark as complete - currently not implemented in UI
-      console.log(`Unmarking ${sectionTitle} as complete`);
-    } else {
-      // Save all answers in this section to the database first, then mark section complete
-      console.log(
-        `Marking "${sectionTitle}" as complete for step ${stepNumber}, user ${userId}`
-      );
+    try {
+      const isCompleted = isSectionCompleted(sectionTitle);
+      const hasUnsavedInSection = sectionHasUnsavedChanges(sectionTitle);
 
-      try {
+      // If section is already completed but user has made changes, save the changes and update completion
+      if (isCompleted && hasUnsavedInSection) {
+        console.log(
+          `Updating "${sectionTitle}" - saving changes and updating completion status`
+        );
+
         const questionKeys = getSectionPromptKeysFromContent(sectionTitle);
         if (questionKeys.length > 0) {
-          for (const questionKey of questionKeys) {
+          // Save all answers (including edited ones) to the database
+          const savePromises = questionKeys.map((questionKey) => {
             const value = getCurrentValue(questionKey);
-            await saveResponse.mutateAsync({
+            return saveResponse.mutateAsync({
               questionKey,
               responseText: value ?? "",
               sectionTitle,
             });
-            unsavedChanges.clearChange(questionKey);
-          }
+          });
+          await Promise.all(savePromises);
+        }
+
+        // Update completion status (this will refresh the completion timestamp)
+        await markSectionComplete.mutateAsync({
+          userId: Number(userId),
+          stepNumber,
+          sectionTitle,
+        });
+
+        // Clear unsaved changes after a brief delay to allow query refetch to complete
+        if (questionKeys.length > 0) {
+          setTimeout(() => {
+            questionKeys.forEach((questionKey) => {
+              unsavedChanges.clearChange(questionKey);
+            });
+          }, 300); // Small delay to let query refetch complete
+        }
+
+        toast({
+          title: "Changes Saved!",
+          description: `${sectionTitle} answers have been updated and the section completion status has been refreshed.`,
+        });
+      } else if (!isCompleted) {
+        // Save all answers in this section to the database first, then mark section complete
+        console.log(
+          `Marking "${sectionTitle}" as complete for step ${stepNumber}, user ${userId}`
+        );
+
+        const questionKeys = getSectionPromptKeysFromContent(sectionTitle);
+        if (questionKeys.length > 0) {
+          // Save all answers first without clearing unsaved changes (prevents glitch)
+          const savePromises = questionKeys.map((questionKey) => {
+            const value = getCurrentValue(questionKey);
+            return saveResponse.mutateAsync({
+              questionKey,
+              responseText: value ?? "",
+              sectionTitle,
+            });
+          });
+          await Promise.all(savePromises);
         }
 
         await markSectionComplete.mutateAsync({
@@ -4112,18 +4157,34 @@ export default function InteractiveStep({
           sectionTitle,
         });
 
+        // Clear unsaved changes after a brief delay to allow query refetch to complete
+        // This prevents the glitch where inputs briefly show empty during refetch
+        if (questionKeys.length > 0) {
+          setTimeout(() => {
+            questionKeys.forEach((questionKey) => {
+              unsavedChanges.clearChange(questionKey);
+            });
+          }, 300); // Small delay to let query refetch complete
+        }
+
         toast({
           title: "Section Completed!",
           description: `${sectionTitle} answers have been saved and the section has been marked as complete.`,
         });
-      } catch (error) {
-        console.error("Failed to mark section as complete:", error);
-        toast({
-          title: "Error",
-          description: "Failed to save answers or completion status. Please try again.",
-          variant: "destructive",
-        });
+      } else {
+        // Section is completed and no changes - nothing to do
+        console.log(`Section "${sectionTitle}" is already completed with no changes`);
       }
+    } catch (error) {
+      console.error("Failed to save section:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save answers or completion status. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      // Clear loading state after operation completes (success or error)
+      setSavingSection(null);
     }
   };
 
@@ -4754,16 +4815,29 @@ export default function InteractiveStep({
 
   // True when the section has any change (type, delete, edit) or any content — show "Complete section" button
   const sectionHasInputOrChanges = (sectionTitle: string): boolean => {
-    // Any unsaved change in this section (user typed, removed, or edited any input)
+    // Priority 1: Check for unsaved changes first (user is actively editing)
     const dirtyKeys = unsavedChanges.dirtyQuestions || [];
-    if (dirtyKeys.some((key) => key.startsWith(sectionTitle + "-"))) return true;
-    // Any question in this section with content (from content-defined keys)
+    if (dirtyKeys.some((key) => key.startsWith(sectionTitle + "-"))) {
+      return true;
+    }
+    
+    // Priority 2: Check if any question in this section has unsaved changes
     const questionKeys = getSectionPromptKeysFromContent(sectionTitle);
     for (const key of questionKeys) {
-      if (unsavedChanges.isDirty(key)) return true;
-      const value = getCurrentValue(key);
-      if (value != null && String(value).trim().length > 0) return true;
+      // Check if this specific key has unsaved changes
+      if (unsavedChanges.isDirty(key)) {
+        return true;
+      }
     }
+    
+    // Priority 3: Check if any question in this section has content (saved or unsaved)
+    for (const key of questionKeys) {
+      const value = getCurrentValue(key);
+      if (value != null && String(value).trim().length > 0) {
+        return true;
+      }
+    }
+    
     return false;
   };
 
@@ -9980,40 +10054,56 @@ export default function InteractiveStep({
                           const hasUnsavedInSection = sectionHasUnsavedChanges(
                             section.title
                           );
+                          const hasInput = sectionHasInputOrChanges(section.title);
 
-                          // Show green "Completed" only when section is complete AND user hasn't made new changes
-                          // If user cleared/edited after completing, show "Mark as complete" again so they can save
+                          // Show green "Completed" banner when:
+                          // 1. Section is completed (from backend OR live calculation), AND
+                          // 2. User has NO unsaved changes
+                          // This means: if section is completed and user hasn't edited anything, show green banner
                           const showCompletedBanner =
                             (liveCompletion.isComplete || isDatabaseCompleted) &&
                             !hasUnsavedInSection;
 
-                          return showCompletedBanner;
-                        })() ? (
-                          <div className="w-full bg-green-100 border-2 border-green-300 rounded-lg p-4 text-center">
-                            <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-                            <p className="font-semibold text-green-800">
-                              ✓ {section.title} Section Completed!
-                            </p>
-                            <p className="text-sm text-green-700 mt-1">
-                              {stepNumber === 1
-                                ? "Great work! Complete all sections, then generate your messaging strategy in the Resources tab."
-                                : stepNumber === 2
-                                ? "Excellent! Now go to the Offer Outline tab above to generate your complete offer outline."
-                                : "Great work! You can continue editing your responses or move on to the next section."}
-                            </p>
-                          </div>
-                        ) : (
-                          (() => {
-                            const hasInput = sectionHasInputOrChanges(section.title);
+                          // Show "Mark as Complete" button ONLY when:
+                          // User has unsaved changes (regardless of completion status)
+                          // OR user has input but section is not completed yet
+                          const showMarkCompleteButton = 
+                            hasUnsavedInSection || 
+                            (hasInput && !isDatabaseCompleted && !liveCompletion.isComplete);
 
-                            // Show "Complete section" button only when user has entered or changed values in this section
-                            if (!hasInput) {
-                              return (
-                                <p className="text-sm text-slate-500 text-center py-2">
-                                  Fill in your answers above to enable marking this section complete.
+                          // Priority 1: Show green banner if section is completed and no unsaved changes
+                          if (showCompletedBanner) {
+                            return (
+                              <div className="w-full bg-green-100 border-2 border-green-300 rounded-lg p-4 text-center">
+                                <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
+                                <p className="font-semibold text-green-800">
+                                  ✓ {section.title} Section Completed!
                                 </p>
-                              );
-                            }
+                                <p className="text-sm text-green-700 mt-1">
+                                  {stepNumber === 1
+                                    ? "Great work! Complete all sections, then generate your messaging strategy in the Resources tab."
+                                    : stepNumber === 2
+                                    ? "Excellent! Now go to the Offer Outline tab above to generate your complete offer outline."
+                                    : "Great work! You can continue editing your responses or move on to the next section."}
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          // Priority 2: Show red button if user has unsaved changes OR needs to complete section
+                          if (showMarkCompleteButton) {
+                            // Determine button text based on whether section was previously completed
+                            const isUpdating = isDatabaseCompleted || liveCompletion.isComplete;
+                            const buttonText = isUpdating
+                              ? `Save Changes & Update ${section.title} Section`
+                              : stepNumber === 2 &&
+                                sectionIndex ===
+                                  (prompts as any).sections.length - 1
+                              ? `Complete ${section.title} & Generate Offer Outline`
+                              : `Complete ${section.title} Section`;
+
+                            // Check if this section is currently being saved (immediate loading state)
+                            const isSaving = savingSection === section.title || markSectionComplete.isPending;
 
                             return stepNumber === 2 &&
                               sectionIndex ===
@@ -10039,12 +10129,19 @@ export default function InteractiveStep({
                                 }}
                                 className="w-full bg-coral-600 hover:bg-coral-700 text-white"
                                 size="lg"
-                                disabled={markSectionComplete.isPending}
+                                disabled={isSaving}
                               >
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                {markSectionComplete.isPending
-                                  ? "Saving..."
-                                  : `Complete ${section.title} & Generate Offer Outline`}
+                                {isSaving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    {buttonText}
+                                  </>
+                                )}
                               </Button>
                             ) : (
                               <Button
@@ -10053,16 +10150,30 @@ export default function InteractiveStep({
                                 }
                                 className="w-full bg-coral-600 hover:bg-coral-700 text-white"
                                 size="lg"
-                                disabled={markSectionComplete.isPending}
+                                disabled={isSaving}
                               >
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                {markSectionComplete.isPending
-                                  ? "Saving..."
-                                  : `Complete ${section.title} Section`}
+                                {isSaving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Saving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    {buttonText}
+                                  </>
+                                )}
                               </Button>
                             );
-                          })()
-                        )}
+                          }
+
+                          // Priority 3: No input or changes - show message
+                          return (
+                            <p className="text-sm text-slate-500 text-center py-2">
+                              Fill in your answers above to enable marking this section complete.
+                            </p>
+                          );
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
