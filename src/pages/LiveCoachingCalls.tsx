@@ -2294,7 +2294,6 @@ useEffect(() => {
                                     </Button>
                                   </div>)}
                                 </div>
-{console.log("recording",recording)as any}
                                 {/* Transcript Section */}
                                 <div className="bg-slate-50 rounded-lg p-4">
                                   <div className="flex items-center justify-between gap-2 mb-3">
@@ -2302,15 +2301,15 @@ useEffect(() => {
                                     <FileText className="w-4 h-4 text-slate-600" />
                                     <h5 className="font-medium text-slate-900">Timestamps & Questions</h5>
                                     </div>
-                                    {/* <div>
+                                    <div>
                                       <Button variant="ghost" size="sm" className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" onClick={() => handleShortSummary(recording)}>
                                         <FileText className="w-4 h-4 text-slate-600" />
-                                        {shortSummaryRecordingId === recording.id ? 'Full Transcript' : 'Short Summary'}
+                                        {shortSummaryRecordingId === recording.id ? 'Short Transcript' : 'Full Transcript'}
                                       </Button>
-                                    </div> */}
+                                    </div>
                                   </div>
                                   <div className="text-sm text-slate-700 leading-relaxed space-y-2 max-h-[200px] overflow-y-auto">
-                                    {shortSummaryRecordingId === recording.id ? (recording.timestamps || '').split('\n').filter((line: string) => line.trim()).map((line: string, lineIndex: number) => {
+                                    {shortSummaryRecordingId !== recording.id ? (recording.timestamps || '').split('\n').filter((line: string) => line.trim()).map((line: string, lineIndex: number) => {
                                       const timestampMatch = line.match(/\[([^\]]+)\]/);
                                       const timestamp = timestampMatch ? timestampMatch[0] : '';
                                       const content = line.replace(/\[([^\]]+)\]\s*/, '');
