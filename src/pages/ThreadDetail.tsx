@@ -615,6 +615,7 @@ export default function ThreadDetail() {
             {
               method: "POST",
               body: formData,
+              credentials: "include",
             }
           );
           if (uploadResponse.ok) {
@@ -698,6 +699,7 @@ export default function ThreadDetail() {
             {
               method: "POST",
               body: formData,
+              credentials: "include",
             }
           );
           if (uploadResponse.ok) {
@@ -844,6 +846,7 @@ export default function ThreadDetail() {
             {
               method: "POST",
               body: formData,
+              credentials: "include",
             }
           );
           if (uploadResponse.ok) {
