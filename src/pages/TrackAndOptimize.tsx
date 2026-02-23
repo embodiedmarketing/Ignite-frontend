@@ -1823,6 +1823,18 @@ export default function TrackAndOptimize() {
                   />
                 </TabsContent>
 
+
+                <TabsContent value="optimizing-funnel" className="space-y-6">
+                <VimeoEmbed 
+                    vimeoId="1125224240/407cbd9803" 
+                    title="Optimizing Your Lead Gen Ads"
+                    userId={userId}
+                    stepNumber={0}
+                  />
+                </TabsContent>
+
+
+{/* 
                 <TabsContent value="optimizing-funnel" className="space-y-6">
                   <div className="aspect-video bg-slate-100 rounded-lg flex items-center justify-center">
                     <div className="text-center">
@@ -1837,7 +1849,7 @@ export default function TrackAndOptimize() {
                       Discover how to optimize your lead generation funnel to increase conversion rates and improve lead quality.
                     </p>
                   </div>
-                </TabsContent>
+                </TabsContent> */}
               </Tabs>
             </CardContent>
           </Card>
