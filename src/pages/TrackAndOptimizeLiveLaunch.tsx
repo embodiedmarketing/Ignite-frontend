@@ -112,6 +112,8 @@ export default function TrackAndOptimizeLiveLaunch() {
   const [selectedLaunchId, setSelectedLaunchId] = useState<number | null>(null);
   const [showCreateLaunchModal, setShowCreateLaunchModal] = useState(false);
   const [newLaunchLabel, setNewLaunchLabel] = useState("");
+  // When user has no launches and closes the modal, don't auto-reopen it
+  const [userDismissedCreateModal, setUserDismissedCreateModal] = useState(false);
   const [showDeleteLaunchModal, setShowDeleteLaunchModal] = useState(false);
   const [launchToDelete, setLaunchToDelete] = useState<number | null>(null);
 
@@ -310,14 +312,25 @@ export default function TrackAndOptimizeLiveLaunch() {
   // Set selected launch to the most recent one on initial load, or prompt to create first launch
   useEffect(() => {
     if (!launchesLoading) {
-      if (launches.length > 0 && selectedLaunchId === null) {
-        setSelectedLaunchId(launches[0].id);
-      } else if (launches.length === 0 && !showCreateLaunchModal) {
-        // Auto-open the create modal if user has no launches
+      if (launches.length > 0) {
+        if (selectedLaunchId === null) setSelectedLaunchId(launches[0].id);
+        setUserDismissedCreateModal(false); // Reset so we can prompt again if they delete all later
+      } else if (
+        launches.length === 0 &&
+        !showCreateLaunchModal &&
+        !userDismissedCreateModal
+      ) {
+        // Auto-open the create modal only if user has no launches and hasn't dismissed it
         setShowCreateLaunchModal(true);
       }
     }
-  }, [launches, selectedLaunchId, launchesLoading, showCreateLaunchModal]);
+  }, [
+    launches,
+    selectedLaunchId,
+    launchesLoading,
+    showCreateLaunchModal,
+    userDismissedCreateModal,
+  ]);
 
   // Load offer cost when selected launch changes
   useEffect(() => {
@@ -2826,7 +2839,10 @@ export default function TrackAndOptimizeLiveLaunch() {
         open={showCreateLaunchModal}
         onOpenChange={(open) => {
           setShowCreateLaunchModal(open);
-          if (!open) setNewLaunchLabel(""); // Clear input when closing
+          if (!open) {
+            setNewLaunchLabel(""); // Clear input when closing
+            if (launches.length === 0) setUserDismissedCreateModal(true);
+          }
         }}
       >
         <DialogContent data-testid="dialog-create-launch">
@@ -2865,6 +2881,7 @@ export default function TrackAndOptimizeLiveLaunch() {
               onClick={() => {
                 setShowCreateLaunchModal(false);
                 setNewLaunchLabel("");
+                if (launches.length === 0) setUserDismissedCreateModal(true);
               }}
               disabled={createLaunchMutation.isPending}
               data-testid="button-cancel-create"
