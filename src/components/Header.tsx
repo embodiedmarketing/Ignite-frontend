@@ -214,10 +214,7 @@ export default function Header() {
         title: "Logged out successfully",
         description: "You've been logged out of your account.",
       });
-localStorage.removeItem("user");
-localStorage.removeItem("fcmToken");
-localStorage.removeItem("fcmTokenRegistered");
-localStorage.removeItem("deviceId");
+      localStorage.clear();
       window.location.href = "/login";
     } catch (error) {
 
@@ -252,7 +249,7 @@ localStorage.removeItem("deviceId");
 
 
   const logout = () => {
-    localStorage.removeItem("user");
+    localStorage.clear();
     window.location.href = "/login";
   };
 

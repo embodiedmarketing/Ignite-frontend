@@ -113,7 +113,11 @@ export default function SimplifiedSalesPageGenerator({
           }
         );
         if (!response.ok) throw new Error("Failed to fetch messaging strategy");
-        return response.json();
+        const data = await response.json();
+        if (data && typeof data === "object" && "message" in data && !("id" in data)) {
+          return null;
+        }
+        return data;
       },
       enabled: !!userId,
     });

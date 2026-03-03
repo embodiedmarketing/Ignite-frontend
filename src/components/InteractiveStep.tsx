@@ -3034,20 +3034,26 @@ export default function InteractiveStep({
       !messagingStrategyContent &&
       !editingStrategy
     ) {
-      // Emergency fallback: Only use localStorage if database has no content and not editing
-      try {
-        const localStrategy = localStorage.getItem(
-          "generated-messaging-strategy"
-        );
-        if (localStrategy) {
-          const parsed = JSON.parse(localStrategy);
-          if (parsed.content && parsed.migratedToDatabase) {
-            setMessagingStrategyContent(parsed.content);
-            setOriginalStrategyContent(parsed.content);
+      // When API explicitly returned no strategy (null), don't show localStorage
+      if (activeStrategy === null) {
+        setMessagingStrategyContent("");
+        setOriginalStrategyContent("");
+      } else {
+        // Emergency fallback: only use localStorage when we haven't gotten "no strategy" from API
+        try {
+          const localStrategy = localStorage.getItem(
+            "generated-messaging-strategy"
+          );
+          if (localStrategy) {
+            const parsed = JSON.parse(localStrategy);
+            if (parsed.content && parsed.migratedToDatabase) {
+              setMessagingStrategyContent(parsed.content);
+              setOriginalStrategyContent(parsed.content);
+            }
           }
+        } catch (error) {
+          console.log("Emergency fallback failed:", error);
         }
-      } catch (error) {
-        console.log("Emergency fallback failed:", error);
       }
     }
   }, [
@@ -3247,19 +3253,19 @@ export default function InteractiveStep({
       );
     }
 
-    // Load existing messaging strategy from database with localStorage fallback
-    // Keep strategy hidden by default - user must click to view
+    // Load existing messaging strategy from database only; do not show localStorage when API says no strategy
     if (activeStrategy?.content) {
       setMessagingStrategyContent(activeStrategy.content);
-      // Don't auto-show strategy - let user click to view
+    } else if (activeStrategy === null) {
+      // API returned no active strategy - clear so we don't show stale localStorage
+      setMessagingStrategyContent("");
     } else {
-      // Fallback to localStorage during migration period
+      // Still loading or migration: only use localStorage when we haven't gotten a definitive "no strategy" from API
       try {
         const stored = localStorage.getItem("generated-messaging-strategy");
         if (stored) {
           const strategy = JSON.parse(stored);
           setMessagingStrategyContent(strategy.content || strategy);
-          // Don't auto-show strategy - let user click to view
         }
       } catch (error) {
         console.log("No existing messaging strategy found");

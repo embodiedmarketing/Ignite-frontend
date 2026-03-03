@@ -201,7 +201,11 @@ export default function SecondOfferWorkbook({
         "GET",
         `/api/messaging-strategies/active/${userId}`
       );
-      return await response.json();
+      const data = await response.json();
+      if (!response.ok || (data && typeof data === "object" && "message" in data && !("id" in data))) {
+        return null;
+      }
+      return data;
     },
     enabled: !!userId,
   });

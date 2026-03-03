@@ -136,7 +136,7 @@ export default function LaunchSellStrategy() {
   const { data: messagingStrategy, refetch: refetchMessagingStrategy } =
     useActiveMessagingStrategy(userId);
 
-  // Load core offer outline (most recent one, regardless of active status)
+  // Load core offer outline (must be the Core offer, not Tripwire — sales page & emails use core offer)
   const {
     data: coreOfferOutline,
     isLoading: isLoadingOfferOutline,
@@ -145,8 +145,14 @@ export default function LaunchSellStrategy() {
     queryKey: [`/api/user-offer-outlines/user/${userId}`, userId],
     enabled: !!userId,
     select: (data) => {
-      // Return the most recent outline if any exist
-      return Array.isArray(data) && data.length > 0 ? data[0] : null;
+      if (!Array.isArray(data) || data.length === 0) return null;
+      // Prefer outline whose title indicates Core offer; fallback to first if none match
+      const core = data.find(
+        (o: any) =>
+          o.title?.toLowerCase().includes("core") &&
+          !o.title?.toLowerCase().includes("tripwire")
+      );
+      return core ?? data[0];
     },
   });
 

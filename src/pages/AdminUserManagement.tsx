@@ -102,10 +102,11 @@ export default function AdminUserManagement() {
   });
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { 
+    await fetch("/api/auth/logout", {
       method: "POST",
-      credentials: 'include'
+      credentials: "include",
     });
+    localStorage.clear();
     setLocation("/admin/login");
   };
 

@@ -22,12 +22,17 @@ export function useMessagingStrategies(userId: number) {
 export function useActiveMessagingStrategy(userId: number) {
   return useQuery({
     queryKey: ["/api/messaging-strategies/active", userId],
-    queryFn: async () => {
+    queryFn: async (): Promise<MessagingStrategy | null> => {
       const res = await apiRequest(
         "GET",
         `/api/messaging-strategies/active/${userId}`
       );
-      return res.json();
+      const data = await res.json();
+      // API returns { message: "No active messaging strategy found" } when none exists
+      if (!res.ok || (data && "message" in data && typeof data.id === "undefined")) {
+        return null;
+      }
+      return data as MessagingStrategy;
     },
     enabled: !!userId,
   });

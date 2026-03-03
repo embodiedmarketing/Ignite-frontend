@@ -272,7 +272,11 @@ export function useMessagingStrategy(userId: number) {
     queryKey: ['messaging-strategy', 'active', userId],
     queryFn: async () => {
       const response = await apiRequest('GET', `/api/messaging-strategies/active/${userId}`);
-      return response.json();
+      const data = await response.json();
+      if (!response.ok || (data && typeof data === "object" && "message" in data && !("id" in data))) {
+        return null;
+      }
+      return data;
     }
   });
 

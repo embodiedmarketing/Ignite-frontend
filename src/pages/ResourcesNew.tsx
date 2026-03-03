@@ -226,12 +226,13 @@ export default function Resources({ userId = 1 }: ResourcesProps) {
   // Use database hooks for messaging strategy
   const { activeStrategy, updateStrategy } = useMessagingStrategy(userId);
 
-  // Load messaging strategy from database with localStorage fallback
+  // Load messaging strategy from database only; don't show localStorage when API says no strategy
   useEffect(() => {
     if (activeStrategy?.content) {
       setMessagingStrategy(activeStrategy.content);
+    } else if (activeStrategy === null) {
+      setMessagingStrategy("");
     } else {
-      // Fallback to localStorage during migration period
       const savedStrategy = localStorage.getItem('generated-messaging-strategy');
       if (savedStrategy) {
         try {

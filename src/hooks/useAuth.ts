@@ -18,8 +18,8 @@ export function useAuth() {
         // If user is inactive, log them out and return null
         if (data && data.isActive === false) {
           console.log("User is inactive, logging out");
-          // Clear auth state
           await apiClient.post("/api/auth/logout");
+          localStorage.clear();
           return null;
         }
         
