@@ -54,7 +54,7 @@ import {
   useMarkSectionComplete,
   useUnmarkSectionComplete,
 } from "@/hooks/useSectionCompletions";
-import { apiRequest } from "@/services/queryClient";
+import { API, apiRequest, AI_REQUEST_OPTIONS } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { Document, Paragraph, TextRun, Packer } from "docx";
@@ -188,11 +188,9 @@ export default function LaunchYourAdsLiveLaunch() {
       if (!userId) return;
 
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_BASE_URL}/api/video-script-generator-state`,
-          {
-            credentials: "include",
-          }
+        const response = await apiRequest(
+          "GET",
+          API.VIDEO_SCRIPT_GENERATOR_STATE
         );
 
         if (response.ok) {
@@ -222,7 +220,7 @@ export default function LaunchYourAdsLiveLaunch() {
 
     const timeoutId = setTimeout(async () => {
       try {
-        await apiRequest("POST", "/api/video-script-generator-state", {
+        await apiRequest("POST", API.VIDEO_SCRIPT_GENERATOR_STATE, {
           landingPageUrl: landingPageUrl || "",
           generatedScripts,
         });
@@ -240,13 +238,9 @@ export default function LaunchYourAdsLiveLaunch() {
       if (!userId) return;
 
       try {
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/implementation-checkboxes/launch-your-ads-live-launch`,
-          {
-            credentials: "include",
-          }
+        const response = await apiRequest(
+          "GET",
+          API.implementationCheckboxes("launch-your-ads-live-launch")
         );
 
         if (response.ok) {
@@ -276,7 +270,7 @@ export default function LaunchYourAdsLiveLaunch() {
     const saveCheckboxState = async () => {
       try {
         console.log("[CHECKBOX] Saving state:", completedSections);
-        await apiRequest("POST", "/api/implementation-checkboxes", {
+        await apiRequest("POST", API.IMPLEMENTATION_CHECKBOXES, {
           userId,
           pageIdentifier: "launch-your-ads-live-launch",
           checkboxStates: completedSections,
@@ -318,13 +312,12 @@ export default function LaunchYourAdsLiveLaunch() {
     try {
       const response = await apiRequest(
         "POST",
-        "/api/generate-video-scripts",
+        API.GENERATE_VIDEO_SCRIPTS,
         {
           landingPageUrl,
         },
         {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: "high",
+          ...AI_REQUEST_OPTIONS.generate,
         }
       );
 

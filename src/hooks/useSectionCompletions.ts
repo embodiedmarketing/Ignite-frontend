@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/services/queryClient';
+import { API } from '@/services/apiEndpoints';
+import { queryKeys } from '@/services/queryKeys';
 import type { SectionCompletion, InsertSectionCompletion } from '@shared/schema';
 
 export function useSectionCompletions(userId: number) {
   return useQuery({
-    queryKey: [`/api/section-completions/user/${userId}`],
+    queryKey: queryKeys.sectionCompletionsUser(userId),
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/section-completions/user/${userId}`);
+      const response = await apiRequest('GET', API.sectionCompletionsUser(userId));
       const data = await response.json() as SectionCompletion[];
       console.log('[HOOK] Section completions loaded:', data);
       return data;
@@ -30,7 +32,7 @@ export function useMarkSectionComplete() {
       console.log('[HOOK] Section completion successful, invalidating cache for user:', data.userId);
       // Invalidate the completions for this user
       queryClient.invalidateQueries({
-        queryKey: [`/api/section-completions/user/${data.userId}`],
+        queryKey: queryKeys.sectionCompletionsUser(data.userId),
       });
     },
     onError: (error) => {
@@ -49,7 +51,7 @@ export const useUnmarkSectionComplete = () => {
       sectionTitle: string;
       offerNumber?: number;
     }) => {
-      const response = await apiRequest('DELETE', '/api/section-completions', {
+      const response = await apiRequest('DELETE', API.SECTION_COMPLETIONS, {
         userId,
         stepNumber,
         sectionTitle,
@@ -61,9 +63,7 @@ export const useUnmarkSectionComplete = () => {
       }
     },
     onSuccess: (_, { userId }) => {
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/section-completions/user/${userId}`] 
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sectionCompletionsUser(userId) });
     },
   });
 };

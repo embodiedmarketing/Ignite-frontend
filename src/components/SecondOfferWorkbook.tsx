@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useSectionCompletions";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/services/queryClient";
+import { API, queryKeys, apiRequest, AI_REQUEST_OPTIONS } from "@/services";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { useManualSave } from "@/hooks/useManualSave";
 import { SaveButton } from "@/components/SaveButton";
@@ -195,11 +195,11 @@ export default function SecondOfferWorkbook({
 
   // Get messaging strategy for AI prefill
   const { data: messagingStrategy } = useQuery({
-    queryKey: ["/api/messaging-strategies/active", parseInt(userId)],
+    queryKey: queryKeys.messagingStrategyActiveAlt(parseInt(userId)),
     queryFn: async () => {
       const response = await apiRequest(
         "GET",
-        `/api/messaging-strategies/active/${userId}`
+        API.messagingStrategiesActive(parseInt(userId))
       );
       const data = await response.json();
       if (!response.ok || (data && typeof data === "object" && "message" in data && !("id" in data))) {
@@ -215,11 +215,11 @@ export default function SecondOfferWorkbook({
   // Query for second offer outlines
   const { data: secondOfferOutlines = [], isLoading: isLoadingOutlines } =
     useQuery({
-      queryKey: ["/api/user-offer-outlines/user", parseInt(userId)],
+      queryKey: queryKeys.userOfferOutlines(parseInt(userId)),
       queryFn: async () => {
         const response = await apiRequest(
           "GET",
-          `/api/user-offer-outlines/user/${userId}`
+          API.userOfferOutlinesUser(parseInt(userId))
         );
         return await response.json();
       },
@@ -236,14 +236,19 @@ export default function SecondOfferWorkbook({
     mutationFn: async () => {
       const secondOfferResponses = responses;
 
-      const response = await apiRequest("POST", "/api/generate-offer-outline", {
-        offerResponses: secondOfferResponses,
-        messagingStrategy: messagingStrategyContent
-          ? { content: messagingStrategyContent }
-          : null,
-        userId,
-        offerNumber: 2, // Specify this is for the second offer
-      });
+      const response = await apiRequest(
+        "POST",
+        API.GENERATE_OFFER_OUTLINE,
+        {
+          offerResponses: secondOfferResponses,
+          messagingStrategy: messagingStrategyContent
+            ? { content: messagingStrategyContent }
+            : null,
+          userId,
+          offerNumber: 2,
+        },
+        AI_REQUEST_OPTIONS.generate
+      );
 
       return await response.json();
     },
@@ -256,7 +261,7 @@ export default function SecondOfferWorkbook({
       });
       // Refresh the outline data
       queryClient.invalidateQueries({
-        queryKey: ["/api/user-offer-outlines/user", parseInt(userId)],
+        queryKey: queryKeys.userOfferOutlines(parseInt(userId)),
       });
     },
     onError: (error: any) => {
@@ -313,11 +318,12 @@ export default function SecondOfferWorkbook({
       const { questionText, messagingStrategy, targetPromptKey, isRegenerate } =
         params;
       setPrefillLoadingButton(targetPromptKey || null);
-      const res = await apiRequest("POST", "/api/intelligent-prefill", {
-        questionText,
-        messagingStrategy,
-        userId,
-      });
+      const res = await apiRequest(
+        "POST",
+        API.INTELLIGENT_PREFILL,
+        { questionText, messagingStrategy, userId },
+        AI_REQUEST_OPTIONS.medium
+      );
       return { data: await res.json(), targetPromptKey, isRegenerate };
     },
     onSuccess: ({ data, targetPromptKey, isRegenerate }: any) => {
@@ -748,9 +754,7 @@ export default function SecondOfferWorkbook({
 
                       // Force refresh of completions data
                       await queryClient.invalidateQueries({
-                        queryKey: [
-                          `/api/section-completions/user/${parseInt(userId)}`,
-                        ],
+                        queryKey: queryKeys.sectionCompletionsUser(parseInt(userId)),
                       });
 
                       toast({
@@ -1245,11 +1249,7 @@ export default function SecondOfferWorkbook({
 
                               // Force refresh of completions data
                               await queryClient.invalidateQueries({
-                                queryKey: [
-                                  `/api/section-completions/user/${parseInt(
-                                    userId
-                                  )}`,
-                                ],
+                                queryKey: queryKeys.sectionCompletionsUser(parseInt(userId)),
                               });
 
                               toast({

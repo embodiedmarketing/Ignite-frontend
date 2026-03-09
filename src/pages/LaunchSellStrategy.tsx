@@ -56,7 +56,7 @@ import {
   useUnmarkSectionComplete,
 } from "@/hooks/useSectionCompletions";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/services/queryClient";
+import { API, queryKeys, apiRequest, queryClient, AI_REQUEST_OPTIONS } from "@/services";
 import debounce from "lodash.debounce";
 import { useActiveMessagingStrategy } from "@/hooks/useMessagingStrategy";
 import { useToast } from "@/hooks/use-toast";
@@ -142,7 +142,7 @@ export default function LaunchSellStrategy() {
     isLoading: isLoadingOfferOutline,
     refetch: refetchCoreOfferOutline,
   } = useQuery<any>({
-    queryKey: [`/api/user-offer-outlines/user/${userId}`, userId],
+    queryKey: queryKeys.userOfferOutlinesByUser(userId),
     enabled: !!userId,
     select: (data) => {
       if (!Array.isArray(data) || data.length === 0) return null;
@@ -185,7 +185,7 @@ export default function LaunchSellStrategy() {
 
   // Load saved checkbox states from database
   const { data: savedCheckboxes } = useQuery<any>({
-    queryKey: ["/api/implementation-checkboxes/build-your-strategy", userId],
+    queryKey: queryKeys.implementationCheckboxes("build-your-strategy", userId),
     enabled: !!userId,
   });
 
@@ -217,7 +217,7 @@ export default function LaunchSellStrategy() {
   const saveCheckboxesMutation = useMutation({
     mutationFn: async (states: typeof checkboxStates) => {
       console.log("[CHECKBOX] Mutation function called with states:", states);
-      return await apiRequest("POST", "/api/implementation-checkboxes", {
+      return await apiRequest("POST", API.IMPLEMENTATION_CHECKBOXES, {
         pageIdentifier: "build-your-strategy",
         checkboxStates: states,
       });
@@ -390,7 +390,7 @@ export default function LaunchSellStrategy() {
 
   // Load saved data on component mount
   const { data: savedData, isLoading: isLoadingData } = useQuery<any>({
-    queryKey: ["/api/launch-registration-funnel-data"],
+    queryKey: queryKeys.launchFunnelData(),
     enabled: !!user,
   });
 
@@ -473,20 +473,14 @@ export default function LaunchSellStrategy() {
   const saveMutation = useMutation({
     mutationFn: async (data: typeof funnelData) => {
       console.log("[LAUNCH FUNNEL] Saving data:", data);
-      const response = await apiRequest(
-        "POST",
-        "/api/launch-registration-funnel-data",
-        data
-      );
+      const response = await apiRequest("POST", API.LAUNCH_REGISTRATION_FUNNEL_DATA, data);
       const result = await response.json();
       console.log("[LAUNCH FUNNEL] Save successful:", result);
       return result;
     },
     onSuccess: () => {
       console.log("[LAUNCH FUNNEL] Invalidating query cache");
-      queryClient.invalidateQueries({
-        queryKey: ["/api/launch-registration-funnel-data"],
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.launchFunnelData() });
     },
     onError: (error) => {
       console.error("[LAUNCH FUNNEL] Save error:", error);
@@ -542,7 +536,7 @@ export default function LaunchSellStrategy() {
         optInPage
       )}\n\n---\n\n## THANK YOU PAGE COPY\n\n${stripHTML(thankYouPage)}`;
 
-      await apiRequest("POST", "/api/ignite-docs", {
+      await apiRequest("POST", API.IGNITE_DOCS, {
         userId,
         docType: "launch_registration_funnel",
         title: `Launch Registration Funnel Copy - ${date}`,
@@ -555,7 +549,7 @@ export default function LaunchSellStrategy() {
       });
 
       queryClient.invalidateQueries({
-        queryKey: ["/api/ignite-docs", "user", userId],
+        queryKey: queryKeys.igniteDocsUserAlt(userId),
       });
       console.log("[LAUNCH FUNNEL] Copy automatically saved to IGNITE Docs");
       return true;
@@ -590,11 +584,12 @@ export default function LaunchSellStrategy() {
 
       const response = await apiRequest(
         "POST",
-        "/api/launch-registration-funnel/generate-copy",
+        API.LAUNCH_REGISTRATION_FUNNEL_GENERATE,
         {
           messagingStrategy: latestMessagingStrategy.content,
           launchData: funnelData,
-        }
+        },
+        AI_REQUEST_OPTIONS.generate
       );
       return await response.json();
     },
@@ -611,13 +606,13 @@ export default function LaunchSellStrategy() {
 
       // Save the generated copy to the database
       try {
-        await apiRequest("POST", "/api/launch-registration-funnel-data", {
+        await apiRequest("POST", API.LAUNCH_REGISTRATION_FUNNEL_DATA, {
           ...funnelData,
           generatedOptInPage: cleanedData.optInPage,
           generatedThankYouPage: cleanedData.thankYouPage,
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/launch-registration-funnel-data"],
+          queryKey: queryKeys.launchFunnelData(),
         });
         console.log("[LAUNCH FUNNEL] Generated copy saved to database");
         dbSaveSuccess = true;
@@ -711,7 +706,7 @@ export default function LaunchSellStrategy() {
         title: `Sales Page Copy - ${date}`,
       });
 
-      await apiRequest("POST", "/api/ignite-docs", {
+      await apiRequest("POST", API.IGNITE_DOCS, {
         userId,
         docType: "sales_page",
         title: `Sales Page Copy - ${date}`,
@@ -724,7 +719,7 @@ export default function LaunchSellStrategy() {
       });
 
       queryClient.invalidateQueries({
-        queryKey: ["/api/ignite-docs", "user", userId],
+        queryKey: queryKeys.igniteDocsUserAlt(userId),
       });
       console.log(
         "[SALES PAGE] Copy automatically saved to IGNITE Docs successfully"
@@ -779,15 +774,12 @@ export default function LaunchSellStrategy() {
       );
       const response = await apiRequest(
         "POST",
-        "/api/launch-sales-page/generate-copy",
+        API.LAUNCH_SALES_PAGE_GENERATE,
         {
           salesPageAction: funnelData.salesPageAction,
           salesPageUrgency: funnelData.salesPageUrgency,
         },
-        {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: "high",
-        }
+        AI_REQUEST_OPTIONS.generate
       );
       return await response.json();
     },
@@ -801,12 +793,12 @@ export default function LaunchSellStrategy() {
 
       // Save to database
       try {
-        await apiRequest("POST", "/api/launch-registration-funnel-data", {
+        await apiRequest("POST", API.LAUNCH_REGISTRATION_FUNNEL_DATA, {
           ...funnelData,
           generatedSalesPageCopy: cleanedCopy,
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/launch-registration-funnel-data"],
+          queryKey: queryKeys.launchFunnelData(),
         });
         console.log("[SALES PAGE] Generated copy saved to database");
         dbSaveSuccess = true;
@@ -872,7 +864,7 @@ export default function LaunchSellStrategy() {
   const debouncedSaveEmailInputs = useCallback(
     debounce((inputs: typeof emailInputs) => {
       console.log("[LAUNCH EMAILS] Auto-saving email inputs:", inputs);
-      apiRequest("POST", "/api/launch-registration-funnel-data", {
+      apiRequest("POST", API.LAUNCH_REGISTRATION_FUNNEL_DATA, {
         emailInviteHooks: inputs.inviteHooks,
         emailInviteFOMO: inputs.inviteFOMO,
         emailConfirmationDetails: inputs.confirmationDetails,
@@ -885,7 +877,7 @@ export default function LaunchSellStrategy() {
       })
         .then(() => {
           queryClient.invalidateQueries({
-            queryKey: ["/api/launch-registration-funnel-data"],
+            queryKey: queryKeys.launchFunnelData(),
           });
           console.log("[LAUNCH EMAILS] Email inputs auto-saved successfully");
         })
@@ -919,7 +911,12 @@ export default function LaunchSellStrategy() {
 
   // Fetch existing launch emails when component loads
   const { data: existingEmails } = useQuery({
-    queryKey: [`/api/launch-emails/${userId}`],
+    queryKey: queryKeys.launchEmailsUser(parseInt(userId)),
+    queryFn: async () => {
+      const res = await apiRequest("GET", API.launchEmailsUser(parseInt(userId)));
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !!userId,
   });
 
@@ -948,24 +945,13 @@ export default function LaunchSellStrategy() {
       }
 
       // Use extended timeout for email generation (5 minutes)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes
-
       try {
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/launch-emails/generate-sequence`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(emailInputs),
-            credentials: "include",
-            signal: controller.signal,
-          }
+        const response = await apiRequest(
+          "POST",
+          API.LAUNCH_EMAILS_GENERATE_SEQUENCE,
+          emailInputs,
+          { timeout: 300000 }
         );
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errorData = await response
@@ -978,12 +964,6 @@ export default function LaunchSellStrategy() {
 
         return await response.json();
       } catch (error: any) {
-        clearTimeout(timeoutId);
-        if (error.name === "AbortError") {
-          throw new Error(
-            "Request timed out after 5 minutes. Please try again."
-          );
-        }
         throw error;
       }
     },
@@ -992,7 +972,7 @@ export default function LaunchSellStrategy() {
 
       // Immediately invalidate and refetch the emails query
       await queryClient.invalidateQueries({
-        queryKey: [`/api/launch-emails/${userId}`],
+        queryKey: queryKeys.launchEmailsUser(parseInt(userId)),
       });
 
       // Save to IGNITE Docs
@@ -1010,7 +990,7 @@ export default function LaunchSellStrategy() {
           })
           .join("\n");
 
-        await apiRequest("POST", "/api/ignite-docs", {
+        await apiRequest("POST", API.IGNITE_DOCS, {
           userId,
           docType: "launch_email_sequence",
           title: `Launch Emails Copy - ${date}`,
@@ -1022,7 +1002,7 @@ export default function LaunchSellStrategy() {
         });
 
         await queryClient.invalidateQueries({
-          queryKey: ["/api/ignite-docs", "user", userId],
+          queryKey: queryKeys.igniteDocsUserAlt(userId),
         });
 
         toast({
@@ -1418,13 +1398,13 @@ export default function LaunchSellStrategy() {
 
       // Save to database
       try {
-        await apiRequest("POST", "/api/launch-registration-funnel-data", {
+        await apiRequest("POST", API.LAUNCH_REGISTRATION_FUNNEL_DATA, {
           ...funnelData,
           generatedOptInPage: editedCopy.optInPage,
           generatedThankYouPage: editedCopy.thankYouPage,
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/launch-registration-funnel-data"],
+          queryKey: queryKeys.launchFunnelData(),
         });
         toast({ title: "Changes saved successfully!" });
       } catch (error) {
@@ -1459,12 +1439,12 @@ export default function LaunchSellStrategy() {
 
       // Save to database
       try {
-        await apiRequest("POST", "/api/launch-registration-funnel-data", {
+        await apiRequest("POST", API.LAUNCH_REGISTRATION_FUNNEL_DATA, {
           ...funnelData,
           generatedSalesPageCopy: editedSalesPageCopy,
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/launch-registration-funnel-data"],
+          queryKey: queryKeys.launchFunnelData(),
         });
         toast({ title: "Sales page changes saved successfully!" });
       } catch (error) {
@@ -3090,7 +3070,7 @@ export default function LaunchSellStrategy() {
                                                   try {
                                                     await apiRequest(
                                                       "PUT",
-                                                      `/api/launch-emails/${email.id}`,
+                                                      API.launchEmailsId(email.id),
                                                       editedEmailContent
                                                     );
                                                     const updatedEmails =

@@ -306,6 +306,26 @@ class EnhancedApiClient {
 // Create global instance
 const enhancedApiClient = new EnhancedApiClient();
 
+/** Timeouts for slow/AI endpoints. Use with apiRequest(..., { timeout, priority: "high" }). */
+export const API_TIMEOUT = {
+  /** Heavy AI (messaging strategy, long copy). Default 30s is too short. */
+  AI_HEAVY_MS: 180_000,
+  /** Generate outline, sales page, funnel copy, video scripts. */
+  AI_GENERATE_MS: 120_000,
+  /** Prefill, coaching, expand, analyze, synthesize, smart-placement. */
+  AI_MEDIUM_MS: 90_000,
+  /** Real-time feedback, short coaching. */
+  AI_SHORT_MS: 60_000,
+} as const;
+
+/** Options to pass to apiRequest for AI/heavy endpoints so they don't hit default 30s timeout. */
+export const AI_REQUEST_OPTIONS = {
+  heavy: { timeout: API_TIMEOUT.AI_HEAVY_MS, priority: "high" as const },
+  generate: { timeout: API_TIMEOUT.AI_GENERATE_MS, priority: "high" as const },
+  medium: { timeout: API_TIMEOUT.AI_MEDIUM_MS, priority: "high" as const },
+  short: { timeout: API_TIMEOUT.AI_SHORT_MS, priority: "high" as const },
+} as const;
+
 // Enhanced API request function (backward compatible)
 // Returns ResponseWrapper that mimics fetch Response API
 export async function apiRequest(

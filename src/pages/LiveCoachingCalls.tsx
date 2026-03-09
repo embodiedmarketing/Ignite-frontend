@@ -11,8 +11,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Video, Calendar, Users, Clock, Play, ExternalLink, Target, MessageSquare, TrendingUp, CheckCircle, FileText, Settings, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import VimeoEmbed from "@/components/VimeoEmbed";
 import { useEffect, useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/services/queryClient";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { API, queryKeys, apiRequest } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useForm } from "react-hook-form";
@@ -299,14 +299,16 @@ export default function LiveCoachingCalls() {
     return weeks;
   };
 
-  // Fetch calls from API
-  const getCalls = async () => {
-    const response = await apiRequest(
-      "GET",
-      "/api/coaching-calls/schedule"
-    );
-    return response.json();
-  };
+  // Fetch schedule via useQuery (cached 90s) so the API feels fast on refetch/tab focus
+  const scheduleQuery = useQuery({
+    queryKey: queryKeys.coachingCallsSchedule(),
+    queryFn: async () => {
+      const response = await apiRequest("GET", API.COACHING_CALLS_SCHEDULE);
+      if (!response.ok) throw new Error("Failed to fetch schedule");
+      return response.json();
+    },
+    staleTime: 90_000, // 90 seconds - avoid refetch on every tab focus
+  });
 
   // Helper function to get the start of the current week (Monday)
   const getStartOfCurrentWeek = (): Date => {
@@ -440,43 +442,24 @@ export default function LiveCoachingCalls() {
     return result;
   };
 
+  // Sync schedule query result into local state (transformed + expanded for UI)
   useEffect(() => {
-    setCallsLoading(true);
-    getCalls().then(data => {
-      console.log("data", data);
-      if (!data || !Array.isArray(data)) {
-        console.error("Invalid data format:", data);
-        setCalls([]);
-        setCallsLoading(false);
-        return;
-      }
-      
-      const transformedCalls = data.map((call: any) => ({
-        ...call,
-        // Parse and convert date to YYYY-MM-DD format for consistency
-        date: call.date ? parseDate(call.date) : '',
-        // Ensure cancelReason is string, not null
-        cancelReason: call.cancelReason || '',
-        // Ensure recurring is boolean
-        recurring: call.recurring === true || call.recurring === "true" || call.recurring === 1 || false,
-      }));
-      
-      // Expand recurring calls into multiple weeks
-      const expandedCalls = expandRecurringCalls(transformedCalls);
-      
-      console.log("transformedCalls", transformedCalls);
-      console.log("expandedCalls", expandedCalls);
-      setCalls(expandedCalls);
-      setCallsLoading(false);
-      // const weeksData = generateWeeksData();
-      // console.log("weeksData",weeksData)
-    }).catch((error) => {
-      console.error("Error fetching calls:", error);
-    
+    setCallsLoading(scheduleQuery.isLoading);
+    const data = scheduleQuery.data;
+    if (scheduleQuery.isLoading || data === undefined) return;
+    if (!Array.isArray(data)) {
       setCalls([]);
-      setCallsLoading(false);
-    });
-  }, []);
+      return;
+    }
+    const transformedCalls = data.map((call: any) => ({
+      ...call,
+      date: call.date ? parseDate(call.date) : '',
+      cancelReason: call.cancelReason || '',
+      recurring: call.recurring === true || call.recurring === "true" || call.recurring === 1 || false,
+    }));
+    const expandedCalls = expandRecurringCalls(transformedCalls);
+    setCalls(expandedCalls);
+  }, [scheduleQuery.data, scheduleQuery.isLoading]);
 
   // Filter calls for current week
   // Uses the same week calculation logic as generateWeeksData() to ensure consistency
@@ -610,7 +593,22 @@ export default function LiveCoachingCalls() {
 
 
 
-const [recordings, setRecordings] = useState<any>({});
+// Recordings: single source from API with caching (staleTime 2 min) to avoid slow repeated loads
+  const {
+    data: recordings = {},
+    isLoading: callRecordingLoading,
+    refetch: refetchRecordings,
+  } = useQuery({
+    queryKey: queryKeys.coachingCallsRecordings(),
+    queryFn: async () => {
+      const res = await apiRequest("GET", API.COACHING_CALLS_RECORDINGS);
+      if (!res.ok) throw new Error("Failed to fetch recordings");
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 2 * 60 * 1000, // 2 minutes - avoid refetch on tab focus
+    select: (data) => sortAndGroupRecordings(data),
+  });
 
   const getCategoryIcon = (category: string) => {
     const categoryLower = category.toLowerCase();
@@ -672,14 +670,6 @@ const [recordings, setRecordings] = useState<any>({});
   };
 
 
-const getRecordings = async () => {
-  const response = await apiRequest(
-    "GET",
-    "/api/coaching-calls/recordings"
-  );
-  return response.json();
-};
-
 // Helper function to sort recordings by day sequence and group by category
 const sortAndGroupRecordings = (data: any[]) => {
   // Sort by day sequence (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
@@ -727,19 +717,6 @@ const sortAndGroupRecordings = (data: any[]) => {
   }, {});
 };
 
-const [callRecordingLoading, setCallRecordingLoading] = useState(false);
-
-useEffect(() => {
-  setCallRecordingLoading(true);
-  getRecordings().then(data => {
-    const groupedData = sortAndGroupRecordings(data);
-    setRecordings(groupedData);
-    
-    setCallRecordingLoading(false)
-    console.log("Structured data:", groupedData);
-  });
-}, []);
-
   const addRecordingMutation = useMutation({
     mutationFn: async (recordingData: {
       title: string;
@@ -767,7 +744,7 @@ useEffect(() => {
 
       const response = await apiRequest(
         "POST",
-        "/api/coaching-calls/recordings",
+        API.COACHING_CALLS_RECORDINGS,
         payload
       );
 
@@ -778,25 +755,8 @@ useEffect(() => {
 
       return await response.json();
     },
-    onSuccess: (data) => {
-      // Update local state with the new recording
-      const category = newRecording.category as keyof typeof recordings;
-      const recordingToAdd = {
-        id: data.id || Date.now().toString(),
-        title: data.title,
-        date: data.date,
-        duration: data.duration,
-        vimeoId: data.vimeoId,
-        description: data.description,
-        transcript: data.transcript,
-        timestamps: data.timestamps,
-      };
-
-      setRecordings((prev: any) => ({
-        ...prev,
-        [category]: [...(prev[category] || []), recordingToAdd]
-      }));
-
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.coachingCallsRecordings() });
       // Reset form and close modal
       setNewRecording({
         title: "",
@@ -829,7 +789,7 @@ useEffect(() => {
     mutationFn: async (recordingId: string) => {
       const response = await apiRequest(
         "DELETE",
-        `/api/coaching-calls/recordings/${recordingId}`
+        API.coachingCallsRecordingId(recordingId)
       );
 
       if (!response.ok) {
@@ -878,7 +838,7 @@ useEffect(() => {
 
       const response = await apiRequest(
         "PUT",
-        `/api/coaching-calls/recordings/${id}`,
+        API.coachingCallsRecordingId(id),
         payload
       );
 
@@ -890,12 +850,7 @@ useEffect(() => {
       return await response.json();
     },
     onSuccess: () => {
-      // Refetch recordings
-      getRecordings().then(data => {
-        const groupedData = sortAndGroupRecordings(data);
-        setRecordings(groupedData);
-      });
-
+      queryClient.invalidateQueries({ queryKey: queryKeys.coachingCallsRecordings() });
       setIsEditRecordingModalOpen(false);
       setEditingRecording(null);
       toast({
@@ -1182,35 +1137,7 @@ useEffect(() => {
       return await response.json();
     },
     onSuccess: (data) => {
-      // Refetch all calls to get the updated list
-      getCalls().then(fetchedData => {
-        if (!fetchedData || !Array.isArray(fetchedData)) {
-          // If refetch fails, try to add the returned data
-          if (Array.isArray(data)) {
-            setCalls((prev: any[]) => [...prev, ...data]);
-          } else {
-            setCalls((prev: any[]) => [...prev, data]);
-          }
-          return;
-        }
-        
-        const transformedCalls = fetchedData.map((call: any) => ({
-          ...call,
-          date: call.date ? parseDate(call.date) : '',
-          cancelReason: call.cancelReason || '',
-        }));
-        
-        const expandedCalls = expandRecurringCalls(transformedCalls);
-        setCalls(expandedCalls);
-      }).catch(() => {
-        // If refetch fails, try to add the returned data
-        if (Array.isArray(data)) {
-          setCalls((prev: any[]) => [...prev, ...data]);
-        } else {
-          setCalls((prev: any[]) => [...prev, data]);
-        }
-      });
-      
+      queryClient.invalidateQueries({ queryKey: queryKeys.coachingCallsSchedule() });
       addCallForm.reset();
       setIsAddCallModalOpen(false);
       
@@ -1320,59 +1247,8 @@ useEffect(() => {
         throw error;
       }
     },
-    onSuccess: (data, variables) => {
-      // Refetch all calls to get the updated list (especially important when recurring calls were created)
-      getCalls().then(fetchedData => {
-        if (!fetchedData || !Array.isArray(fetchedData)) {
-          // If refetch fails, try to update with returned data
-          if (Array.isArray(data)) {
-            // Multiple calls created (recurring)
-            setCalls((prev: any[]) => {
-              // Remove the original call and add new ones
-              const filtered = prev.filter((call: any) => call.id !== variables.id);
-              const transformedCalls = data.map((call: any) => ({
-                ...call,
-                date: call.date ? parseDate(call.date) : '',
-                cancelReason: call.cancelReason || '',
-              }));
-              return [...filtered, ...transformedCalls];
-            });
-          } else {
-            // Single call updated
-            setCalls((prev: any[]) => 
-              prev.map((call: any) => call.id === data.id ? data : call)
-            );
-          }
-          return;
-        }
-        
-        const transformedCalls = fetchedData.map((call: any) => ({
-          ...call,
-          date: call.date ? parseDate(call.date) : '',
-          cancelReason: call.cancelReason || '',
-        }));
-        
-        const expandedCalls = expandRecurringCalls(transformedCalls);
-        setCalls(expandedCalls);
-      }).catch(() => {
-        // If refetch fails, try to update with returned data
-        if (Array.isArray(data)) {
-          setCalls((prev: any[]) => {
-            const filtered = prev.filter((call: any) => call.id !== variables.id);
-            const transformedCalls = data.map((call: any) => ({
-              ...call,
-              date: call.date ? parseDate(call.date) : '',
-              cancelReason: call.cancelReason || '',
-            }));
-            return [...filtered, ...transformedCalls];
-          });
-        } else {
-          setCalls((prev: any[]) => 
-            prev.map((call: any) => call.id === data.id ? data : call)
-          );
-        }
-      });
-      
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.coachingCallsSchedule() });
       setIsEditCallModalOpen(false);
       setEditingCallId(null);
       setOriginalCallData(null);
@@ -1440,6 +1316,7 @@ useEffect(() => {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.coachingCallsSchedule() });
       if (callToDelete) {
         setCalls((prev: any[]) => 
           prev.filter((call: any) => call.id !== callToDelete.id)

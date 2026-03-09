@@ -63,7 +63,7 @@ import {
   useWorkbookResponses,
   useMessagingStrategy,
 } from "@/hooks/useDatabasePersistence";
-import { apiRequest, queryClient } from "@/services/queryClient";
+import { API, queryKeys, apiRequest, queryClient, AI_REQUEST_OPTIONS } from "@/services";
 import { validateAndNotify } from "@/utils/prerequisite-validator";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -96,13 +96,9 @@ export default function BuildingYourStrategy() {
 
   // Fetch Tripwire Offer Outline to auto-populate fields
   const { data: offerOutlines } = useQuery({
-    queryKey: ["/api/user-offer-outlines/user", userId],
+    queryKey: queryKeys.userOfferOutlines(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/user-offer-outlines/user/${userId}`
-      );
+      const response = await apiRequest("GET", API.userOfferOutlinesUser(userId));
       if (!response.ok) throw new Error("Failed to fetch offer outlines");
       return response.json();
     },
@@ -111,15 +107,11 @@ export default function BuildingYourStrategy() {
 
   // Fetch saved funnel copy from database
   const { data: savedFunnelCopy } = useQuery({
-    queryKey: ["/api/funnel-copy/user", userId],
+    queryKey: queryKeys.funnelCopyUser(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/funnel-copy/user/${userId}?offerNumber=1`
-      );
+      const response = await apiRequest("GET", API.funnelCopyUser(userId, 1));
       if (!response.ok) {
-        if (response.status === 404) return null; // No funnel copy saved yet
+        if (response.status === 404) return null;
         throw new Error("Failed to fetch funnel copy");
       }
       return response.json();
@@ -129,11 +121,9 @@ export default function BuildingYourStrategy() {
 
   // Fetch saved IGNITE docs to load email sequences
   const { data: igniteDocuments } = useQuery({
-    queryKey: ["/api/ignite-docs/user", userId],
+    queryKey: queryKeys.igniteDocsUser(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/ignite-docs/user/${userId}`
-      );
+      const response = await apiRequest("GET", API.igniteDocsUser(userId));
       if (!response.ok) throw new Error("Failed to fetch IGNITE documents");
       return response.json();
     },
@@ -853,15 +843,14 @@ export default function BuildingYourStrategy() {
 
       const response = await apiRequest(
         "POST",
-        "/api/generate-funnel-copy",
+        API.GENERATE_FUNNEL_COPY,
         {
           userId,
           answers,
           messagingStrategyVoice,
         },
         {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: "high",
+          ...AI_REQUEST_OPTIONS.generate,
         }
       );
 
@@ -881,7 +870,7 @@ export default function BuildingYourStrategy() {
       try {
         const markdown = convertFunnelCopyToMarkdown(result);
 
-        const saveResponse = await apiRequest("POST", "/api/ignite-docs", {
+        const saveResponse = await apiRequest("POST", API.IGNITE_DOCS, {
           userId,
           docType: "lead_generation",
           title: "Copy Generator",
@@ -965,7 +954,7 @@ export default function BuildingYourStrategy() {
 
       const response = await apiRequest(
         "POST",
-        "/api/generate-email-sequence",
+        API.GENERATE_EMAIL_SEQUENCE,
         {
           leadMagnetTitle,
           transformation,
@@ -983,8 +972,7 @@ export default function BuildingYourStrategy() {
           idealCustomerProfile,
         },
         {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: "high",
+          ...AI_REQUEST_OPTIONS.generate,
         }
       );
 
@@ -1016,7 +1004,7 @@ export default function BuildingYourStrategy() {
         });
 
         // Save to IGNITE Docs
-        await apiRequest("POST", "/api/ignite-docs", {
+        await apiRequest("POST", API.IGNITE_DOCS, {
           userId: user?.id,
           docType: "email_sequence",
           title: "Copy Generator",
@@ -1345,14 +1333,13 @@ export default function BuildingYourStrategy() {
 
     // Save updated copy to database
     try {
-      await apiRequest("PUT", `/api/funnel-copy/user/${userId}`, {
+      await apiRequest("PUT", API.funnelCopyUser(userId), {
         ...updatedCopy,
         offerNumber: 1,
       });
 
-      // Invalidate cache to refresh data
       queryClient.invalidateQueries({
-        queryKey: ["/api/funnel-copy/user", userId],
+        queryKey: queryKeys.funnelCopyUser(userId),
       });
 
       toast({

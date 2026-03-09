@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/queryClient";
+import { API } from "@/services/apiEndpoints";
+import { queryKeys } from "@/services/queryKeys";
 import type {
   MessagingStrategy,
   InsertMessagingStrategy,
@@ -7,12 +9,9 @@ import type {
 
 export function useMessagingStrategies(userId: number) {
   return useQuery({
-    queryKey: ["/api/messaging-strategies/user", userId],
+    queryKey: queryKeys.messagingStrategiesAlt(userId),
     queryFn: async () => {
-      const res = await apiRequest(
-        "GET",
-        `/api/messaging-strategies/user/${userId}`
-      );
+      const res = await apiRequest("GET", API.messagingStrategiesUser(userId));
       return res.json();
     },
     enabled: !!userId,
@@ -21,12 +20,9 @@ export function useMessagingStrategies(userId: number) {
 
 export function useActiveMessagingStrategy(userId: number) {
   return useQuery({
-    queryKey: ["/api/messaging-strategies/active", userId],
+    queryKey: queryKeys.messagingStrategyActiveAlt(userId),
     queryFn: async (): Promise<MessagingStrategy | null> => {
-      const res = await apiRequest(
-        "GET",
-        `/api/messaging-strategies/active/${userId}`
-      );
+      const res = await apiRequest("GET", API.messagingStrategiesActive(userId));
       const data = await res.json();
       // API returns { message: "No active messaging strategy found" } when none exists
       if (!res.ok || (data && "message" in data && typeof data.id === "undefined")) {
@@ -43,21 +39,12 @@ export function useCreateMessagingStrategy() {
 
   return useMutation({
     mutationFn: async (strategyData: InsertMessagingStrategy) => {
-      const res = await apiRequest(
-        "POST",
-        "/api/messaging-strategies",
-        strategyData
-      );
+      const res = await apiRequest("POST", API.MESSAGING_STRATEGIES, strategyData);
       return res.json();
     },
     onSuccess: (newStrategy: MessagingStrategy) => {
-      // Invalidate and refetch strategies for this user
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies/user", newStrategy.userId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies/active", newStrategy.userId],
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategiesAlt(newStrategy.userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActiveAlt(newStrategy.userId) });
     },
   });
 }
@@ -73,21 +60,12 @@ export function useUpdateMessagingStrategy() {
       id: number;
       updates: Partial<MessagingStrategy>;
     }) => {
-      const res = await apiRequest(
-        "PUT",
-        `/api/messaging-strategies/${id}`,
-        updates
-      );
+      const res = await apiRequest("PUT", API.messagingStrategiesId(id), updates);
       return res.json();
     },
     onSuccess: (updatedStrategy: MessagingStrategy) => {
-      // Invalidate and refetch strategies for this user
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies/user", updatedStrategy.userId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies/active", updatedStrategy.userId],
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategiesAlt(updatedStrategy.userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActiveAlt(updatedStrategy.userId) });
     },
   });
 }
@@ -97,14 +75,11 @@ export function useDeleteMessagingStrategy() {
 
   return useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/messaging-strategies/${id}`);
+      const res = await apiRequest("DELETE", API.messagingStrategiesId(id));
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate all messaging strategy queries since we don't know the userId
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies"],
-      });
+      queryClient.invalidateQueries({ queryKey: [API.MESSAGING_STRATEGIES] });
     },
   });
 }
@@ -120,21 +95,12 @@ export function useSetActiveMessagingStrategy() {
       userId: number;
       strategyId: number;
     }) => {
-      const res = await apiRequest(
-        "POST",
-        "/api/messaging-strategies/set-active",
-        { userId, strategyId }
-      );
+      const res = await apiRequest("POST", API.MESSAGING_STRATEGIES_SET_ACTIVE, { userId, strategyId });
       return res.json();
     },
     onSuccess: (_, { userId }) => {
-      // Invalidate and refetch strategies for this user
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies/user", userId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["/api/messaging-strategies/active", userId],
-      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategiesAlt(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActiveAlt(userId) });
     },
   });
 }

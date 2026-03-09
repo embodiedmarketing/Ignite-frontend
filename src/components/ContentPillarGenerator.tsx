@@ -38,7 +38,7 @@ import {
   FileType,
   Edit3
 } from "lucide-react";
-import { apiRequest, queryClient } from "@/services/queryClient";
+import { apiRequest, queryClient, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { validateAndNotify } from "@/utils/prerequisite-validator";
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from "docx";
@@ -526,8 +526,7 @@ export default function ContentPillarGenerator() {
           contentPreferences,
         },
         {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: 'high',
+          ...AI_REQUEST_OPTIONS.generate,
         }
       );
       
@@ -624,8 +623,7 @@ export default function ContentPillarGenerator() {
           contentPreferences,
         },
         {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: 'high',
+          ...AI_REQUEST_OPTIONS.generate,
         }
       );
       

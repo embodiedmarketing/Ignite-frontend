@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { API } from "@/services/apiEndpoints";
+import { queryKeys } from "@/services/queryKeys";
 
 interface WorkbookResponse {
   id: number;
@@ -58,9 +60,9 @@ export function useWorkbookResponses(userId: number, stepNumber: number, offerNu
     isLoading,
     error
   } = useQuery({
-    queryKey: ['workbook-responses', userId, stepNumber, offerNumber],
+    queryKey: queryKeys.workbookResponses(userId, stepNumber, offerNumber),
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/workbook-responses/user/${userId}/step/${stepNumber}?offerNumber=${offerNumber}`);
+      const response = await apiRequest('GET', API.workbookResponsesUserStep(userId, stepNumber, offerNumber));
       const data = await response.json();
       console.log(`[DATABASE DEBUG] Step ${stepNumber} raw response:`, data);
       return data;
@@ -111,7 +113,7 @@ export function useWorkbookResponses(userId: number, stepNumber: number, offerNu
         offerNumber
       });
       
-      const response = await apiRequest('POST', '/api/workbook-responses', {
+      const response = await apiRequest('POST', API.WORKBOOK_RESPONSES, {
         userId,
         stepNumber,
         sectionTitle,
@@ -130,7 +132,7 @@ export function useWorkbookResponses(userId: number, stepNumber: number, offerNu
       
       // Phase 3: Optimized state synchronization after successful database save
       // PHASE 2 FIX: Reduced from 3 invalidations to 1 to prevent query flooding
-      queryClient.invalidateQueries({ queryKey: ['workbook-responses', userId, stepNumber, offerNumber] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponses(userId, stepNumber, offerNumber) });
       
       // Clear localStorage backup after successful database save to prevent conflicts
       const localStorageKey = `workbook-${stepNumber}-${variables.questionKey}`;
@@ -156,12 +158,11 @@ export function useWorkbookResponses(userId: number, stepNumber: number, offerNu
   // Delete workbook response
   const deleteResponse = useMutation({
     mutationFn: async (questionKey: string) => {
-      const response = await apiRequest('DELETE', `/api/workbook-responses/user/${userId}/step/${stepNumber}/question/${questionKey}`);
+      const response = await apiRequest('DELETE', API.workbookResponsesDelete(userId, stepNumber, questionKey));
       return response.json();
     },
     onSuccess: () => {
-      // PHASE 2 FIX: Single invalidation for delete operations
-      queryClient.invalidateQueries({ queryKey: ['workbook-responses', userId, stepNumber, offerNumber] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponses(userId, stepNumber, offerNumber) });
     },
     onError: (error: any) => {
       console.error('Failed to delete workbook response:', error);
@@ -206,7 +207,7 @@ export function useWorkbookResponses(userId: number, stepNumber: number, offerNu
         sectionTitle = questionKey.split('-')[0] || 'General';
       }
       
-      const response = await apiRequest('POST', '/api/workbook-responses', {
+      const response = await apiRequest('POST', API.WORKBOOK_RESPONSES, {
         userId,
         stepNumber,
         questionKey,
@@ -216,7 +217,7 @@ export function useWorkbookResponses(userId: number, stepNumber: number, offerNu
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workbook-responses', userId, stepNumber, offerNumber] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponses(userId, stepNumber, offerNumber) });
     },
     onError: (error: any) => {
       console.error('Failed to save workbook response:', error);
@@ -269,9 +270,9 @@ export function useMessagingStrategy(userId: number) {
     error,
     refetch
   } = useQuery({
-    queryKey: ['messaging-strategy', 'active', userId],
+    queryKey: queryKeys.messagingStrategyActive(userId),
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/messaging-strategies/active/${userId}`);
+      const response = await apiRequest('GET', API.messagingStrategiesActive(userId));
       const data = await response.json();
       if (!response.ok || (data && typeof data === "object" && "message" in data && !("id" in data))) {
         return null;
@@ -285,9 +286,9 @@ export function useMessagingStrategy(userId: number) {
     data: allStrategies = [],
     isLoading: isLoadingAll
   } = useQuery({
-    queryKey: ['messaging-strategies', userId],
+    queryKey: queryKeys.messagingStrategies(userId),
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/messaging-strategies/user/${userId}`);
+      const response = await apiRequest('GET', API.messagingStrategiesUser(userId));
       return response.json();
     }
   });
@@ -300,7 +301,7 @@ export function useMessagingStrategy(userId: number) {
       completionPercentage?: number;
       sourceData?: any;
     }) => {
-      const response = await apiRequest('POST', '/api/messaging-strategies', {
+      const response = await apiRequest('POST', API.MESSAGING_STRATEGIES, {
         userId,
         ...strategyData,
         version: 1,
@@ -309,8 +310,8 @@ export function useMessagingStrategy(userId: number) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategy', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategies', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategies(userId) });
       toast({
         title: "Strategy Saved",
         description: "Your messaging strategy has been saved successfully.",
@@ -329,15 +330,13 @@ export function useMessagingStrategy(userId: number) {
   // Update existing messaging strategy
   const updateStrategy = useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: Partial<MessagingStrategy> }) => {
-      const response = await apiRequest('PUT', `/api/messaging-strategies/${id}`, updates);
+      const response = await apiRequest('PUT', API.messagingStrategiesId(id), updates);
       return response.json();
     },
     onSuccess: (updatedStrategy, variables, context: any) => {
-      // Only invalidate cache for auto-regeneration, not manual saves
-      // Manual saves are handled by direct API calls to prevent conflicts
       if (!context?.skipCacheInvalidation) {
-        queryClient.invalidateQueries({ queryKey: ['messaging-strategy', 'active', userId] });
-        queryClient.invalidateQueries({ queryKey: ['messaging-strategies', userId] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActive(userId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategies(userId) });
       }
       
       // Only show toast for auto-regeneration
@@ -361,12 +360,12 @@ export function useMessagingStrategy(userId: number) {
   // Set active messaging strategy
   const setActiveStrategy = useMutation({
     mutationFn: async (strategyId: number) => {
-      const response = await apiRequest('POST', `/api/messaging-strategies/${strategyId}/activate/${userId}`);
+      const response = await apiRequest('POST', API.messagingStrategiesActivate(strategyId, userId));
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategy', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategies', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategies(userId) });
     },
     onError: (error: any) => {
       console.error('Failed to activate messaging strategy:', error);
@@ -381,11 +380,11 @@ export function useMessagingStrategy(userId: number) {
   // Delete messaging strategy
   const deleteStrategy = useMutation({
     mutationFn: async (strategyId: number) => {
-      return apiRequest('DELETE', `/api/messaging-strategies/${strategyId}`);
+      return apiRequest('DELETE', API.messagingStrategiesId(strategyId));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategy', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategies', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategies(userId) });
       toast({
         title: "Strategy Deleted",
         description: "The messaging strategy has been deleted.",
@@ -429,7 +428,7 @@ export function useLocalStorageMigration(userId: number) {
   } = useQuery({
     queryKey: ['migration-check-existing', userId],
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/migration/check-existing/${userId}`);
+      const response = await apiRequest('GET', API.MIGRATION_CHECK(userId));
       return response.json();
     }
   });
@@ -437,7 +436,7 @@ export function useLocalStorageMigration(userId: number) {
   // Migrate localStorage data to database
   const migrateData = useMutation({
     mutationFn: async (localStorageData: any) => {
-      const response = await apiRequest('POST', '/api/migration/migrate', {
+      const response = await apiRequest('POST', API.MIGRATION_MIGRATE, {
         userId,
         workbookResponses: localStorageData.workbookResponses || {},
         messagingStrategy: localStorageData.messagingStrategy,
@@ -446,8 +445,8 @@ export function useLocalStorageMigration(userId: number) {
       return response.json();
     },
     onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: ['messaging-strategy', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['workbook-responses', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.messagingStrategyActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponsesUser(userId) });
       
       toast({
         title: "Migration Complete",
@@ -484,9 +483,9 @@ export function useOfferOutlines(userId: number) {
     isLoading,
     error
   } = useQuery({
-    queryKey: ['user-offer-outline', 'active', userId],
+    queryKey: queryKeys.offerOutlineActive(userId),
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/user-offer-outlines/user/${userId}`);
+      const response = await apiRequest('GET', API.userOfferOutlinesUser(userId));
       const data = await response.json();
       // Return the most recent outline if any exist
       return Array.isArray(data) && data.length > 0 ? data[0] : null;
@@ -498,9 +497,9 @@ export function useOfferOutlines(userId: number) {
     data: allOutlines = [],
     isLoading: isLoadingAll
   } = useQuery({
-    queryKey: ['user-offer-outlines', userId],
+    queryKey: queryKeys.offerOutlinesList(userId),
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/user-offer-outlines/user/${userId}`);
+      const response = await apiRequest('GET', API.userOfferOutlinesUser(userId));
       return response.json();
     }
   });
@@ -513,7 +512,7 @@ export function useOfferOutlines(userId: number) {
       completionPercentage?: number;
       sourceData?: any;
     }) => {
-      const response = await apiRequest('POST', '/api/user-offer-outlines', {
+      const response = await apiRequest('POST', API.USER_OFFER_OUTLINES, {
         userId,
         ...outlineData,
         version: 1,
@@ -522,8 +521,8 @@ export function useOfferOutlines(userId: number) {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outline', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outlines', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlineActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlinesList(userId) });
       toast({
         title: "Outline Saved",
         description: "Your offer outline has been saved successfully.",
@@ -542,12 +541,12 @@ export function useOfferOutlines(userId: number) {
   // Update existing offer outline
   const updateOutline = useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: Partial<UserOfferOutline> }) => {
-      const response = await apiRequest('PUT', `/api/user-offer-outlines/${id}`, updates);
+      const response = await apiRequest('PUT', API.userOfferOutlinesId(id), updates);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outline', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outlines', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlineActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlinesList(userId) });
       toast({
         title: "Outline Updated",
         description: "Your offer outline has been updated successfully.",
@@ -566,12 +565,12 @@ export function useOfferOutlines(userId: number) {
   // Set active offer outline
   const setActiveOutline = useMutation({
     mutationFn: async (outlineId: number) => {
-      const response = await apiRequest('POST', `/api/user-offer-outlines/${outlineId}/activate/${userId}`);
+      const response = await apiRequest('POST', API.userOfferOutlinesActivate(outlineId, userId));
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outline', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outlines', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlineActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlinesList(userId) });
     },
     onError: (error: any) => {
       console.error('Failed to activate offer outline:', error);
@@ -586,11 +585,11 @@ export function useOfferOutlines(userId: number) {
   // Delete offer outline
   const deleteOutline = useMutation({
     mutationFn: async (outlineId: number) => {
-      return apiRequest('DELETE', `/api/user-offer-outlines/${outlineId}`);
+      return apiRequest('DELETE', API.userOfferOutlinesId(outlineId));
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outline', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outlines', userId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlineActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlinesList(userId) });
       toast({
         title: "Outline Deleted",
         description: "The offer outline has been deleted.",
@@ -640,7 +639,7 @@ export function useStep2Migration(userId: number) {
 
   return useMutation({
     mutationFn: async (migrationData: Step2MigrationData) => {
-      const response = await apiRequest('POST', '/api/migrate-step2-responses', {
+      const response = await apiRequest('POST', API.MIGRATE_STEP2_RESPONSES, {
         userId,
         ...migrationData
       });
@@ -652,8 +651,7 @@ export function useStep2Migration(userId: number) {
       return response.json();
     },
     onSuccess: (data) => {
-      // Invalidate queries to refetch updated data
-      queryClient.invalidateQueries({ queryKey: ['/api/workbook-responses', userId, 2] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponses(userId, 2, 1) });
       
       // Clean up localStorage after successful migration
       if (data.migrated && Array.isArray(data.migratedKeys)) {
@@ -798,11 +796,11 @@ export function useSellOfferMigration(userId: number) {
         }))
       };
       
-      const response = await apiRequest('POST', "/api/workbook-responses/migrate", migrationData);
+      const response = await apiRequest('POST', API.WORKBOOK_RESPONSES_MIGRATE, migrationData);
       return response.json();
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['workbook-responses', userId, 4] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponses(userId, 4, 1) });
       
       // Clean up localStorage after successful migration
       const keysToClean = [
@@ -861,11 +859,11 @@ export function useBuildOfferMigration(userId: number) {
   // Migration mutation for Step 3 responses
   const migrationMutation = useMutation({
     mutationFn: async (migrationData: any) => {
-      const response = await apiRequest('POST', "/api/workbook-responses/migrate", migrationData);
+      const response = await apiRequest('POST', API.WORKBOOK_RESPONSES_MIGRATE, migrationData);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workbook-responses', userId, 3] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workbookResponses(userId, 3, 1) });
       toast({
         title: "Migration Complete",
         description: "Your Build Your Offer responses have been migrated to the database.",
@@ -982,7 +980,7 @@ export function useOfferMigration(userId: number) {
   } = useQuery({
     queryKey: ['offer-migration-check-existing', userId],
     queryFn: async () => {
-      const response = await apiRequest('GET', `/api/user-offer-outlines/user/${userId}`);
+      const response = await apiRequest('GET', API.userOfferOutlinesUser(userId));
       const data = await response.json();
       const hasOutline = Array.isArray(data) && data.length > 0;
       return { hasExistingData: hasOutline };
@@ -992,7 +990,7 @@ export function useOfferMigration(userId: number) {
   // Migrate localStorage data to database
   const migrateData = useMutation({
     mutationFn: async (localStorageData: any) => {
-      const response = await apiRequest('POST', '/api/user-offer-outlines', {
+      const response = await apiRequest('POST', API.USER_OFFER_OUTLINES, {
         userId,
         title: "Offer Outline",
         content: localStorageData.content || "",
@@ -1009,9 +1007,8 @@ export function useOfferMigration(userId: number) {
       return response.json();
     },
     onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outline', 'active', userId] });
-      queryClient.invalidateQueries({ queryKey: ['user-offer-outlines', userId] });
-      
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlineActive(userId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.offerOutlinesList(userId) });
       toast({
         title: "Migration Complete",
         description: "Your offer outline has been successfully migrated to the database.",

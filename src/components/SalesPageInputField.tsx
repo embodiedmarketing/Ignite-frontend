@@ -16,6 +16,7 @@ import {
   Copy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 
 interface SalesPageInputFieldProps {
   fieldKey: string;
@@ -61,19 +62,15 @@ export default function SalesPageInputField({
   // Get coaching from AI
   const coachingMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/coach-sales-section`,
+      const response = await apiRequest(
+        "POST",
+        API.COACH_SALES_SECTION,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            sectionType: fieldKey,
-            userInput: value,
-            userId,
-          }),
-        }
+          sectionType: fieldKey,
+          userInput: value,
+          userId,
+        },
+        AI_REQUEST_OPTIONS.medium
       );
 
       if (!response.ok) {
@@ -99,19 +96,15 @@ export default function SalesPageInputField({
   // Get improved versions from AI
   const improvementMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/improve-sales-section`,
+      const response = await apiRequest(
+        "POST",
+        API.IMPROVE_SALES_SECTION,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            sectionType: fieldKey,
-            currentContent: value,
-            userId,
-          }),
-        }
+          sectionType: fieldKey,
+          currentContent: value,
+          userId,
+        },
+        AI_REQUEST_OPTIONS.medium
       );
 
       if (!response.ok) {

@@ -90,7 +90,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { apiRequest } from "@/services/queryClient";
+import { API, queryKeys, apiRequest, AI_REQUEST_OPTIONS } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 
 import EmotionalSalesPageGenerator from "@/components/EmotionalSalesPageGenerator";
@@ -327,7 +327,7 @@ function TripwireFunnelPageEditor({
     try {
       const response = await apiRequest(
         "PATCH",
-        `/api/tripwire-templates/${page.id}`,
+        API.tripwireTemplatesId(page.id),
         { sections }
       );
 
@@ -340,7 +340,7 @@ function TripwireFunnelPageEditor({
 
       // Invalidate React Query cache to refresh UI
       queryClient.invalidateQueries({
-        queryKey: ["/api/tripwire-templates", offerId],
+        queryKey: queryKeys.tripwireTemplates(offerId),
       });
 
       setIsEditing(false);
@@ -1216,7 +1216,7 @@ export default function InteractiveStep({
 
   // Fetch existing coaching sessions on load
   const { data: existingCoachingSessions } = useQuery({
-    queryKey: ["/api/core-offer/coaching-sessions"],
+    queryKey: queryKeys.coreOfferCoachingSessions(),
     enabled: stepNumber === 2 && !!userId,
   });
 
@@ -1236,13 +1236,14 @@ export default function InteractiveStep({
     mutationFn: async ({ questionKey, questionText, userResponse }: any) => {
       const response = await apiRequest(
         "POST",
-        `/api/core-offer/coach/${questionKey}`,
+        API.coreOfferCoach(questionKey),
         {
           questionText,
           userResponse,
           mainTransformation: coreResponses.headlineTransformation,
           allResponses: coreResponses,
-        }
+        },
+        AI_REQUEST_OPTIONS.medium
       );
       return await response.json();
     },
@@ -1285,13 +1286,14 @@ export default function InteractiveStep({
     }: any) => {
       const response = await apiRequest(
         "POST",
-        `/api/core-offer/rewrite/${questionKey}`,
+        API.coreOfferRewrite(questionKey),
         {
           questionText,
           originalResponse,
           mainTransformation: coreResponses.headlineTransformation,
           specificIssues: coachingSessions[questionKey]?.alignmentIssues || [],
-        }
+        },
+        AI_REQUEST_OPTIONS.medium
       );
       return await response.json();
     },
@@ -1311,10 +1313,9 @@ export default function InteractiveStep({
     mutationFn: async ({ questionKey, rewrittenText }: any) => {
       const response = await apiRequest(
         "POST",
-        `/api/core-offer/accept-rewrite/${questionKey}`,
-        {
-          rewrittenText,
-        }
+        API.coreOfferAcceptRewrite(questionKey),
+        { rewrittenText },
+        AI_REQUEST_OPTIONS.medium
       );
       return await response.json();
     },
@@ -1343,7 +1344,7 @@ export default function InteractiveStep({
   // Summary mutation
   const summaryMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("GET", "/api/core-offer/summary");
+      const response = await apiRequest("GET", API.CORE_OFFER_SUMMARY);
       return await response.json();
     },
   });
@@ -1403,12 +1404,11 @@ export default function InteractiveStep({
 
   // Fetch Tripwire Outline from database
   const { data: tripwireOutlineData } = useQuery({
-    queryKey: ["/api/user-offer-outlines/user", userId, "tripwire"],
+    queryKey: queryKeys.userOfferOutlinesWithSuffix(userId, "tripwire"),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/user-offer-outlines/user/${userId}`
+      const response = await apiRequest(
+        "GET",
+        API.userOfferOutlinesUser(Number(userId))
       );
       if (!response.ok) return null;
       const outlines = await response.json();
@@ -1570,15 +1570,12 @@ export default function InteractiveStep({
 
       const response = await apiRequest(
         "POST",
-        "/api/core-offer/generate-tripwire-outline",
+        API.CORE_OFFER_GENERATE_TRIPWIRE,
         {
           tripwireResponses: tripwireData,
           offerNumber: offerNumber,
         },
-        {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: "high",
-        }
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {
@@ -1611,18 +1608,17 @@ export default function InteractiveStep({
       // Invalidate offer outline queries to refresh the UI (including IGNITE Docs)
       if (savedId) {
         queryClient.invalidateQueries({
-          queryKey: ["/api/user-offer-outlines", "active", memoizedUserId],
+          queryKey: queryKeys.offerOutlineActive(memoizedUserId),
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/user-offer-outlines", "user", memoizedUserId],
+          queryKey: queryKeys.offerOutlinesList(memoizedUserId),
         });
         queryClient.invalidateQueries({
-          queryKey: ["/api/user-offer-outlines/user", memoizedUserId],
+          queryKey: queryKeys.userOfferOutlines(memoizedUserId),
         });
         queryClient.invalidateQueries({
           queryKey: [
-            "/api/user-offer-outlines/user",
-            memoizedUserId,
+            ...queryKeys.userOfferOutlines(memoizedUserId),
             "tripwire",
           ],
         });
@@ -1679,12 +1675,13 @@ export default function InteractiveStep({
 
       const response = await apiRequest(
         "POST",
-        "/api/generate-single-tripwire-template",
+        API.GENERATE_SINGLE_TRIPWIRE_TEMPLATE,
         {
           offerId: offerNumber,
           outlineText: tripwireOutline,
           templateType,
-        }
+        },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {
@@ -2683,20 +2680,11 @@ export default function InteractiveStep({
     setCoreRecommendations([]);
 
     try {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/core-offer/generate-core-offer-outline`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            coreResponses,
-            userId: Number(userId),
-          }),
-          credentials: "include",
-          
-        }
+      const response = await apiRequest(
+        "POST",
+        API.CORE_OFFER_GENERATE_CORE,
+        { coreResponses, userId: Number(userId) },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {
@@ -2728,7 +2716,7 @@ export default function InteractiveStep({
 
       // Invalidate IGNITE Docs cache to show new document
       queryClient.invalidateQueries({
-        queryKey: ["/api/user-offer-outlines/user", Number(userId)],
+        queryKey: queryKeys.userOfferOutlines(Number(userId)),
       });
 
       toast({
@@ -2817,13 +2805,11 @@ export default function InteractiveStep({
 
   // Interview notes database integration
   const { data: dbInterviewNotes } = useQuery({
-    queryKey: ["/api/interview-notes", userId],
+    queryKey: queryKeys.interviewNotes(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/interview-notes/${userId}`,
-        {
-          credentials: "include",
-        }
+      const response = await apiRequest(
+        "GET",
+        API.interviewNotesUser(Number(userId))
       );
       if (!response.ok) throw new Error("Failed to fetch interview notes");
       return response.json();
@@ -2840,7 +2826,7 @@ export default function InteractiveStep({
       noteKey: string;
       content: string;
     }) => {
-      return apiRequest("POST", "/api/interview-notes", {
+      return apiRequest("POST", API.INTERVIEW_NOTES, {
         userId: parseInt(userId),
         noteKey,
         content,
@@ -3295,7 +3281,7 @@ export default function InteractiveStep({
       .catch((error) => {
         console.error("Failed to migrate section completions:", error);
       });
-  }, [stepNumber, userId, activeStrategy]); // Include activeStrategy dependency
+  }, [stepNumber, userId, activeStrategy, dbInterviewNotes]); // Include dbInterviewNotes so Customer Research fields populate when API returns
 
   // Auto-migration for offer outlines in Step 2
   useEffect(() => {
@@ -3477,16 +3463,13 @@ export default function InteractiveStep({
 
       const response = await apiRequest(
         "POST",
-        "/api/generate-messaging-strategy",
+        API.GENERATE_MESSAGING_STRATEGY,
         {
           workbookResponses,
           interviewNotes: interviewNotesData,
           userId,
         },
-        {
-          timeout: 180000, // 180 seconds (3 minutes) for complex AI processing
-          priority: "high",
-        }
+        AI_REQUEST_OPTIONS.heavy
       );
 
       const data = await response.json();
@@ -3508,7 +3491,7 @@ export default function InteractiveStep({
         // Update database - check if strategy exists first (use payload we sent for sourceData)
         if (activeStrategy?.id) {
           // UPDATE existing strategy
-          apiRequest("PUT", `/api/messaging-strategies/${activeStrategy.id}`, {
+          apiRequest("PUT", API.messagingStrategiesId(activeStrategy.id), {
             content: strategyContent,
             version: (activeStrategy.version || 1) + 1,
             sourceData: {
@@ -3522,8 +3505,7 @@ export default function InteractiveStep({
             .then((updatedStrategy) => {
               // Update query cache with correct query key to match useMessagingStrategy hook
               const correctQueryKey = [
-                "/api/messaging-strategies/active",
-                userId,
+                ...queryKeys.messagingStrategyActiveAlt(Number(userId)),
               ];
               queryClient.setQueryData(correctQueryKey, {
                 ...updatedStrategy,
@@ -3559,8 +3541,7 @@ export default function InteractiveStep({
                 // Refetch the active strategy to ensure UI is updated with correct query key
                 queryClient.invalidateQueries({
                   queryKey: [
-                    "/api/messaging-strategies/active",
-                    memoizedUserId,
+                    ...queryKeys.messagingStrategyActiveAlt(memoizedUserId),
                   ],
                 });
                 // Also invalidate alternative query keys
@@ -3596,10 +3577,10 @@ export default function InteractiveStep({
 
           // Invalidate strategy queries to ensure fresh data on results page
           queryClient.invalidateQueries({
-            queryKey: ["/api/messaging-strategies/active", memoizedUserId],
+            queryKey: queryKeys.messagingStrategyActiveAlt(memoizedUserId),
           });
           queryClient.invalidateQueries({
-            queryKey: ["/api/messaging-strategies/user", memoizedUserId],
+            queryKey: queryKeys.messagingStrategiesAlt(memoizedUserId),
           });
           // Also invalidate alternative query keys
           queryClient.invalidateQueries({
@@ -3678,13 +3659,18 @@ export default function InteractiveStep({
     mutationFn: async () => {
       const offerResponses = responses;
 
-      const response = await apiRequest("POST", "/api/generate-offer-outline", {
-        offerResponses,
-        messagingStrategy: messagingStrategyContent
-          ? { content: messagingStrategyContent }
-          : null,
-        userId,
-      });
+      const response = await apiRequest(
+        "POST",
+        API.GENERATE_OFFER_OUTLINE,
+        {
+          offerResponses,
+          messagingStrategy: messagingStrategyContent
+            ? { content: messagingStrategyContent }
+            : null,
+          userId,
+        },
+        AI_REQUEST_OPTIONS.generate
+      );
 
       return await response.json();
     },
@@ -3749,11 +3735,12 @@ export default function InteractiveStep({
       const { questionText, messagingStrategy, targetPromptKey, isRegenerate } =
         params;
       setPrefillLoadingButton(targetPromptKey || null);
-      const res = await apiRequest("POST", "/api/intelligent-prefill", {
-        questionText,
-        messagingStrategy,
-        userId,
-      });
+      const res = await apiRequest(
+        "POST",
+        API.INTELLIGENT_PREFILL,
+        { questionText, messagingStrategy, userId },
+        AI_REQUEST_OPTIONS.medium
+      );
       return { data: await res.json(), targetPromptKey, isRegenerate };
     },
     onSuccess: ({ data, targetPromptKey, isRegenerate }: any) => {
@@ -3828,7 +3815,7 @@ export default function InteractiveStep({
           activeStrategy.id
         );
 
-        apiRequest("PUT", `/api/messaging-strategies/${activeStrategy.id}`, {
+        apiRequest("PUT", API.messagingStrategiesId(activeStrategy.id), {
           content: saveContent,
         })
           .then((response) => response.json())
@@ -4069,7 +4056,7 @@ export default function InteractiveStep({
     // If live calculation shows incomplete but database has it marked as complete
     else if (!liveCompletion.isComplete && isDatabaseCompleted) {
       try {
-        await apiRequest("DELETE", "/api/section-completions", {
+        await apiRequest("DELETE", API.SECTION_COMPLETIONS, {
           userId: parseInt(userId),
           stepNumber,
           sectionTitle,
@@ -4777,7 +4764,7 @@ export default function InteractiveStep({
   );
 
   const { data: userProgress } = useQuery<any>({
-    queryKey: [`/api/user-progress/${userId}/${stepNumber}`],
+    queryKey: queryKeys.userProgress(Number(userId), stepNumber),
     enabled: false, // We'll implement this endpoint later
   });
 
@@ -4788,7 +4775,7 @@ export default function InteractiveStep({
       completedVideos: number[];
     }) => {
       // We'll implement this endpoint
-      return apiRequest("POST", `/api/user-progress`, {
+      return apiRequest("POST", API.USER_PROGRESS, {
         userId,
         stepNumber,
         completedPrompts: data.responses,
@@ -4798,7 +4785,7 @@ export default function InteractiveStep({
     onSuccess: () => {
       toast({ title: "Progress saved successfully" });
       // PHASE 2 FIX: Commented out unused progress invalidation to prevent additional query cascades
-      // queryClient.invalidateQueries({ queryKey: [`/api/user-progress/${userId}/${stepNumber}`] });
+      // queryClient.invalidateQueries({ queryKey: queryKeys.userProgress(Number(userId), stepNumber) });
     },
   });
 
@@ -4963,13 +4950,18 @@ export default function InteractiveStep({
         }
       }
 
-      const res = await apiRequest("POST", "/api/interactive-coaching", {
-        section,
-        questionContext,
-        userResponse,
-        userId,
-        messagingStrategy: strategyContent,
-      });
+      const res = await apiRequest(
+        "POST",
+        API.INTERACTIVE_COACHING,
+        {
+          section,
+          questionContext,
+          userResponse,
+          userId,
+          messagingStrategy: strategyContent,
+        },
+        AI_REQUEST_OPTIONS.medium
+      );
       return await res.json();
     },
     onSuccess: (data: any, variables) => {
@@ -5009,11 +5001,16 @@ export default function InteractiveStep({
     setExpandingResponse(promptKey);
 
     try {
-      const response = await apiRequest("POST", "/api/expand-response", {
-        initialResponse: currentResponse,
-        questionContext: question,
-        questionType: section,
-      });
+      const response = await apiRequest(
+        "POST",
+        API.EXPAND_RESPONSE,
+        {
+          initialResponse: currentResponse,
+          questionContext: question,
+          questionType: section,
+        },
+        AI_REQUEST_OPTIONS.medium
+      );
       const data = await response.json();
 
       if (data.expandedResponse) {
@@ -5047,12 +5044,12 @@ export default function InteractiveStep({
       prompt: string;
       response: string;
     }) => {
-      const res = await apiRequest("POST", "/api/analyze-response", {
-        section,
-        prompt,
-        response,
-        userId,
-      });
+      const res = await apiRequest(
+        "POST",
+        API.ANALYZE_RESPONSE,
+        { section, prompt, response, userId },
+        AI_REQUEST_OPTIONS.medium
+      );
       return await res.json();
     },
     onSuccess: (data: any, variables) => {
@@ -5086,7 +5083,12 @@ export default function InteractiveStep({
   // AI Avatar Synthesis mutation
   const synthesizeAvatarMutation = useMutation({
     mutationFn: async (interviewNotes: any) => {
-      return apiRequest("POST", "/api/synthesize-avatar", { interviewNotes });
+      return apiRequest(
+        "POST",
+        API.SYNTHESIZE_AVATAR,
+        { interviewNotes },
+        AI_REQUEST_OPTIONS.medium
+      );
     },
     onSuccess: (avatarData: any) => {
       // Automatically populate customer avatar questions with synthesized data
@@ -5166,11 +5168,12 @@ export default function InteractiveStep({
       questionContext: string;
       questionType: string;
     }) => {
-      return apiRequest("POST", "/api/expand-response", {
-        initialResponse,
-        questionContext,
-        questionType,
-      });
+      return apiRequest(
+        "POST",
+        API.EXPAND_RESPONSE,
+        { initialResponse, questionContext, questionType },
+        AI_REQUEST_OPTIONS.medium
+      );
     },
     onSuccess: (data: any, variables) => {
       const promptKey = `${variables.questionType}-${variables.questionContext}`;
@@ -5208,10 +5211,12 @@ export default function InteractiveStep({
       customerAnswer: string;
       currentResponses: Record<string, string>;
     }) => {
-      return apiRequest("POST", "/api/smart-placement", {
-        customerAnswer,
-        currentResponses,
-      });
+      return apiRequest(
+        "POST",
+        API.SMART_PLACEMENT,
+        { customerAnswer, currentResponses },
+        AI_REQUEST_OPTIONS.medium
+      );
     },
     onSuccess: (data: any, variables) => {
       // The question key for "Is there anything else you think I should know?"
@@ -5266,9 +5271,7 @@ export default function InteractiveStep({
               onSuccess: () => {
                 // Invalidate queries after successful save to refresh UI
                 queryClient.invalidateQueries({
-                  queryKey: [
-                    `/api/workbook-responses/user/${memoizedUserId}/step/${stepNumber}`,
-                  ],
+                  queryKey: queryKeys.workbookResponses(memoizedUserId, stepNumber, 1),
                 });
                 console.log(
                   `[AUTO-SAVE] Invalidated queries after saving ${questionKey}`
@@ -5310,9 +5313,7 @@ export default function InteractiveStep({
               onSuccess: () => {
                 // Invalidate queries after successful save to refresh UI
                 queryClient.invalidateQueries({
-                  queryKey: [
-                    `/api/workbook-responses/user/${memoizedUserId}/step/${stepNumber}`,
-                  ],
+                  queryKey: queryKeys.workbookResponses(memoizedUserId, stepNumber, 1),
                 });
                 console.log(
                   `[AUTO-SAVE] Invalidated queries after saving auto-placement question`
@@ -5336,16 +5337,11 @@ export default function InteractiveStep({
   // Transcript parsing mutation
   const parseTranscriptMutation = useMutation({
     mutationFn: async ({ transcript }: { transcript: string }) => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/parse-interview-transcript`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ transcript }),
-          credentials: "include",
-        }
+      const response = await apiRequest(
+        "POST",
+        API.PARSE_INTERVIEW_TRANSCRIPT,
+        { transcript },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {
@@ -5380,15 +5376,10 @@ export default function InteractiveStep({
           );
 
           // Save all extracted answers to database
-          fetch("/api/interview-notes/bulk", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              userId: parseInt(userId),
-              notes: updates,
-              source: "transcript",
-            }),
+          apiRequest("POST", API.INTERVIEW_NOTES_BULK, {
+            userId: parseInt(userId),
+            notes: updates,
+            source: "transcript",
           });
 
           setTranscriptText("");
@@ -5460,38 +5451,23 @@ export default function InteractiveStep({
       // Set individual button loading state
       setTransferringButtons((prev) => ({ ...prev, [buttonKey]: true }));
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
-
       try {
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/interview/synthesize-interview-response`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              interviewResponse,
-              existingMessagingStrategy: responses,
-            }),
-            signal: controller.signal,
-          }
+        const response = await apiRequest(
+          "POST",
+          API.SYNTHESIZE_INTERVIEW_RESPONSE,
+          { interviewResponse, existingMessagingStrategy: responses },
+          AI_REQUEST_OPTIONS.medium
         );
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         return await response.json();
-      } catch (error:any) {
-        clearTimeout(timeoutId);
-        if (error.name === "AbortError") {
+      } catch (error: any) {
+        if (error?.message?.includes("timeout")) {
           throw new Error(
-            "Request timed out after 20 seconds. Please try again."
+            "Request timed out. Please try again."
           );
         }
         throw error;
@@ -5535,22 +5511,16 @@ export default function InteractiveStep({
       unsavedChanges.clearChange(variables.interviewResponse.workbookSection);
 
       // Simple dedicated transfer endpoint with proper response handling
-      fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/interview/transfer-interview-response`,
+      apiRequest(
+        "POST",
+        API.TRANSFER_INTERVIEW_RESPONSE,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            userId: memoizedUserId,
-            stepNumber,
-            questionKey: variables.interviewResponse.workbookSection,
-            responseText: data.synthesizedContent,
-            sectionTitle:
-              variables.interviewResponse.workbookSection.split("-")[0],
-          }),
+          userId: memoizedUserId,
+          stepNumber,
+          questionKey: variables.interviewResponse.workbookSection,
+          responseText: data.synthesizedContent,
+          sectionTitle:
+            variables.interviewResponse.workbookSection.split("-")[0],
         }
       )
         .then((response) => {
@@ -5678,22 +5648,16 @@ export default function InteractiveStep({
         .replace(/\bwas\b/g, "were");
 
       // Simple dedicated transfer endpoint for error fallback with proper response handling
-      fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/interview/transfer-interview-response`,
+      apiRequest(
+        "POST",
+        API.TRANSFER_INTERVIEW_RESPONSE,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            userId: memoizedUserId,
-            stepNumber,
-            questionKey: variables.interviewResponse.workbookSection,
-            responseText: basicTransform,
-            sectionTitle:
-              variables.interviewResponse.workbookSection.split("-")[0],
-          }),
+          userId: memoizedUserId,
+          stepNumber,
+          questionKey: variables.interviewResponse.workbookSection,
+          responseText: basicTransform,
+          sectionTitle:
+            variables.interviewResponse.workbookSection.split("-")[0],
         }
       )
         .then((response) => {
@@ -5948,21 +5912,15 @@ export default function InteractiveStep({
 
         // DIRECT TRANSFER: Copy interview answer as-is to workbook response
         // No AI synthesis - just save the raw answer directly
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/interview/transfer-interview-response`,
+        const response = await apiRequest(
+          "POST",
+          API.TRANSFER_INTERVIEW_RESPONSE,
           {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              userId: memoizedUserId,
-              stepNumber,
-              questionKey: item.workbookKey,
-              responseText: customerAnswer, // Use raw answer, not synthesized
-              sectionTitle: item.workbookKey.split("-")[0],
-            }),
+            userId: memoizedUserId,
+            stepNumber,
+            questionKey: item.workbookKey,
+            responseText: customerAnswer,
+            sectionTitle: item.workbookKey.split("-")[0],
           }
         );
 
@@ -6308,12 +6266,11 @@ export default function InteractiveStep({
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch(
-          `${import.meta.env.VITE_BASE_URL}/api/extract-text-from-file`,
-          {
-            method: "POST",
-            body: formData,
-          }
+        const response = await apiRequest(
+          "POST",
+          API.extractTextFromFile(),
+          formData,
+          AI_REQUEST_OPTIONS.medium
         );
 
         if (!response.ok) {
@@ -7694,7 +7651,7 @@ export default function InteractiveStep({
                               if (activeStrategy?.id && memoizedUserId) {
                                 const response = await apiRequest(
                                   "PUT",
-                                  `/api/messaging-strategies/${activeStrategy.id}`,
+                                  API.messagingStrategiesId(activeStrategy.id),
                                   {
                                     content: editedContent.trim(),
                                     version: (activeStrategy.version || 1) + 1,
@@ -8046,7 +8003,7 @@ export default function InteractiveStep({
                                 try {
                                   const response = await apiRequest(
                                     "POST",
-                                    "/api/user-offer-outlines",
+                                    API.USER_OFFER_OUTLINES,
                                     {
                                       userId: Number(userId),
                                       offerNumber: 2, // Tripwire is offer #2
@@ -8059,11 +8016,7 @@ export default function InteractiveStep({
                                   if (response.ok) {
                                     // Invalidate queries to refresh
                                     queryClient.invalidateQueries({
-                                      queryKey: [
-                                        "/api/user-offer-outlines/user",
-                                        userId,
-                                        "tripwire",
-                                      ],
+                                      queryKey: queryKeys.userOfferOutlinesWithSuffix(userId, "tripwire"),
                                     });
                                     console.log(
                                       "Tripwire outline saved to database"

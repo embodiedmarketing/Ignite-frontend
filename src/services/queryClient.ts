@@ -5,4 +5,6 @@ export {
   enhancedApiClient,
   getQueryFn,
   queryClient,
+  API_TIMEOUT,
+  AI_REQUEST_OPTIONS,
 } from "./apiClient";

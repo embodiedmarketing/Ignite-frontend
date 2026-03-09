@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, Sparkles, ThumbsUp, Brain, ArrowRight, Loader2, X } from "lucide-react";
-import { apiRequest } from "@/services/queryClient";
+import { apiRequest, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 
 interface RealTimeFeedback {
   status: "typing" | "good-start" | "developing" | "strong";
@@ -43,11 +43,12 @@ export default function RealTimeFeedbackPanel({
     setIsDismissed(false);
 
     try {
-      const result = await apiRequest("POST", "/api/ai-coaching/real-time-feedback", {
-        question,
-        userResponse,
-        sectionContext,
-      });
+      const result = await apiRequest(
+        "POST",
+        API.AI_COACHING_REALTIME,
+        { question, userResponse, sectionContext },
+        AI_REQUEST_OPTIONS.short
+      );
 
       const data = await result.json();
 

@@ -44,9 +44,8 @@ import { Link, useParams, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertForumPostSchema, type InsertForumPost, insertForumThreadSchema, type InsertForumThread } from "@shared/schema";
-import { queryClient } from "@/services/queryClient";
+import { API, queryKeys, queryClient, apiRequest } from "@/services";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/services/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useMemo, useEffect } from "react";
 import { MentionTextarea } from "@/components/MentionTextarea";
@@ -83,13 +82,11 @@ export default function ThreadDetail() {
   const activeFormRef = useRef<{ setValue: (field: string, value: string) => void } | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["/api/forum/threads", id],
-    queryFn: () =>
-      fetch(`${import.meta.env.VITE_BASE_URL}/api/forum/threads/${id}`, {
-        credentials: 'include'
-      }).then(
-        (res) => res.json()
-      ),
+    queryKey: queryKeys.forumThreads(id),
+    queryFn: async () => {
+      const res = await apiRequest("GET", API.forumThreadsId(id));
+      return res.json();
+    },
     enabled: !!id,
   });
 
@@ -610,13 +607,10 @@ export default function ThreadDetail() {
         for (const file of attachments) {
           const formData = new FormData();
           formData.append("file", file);
-          const uploadResponse = await fetch(
-            `${import.meta.env.VITE_BASE_URL}/api/forum/upload-attachment`,
-            {
-              method: "POST",
-              body: formData,
-              credentials: "include",
-            }
+          const uploadResponse = await apiRequest(
+            "POST",
+            API.FORUM_UPLOAD_ATTACHMENT,
+            formData
           );
           if (uploadResponse.ok) {
             const attachment = await uploadResponse.json();
@@ -633,7 +627,7 @@ export default function ThreadDetail() {
 
       const response = await apiRequest(
         "POST",
-        `/api/forum/threads/${id}/posts`,
+        API.forumThreadsPosts(id),
         dataWithAttachments
       );
       if (!response.ok) {
@@ -643,8 +637,8 @@ export default function ThreadDetail() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/threads", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumThreads(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumCategories() });
       form.reset();
       setReplyingToPostId(null);
       setAttachments([]);
@@ -666,11 +660,11 @@ export default function ThreadDetail() {
 
   const deleteThreadMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("DELETE", `/api/forum/threads/${id}`);
+      const response = await apiRequest("DELETE", API.forumThreadsId(id));
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumCategories() });
       toast({
         title: "Thread deleted",
         description: "Your thread has been deleted successfully.",
@@ -694,13 +688,10 @@ export default function ThreadDetail() {
         for (const file of threadAttachments) {
           const formData = new FormData();
           formData.append("file", file);
-          const uploadResponse = await fetch(
-            `${import.meta.env.VITE_BASE_URL}/api/forum/upload-attachment`,
-            {
-              method: "POST",
-              body: formData,
-              credentials: "include",
-            }
+          const uploadResponse = await apiRequest(
+            "POST",
+            API.FORUM_UPLOAD_ATTACHMENT,
+            formData
           );
           if (uploadResponse.ok) {
             const attachment = await uploadResponse.json();
@@ -717,7 +708,7 @@ export default function ThreadDetail() {
 
       const response = await apiRequest(
         "PUT",
-        `/api/forum/threads/${id}`,
+        API.forumThreadsId(id),
         dataWithAttachments
       );
       if (!response.ok) {
@@ -727,8 +718,8 @@ export default function ThreadDetail() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/threads", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumThreads(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumCategories() });
       setIsEditingThread(false);
       setThreadAttachments([]);
       threadEditorRef.current?.clear();
@@ -841,13 +832,10 @@ export default function ThreadDetail() {
         for (const file of postAttachments) {
           const formData = new FormData();
           formData.append("file", file);
-          const uploadResponse = await fetch(
-            `${import.meta.env.VITE_BASE_URL}/api/forum/upload-attachment`,
-            {
-              method: "POST",
-              body: formData,
-              credentials: "include",
-            }
+          const uploadResponse = await apiRequest(
+            "POST",
+            API.FORUM_UPLOAD_ATTACHMENT,
+            formData
           );
           if (uploadResponse.ok) {
             const attachment = await uploadResponse.json();
@@ -864,7 +852,7 @@ export default function ThreadDetail() {
 
       const response = await apiRequest(
         "PUT",
-        `/api/forum/posts/${postId}`,
+        API.forumPostsId(postId),
         dataWithAttachments
       );
       if (!response.ok) {
@@ -874,8 +862,8 @@ export default function ThreadDetail() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/threads", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumThreads(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumCategories() });
       setEditingPostId(null);
       setPostAttachments([]);
       postEditorRef.current?.clear();
@@ -897,7 +885,7 @@ export default function ThreadDetail() {
 
   const deletePostMutation = useMutation({
     mutationFn: async (postId: number) => {
-      const response = await apiRequest("DELETE", `/api/forum/posts/${postId}`);
+      const response = await apiRequest("DELETE", API.forumPostsId(postId));
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to delete post");
@@ -905,8 +893,8 @@ export default function ThreadDetail() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/threads", id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/forum/categories"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumThreads(id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.forumCategories() });
       setDeletePostId(null);
       toast({
         title: "Post deleted",
@@ -1656,17 +1644,12 @@ const MentionPopup = ({mentionPopupRef, insertMention, data}: {mentionPopupRef: 
   
   // Fetch all users from the API (empty query to get all users, or use search query)
   const { data: allUsers = [], isLoading: isLoadingUsers } = useQuery<any[]>({
-    queryKey: ['/api/forum/users/search', searchQuery || 'all'],
-    queryFn: () => {
-      const queryParam = searchQuery.trim() || '';
-      return fetch(`${import.meta.env.VITE_BASE_URL || ''}/api/forum/users/search?q=${encodeURIComponent(queryParam)}`, {
-        credentials: 'include'
-      }).then(res => {
-        if (!res.ok) {
-          throw new Error('Failed to fetch users');
-        }
-        return res.json();
-      });
+    queryKey: queryKeys.forumUsersSearch(searchQuery.trim() || "all"),
+    queryFn: async () => {
+      const queryParam = searchQuery.trim() || "";
+      const res = await apiRequest("GET", API.forumUsersSearch(queryParam));
+      if (!res.ok) throw new Error("Failed to fetch users");
+      return res.json();
     },
   });
 

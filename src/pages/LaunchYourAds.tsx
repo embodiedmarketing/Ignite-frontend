@@ -54,7 +54,7 @@ import {
   useMarkSectionComplete,
   useUnmarkSectionComplete,
 } from "@/hooks/useSectionCompletions";
-import { apiRequest } from "@/services/queryClient";
+import { API, apiRequest, AI_REQUEST_OPTIONS } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { Document, Paragraph, TextRun, Packer } from "docx";
@@ -147,13 +147,9 @@ export default function LaunchYourAds() {
       if (!userId) return;
 
       try {
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/implementation-checkboxes/launch-your-ads`,
-          {
-            credentials: "include",
-          }
+        const response = await apiRequest(
+          "GET",
+          API.implementationCheckboxes("launch-your-ads")
         );
 
         if (response.ok) {
@@ -178,7 +174,7 @@ export default function LaunchYourAds() {
 
     const saveCheckboxState = async () => {
       try {
-        await apiRequest("POST", "/api/implementation-checkboxes", {
+        await apiRequest("POST", API.IMPLEMENTATION_CHECKBOXES, {
           userId,
           pageIdentifier: "launch-your-ads",
           checkboxStates: completedSections,
@@ -197,11 +193,9 @@ export default function LaunchYourAds() {
       if (!userId) return;
 
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_BASE_URL}/api/video-script-generator-state`,
-          {
-            credentials: "include",
-          }
+        const response = await apiRequest(
+          "GET",
+          API.VIDEO_SCRIPT_GENERATOR_STATE
         );
 
         if (response.ok) {
@@ -241,7 +235,7 @@ export default function LaunchYourAds() {
 
     const timeoutId = setTimeout(async () => {
       try {
-        await apiRequest("POST", "/api/video-script-generator-state", {
+        await apiRequest("POST", API.VIDEO_SCRIPT_GENERATOR_STATE, {
           inputMethod,
           landingPageUrl: landingPageUrl || null,
           manualContent: landingPageContent || null,
@@ -349,15 +343,14 @@ export default function LaunchYourAds() {
     try {
       const response = await apiRequest(
         "POST",
-        "/api/generate-video-scripts",
+        API.GENERATE_VIDEO_SCRIPTS,
         {
           manualContent:
             inputMethod === "manual" ? landingPageContent : undefined,
           landingPageUrl: inputMethod === "url" ? landingPageUrl : undefined,
         },
         {
-          timeout: 120000, // 120 seconds for AI processing
-          priority: "high",
+          ...AI_REQUEST_OPTIONS.generate,
         }
       );
 

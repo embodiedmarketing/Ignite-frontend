@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import SalesPageInputField from "@/components/SalesPageInputField";
 import { useSalesPageData } from "@/hooks/useSalesPageData";
 import { validateAndNotify } from "@/utils/prerequisite-validator";
-import { queryClient } from "@/services/queryClient";
+import { API, queryKeys, apiRequest, queryClient, AI_REQUEST_OPTIONS } from "@/services";
 import { useQuery } from "@tanstack/react-query";
 
 // Markdown parsing function
@@ -102,15 +102,11 @@ export default function SimplifiedSalesPageGenerator({
   // Fetch messaging strategy with refetch capability
   const { data: messagingStrategy, refetch: refetchMessagingStrategy } =
     useQuery({
-      queryKey: ["messaging-strategy", "active", userId],
+      queryKey: queryKeys.messagingStrategyActive(userId),
       queryFn: async () => {
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/messaging-strategies/active/${userId}`,
-          {
-            credentials: "include",
-          }
+        const response = await apiRequest(
+          "GET",
+          API.messagingStrategiesActive(userId)
         );
         if (!response.ok) throw new Error("Failed to fetch messaging strategy");
         const data = await response.json();
@@ -124,19 +120,14 @@ export default function SimplifiedSalesPageGenerator({
 
   // Fetch offer outline (most recent one, regardless of active status)
   const { data: offerOutline, refetch: refetchOfferOutline } = useQuery({
-    queryKey: [`/api/user-offer-outlines/user/${userId}`, userId],
+    queryKey: queryKeys.userOfferOutlinesByUser(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/user-offer-outlines/user/${userId}`,
-        {
-          credentials: "include",
-        }
+      const response = await apiRequest(
+        "GET",
+        API.userOfferOutlinesUser(userId)
       );
       if (!response.ok) throw new Error("Failed to fetch offer outline");
       const data = await response.json();
-      // Return the most recent outline if any exist
       return Array.isArray(data) && data.length > 0 ? data[0] : null;
     },
     enabled: !!userId,
@@ -192,22 +183,16 @@ export default function SimplifiedSalesPageGenerator({
         throw new Error("Missing prerequisites");
       }
 
-      // Use the latest refetched data instead of stale cached data
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+      const response = await apiRequest(
+        "POST",
+        API.GENERATE_SALES_PAGE,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            userId,
-            messagingStrategy: latestMessagingStrategy, // Now using refetched data
-            offerOutline: latestOfferOutline, // Now using refetched data
-            salesPageInputs,
-          }),
-        }
+          userId,
+          messagingStrategy: latestMessagingStrategy,
+          offerOutline: latestOfferOutline,
+          salesPageInputs,
+        },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {

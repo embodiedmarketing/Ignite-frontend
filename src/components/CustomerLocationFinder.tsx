@@ -26,6 +26,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useWorkbookResponses } from "@/hooks/useDatabasePersistence";
 import { validateAndNotify } from "@/utils/prerequisite-validator";
+import { apiRequest, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 
 interface CustomerLocationFinderProps {
   userId: number;
@@ -294,19 +295,15 @@ export default function CustomerLocationFinder({
         throw new Error("Missing prerequisites");
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/generate-customer-locations`,
+      const response = await apiRequest(
+        "POST",
+        API.GENERATE_CUSTOMER_LOCATIONS,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId,
-            messagingStrategy,
-            existingLocations: connectionStrategies.customer_locations || "",
-          }),
-        }
+          userId,
+          messagingStrategy,
+          existingLocations: connectionStrategies.customer_locations || "",
+        },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {

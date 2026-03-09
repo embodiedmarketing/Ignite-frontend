@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { API } from "@/services";
 
 type OnboardingStepColor = "blue" | "coral" | "orange" | "navy";
 
@@ -172,10 +173,10 @@ export default function Onboarding() {
 
   // Fetch onboarding steps from API
   const { data: onboardingSteps = [], isLoading: isLoadingSteps, error: stepsError } = useQuery({
-    queryKey: ['/api/onboarding-steps'],
+    queryKey: [API.ONBOARDING_STEPS],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', '/api/onboarding-steps');
+        const response = await apiRequest('GET', API.ONBOARDING_STEPS);
         const data = await response.json();
         return Array.isArray(data) 
           ? data.sort((a: OnboardingStep, b: OnboardingStep) => (a.order || 0) - (b.order || 0))
@@ -191,15 +192,15 @@ export default function Onboarding() {
   // Create step mutation
   const createStepMutation = useMutation({
     mutationFn: async (data: OnboardingStepFormData & { order?: number }) => {
-      const response = await apiRequest('POST', '/api/onboarding-steps', data);
+      const response = await apiRequest('POST', API.ONBOARDING_STEPS, data);
       return response.json();
     },
     onMutate: async (newStep) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['/api/onboarding-steps'] });
+      await queryClient.cancelQueries({ queryKey: [API.ONBOARDING_STEPS] });
 
       // Snapshot the previous value
-      const previousSteps = queryClient.getQueryData<OnboardingStep[]>(['/api/onboarding-steps']);
+      const previousSteps = queryClient.getQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS]);
 
       // Optimistically update to the new value
       const tempId = `temp-${Date.now()}`;
@@ -238,7 +239,7 @@ export default function Onboarding() {
     onError: (error: any, newStep, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousSteps) {
-        queryClient.setQueryData(['/api/onboarding-steps'], context.previousSteps);
+        queryClient.setQueryData([API.ONBOARDING_STEPS], context.previousSteps);
       }
       console.error('Failed to create step:', error);
       toast({
@@ -249,7 +250,7 @@ export default function Onboarding() {
     },
     onSuccess: (data: OnboardingStep) => {
       // Immediately update state with the server response after API success
-      queryClient.setQueryData<OnboardingStep[]>(['/api/onboarding-steps'], (old = []) => {
+      queryClient.setQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS], (old = []) => {
         // Remove any temporary steps - ensure id is a string before calling startsWith
         const withoutTemp = old.filter(step => {
           if (!step || !step.id) return false;
@@ -281,18 +282,18 @@ export default function Onboarding() {
   // Update step mutation
   const updateStepMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<OnboardingStepFormData> }) => {
-      const response = await apiRequest('PUT', `/api/onboarding-steps/${id}`, data);
+      const response = await apiRequest('PUT', `${API.ONBOARDING_STEPS}/${id}`, data);
       return response.json();
     },
     onMutate: async ({ id, data: updateData }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['/api/onboarding-steps'] });
+      await queryClient.cancelQueries({ queryKey: [API.ONBOARDING_STEPS] });
 
       // Snapshot the previous value
-      const previousSteps = queryClient.getQueryData<OnboardingStep[]>(['/api/onboarding-steps']);
+      const previousSteps = queryClient.getQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData<OnboardingStep[]>(['/api/onboarding-steps'], (old = []) => {
+      queryClient.setQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS], (old = []) => {
         return old.map(step => 
           step.id === id 
             ? { ...step, ...updateData }
@@ -318,7 +319,7 @@ export default function Onboarding() {
     onError: (error: any, variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousSteps) {
-        queryClient.setQueryData(['/api/onboarding-steps'], context.previousSteps);
+        queryClient.setQueryData([API.ONBOARDING_STEPS], context.previousSteps);
       }
       console.error('Failed to update step:', error);
       toast({
@@ -329,7 +330,7 @@ export default function Onboarding() {
     },
     onSuccess: (data) => {
       // Update with the actual server response
-      queryClient.setQueryData<OnboardingStep[]>(['/api/onboarding-steps'], (old = []) => {
+      queryClient.setQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS], (old = []) => {
         return old.map(step => step.id === data.id ? data : step);
       });
       toast({
@@ -342,18 +343,18 @@ export default function Onboarding() {
   // Delete step mutation
   const deleteStepMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/onboarding-steps/${id}`);
+      const response = await apiRequest('DELETE', `${API.ONBOARDING_STEPS}/${id}`);
       return response.json();
     },
     onMutate: async (id) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['/api/onboarding-steps'] });
+      await queryClient.cancelQueries({ queryKey: [API.ONBOARDING_STEPS] });
 
       // Snapshot the previous value
-      const previousSteps = queryClient.getQueryData<OnboardingStep[]>(['/api/onboarding-steps']);
+      const previousSteps = queryClient.getQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS]);
 
       // Optimistically update to the new value
-      queryClient.setQueryData<OnboardingStep[]>(['/api/onboarding-steps'], (old = []) => {
+      queryClient.setQueryData<OnboardingStep[]>([API.ONBOARDING_STEPS], (old = []) => {
         return old.filter(step => step.id !== id);
       });
 
@@ -366,7 +367,7 @@ export default function Onboarding() {
     onError: (error: any, id, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousSteps) {
-        queryClient.setQueryData(['/api/onboarding-steps'], context.previousSteps);
+        queryClient.setQueryData([API.ONBOARDING_STEPS], context.previousSteps);
       }
       console.error('Failed to delete step:', error);
       toast({
@@ -521,10 +522,10 @@ export default function Onboarding() {
 
   // Fetch team members from API
   const { data: teamMembers = [], isLoading: isLoadingTeamMembers, error: teamMembersError } = useQuery({
-    queryKey: ['/api/team-members'],
+    queryKey: [API.TEAM_MEMBERS],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', '/api/team-members');
+        const response = await apiRequest('GET', API.TEAM_MEMBERS);
         const data = await response.json();
         return Array.isArray(data) 
           ? data.sort((a: TeamMember, b: TeamMember) => (a.order || 0) - (b.order || 0))
@@ -540,12 +541,12 @@ export default function Onboarding() {
   // Create team member mutation
   const createTeamMemberMutation = useMutation({
     mutationFn: async (data: TeamMemberFormData & { order?: number }) => {
-      const response = await apiRequest('POST', '/api/team-members', data);
+      const response = await apiRequest('POST', API.TEAM_MEMBERS, data);
       return response.json();
     },
     onMutate: async (newMember) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/team-members'] });
-      const previousMembers = queryClient.getQueryData<TeamMember[]>(['/api/team-members']);
+      await queryClient.cancelQueries({ queryKey: [API.TEAM_MEMBERS] });
+      const previousMembers = queryClient.getQueryData<TeamMember[]>([API.TEAM_MEMBERS]);
       
       const tempId = `temp-${Date.now()}`;
       const optimisticMember: TeamMember = {
@@ -559,7 +560,7 @@ export default function Onboarding() {
         backgroundColor: newMember.backgroundColor
       };
 
-      queryClient.setQueryData<TeamMember[]>(['/api/team-members'], (old = []) => {
+      queryClient.setQueryData<TeamMember[]>([API.TEAM_MEMBERS], (old = []) => {
         const updated = [...old, optimisticMember];
         return updated.sort((a, b) => (a.order || 0) - (b.order || 0));
       });
@@ -580,7 +581,7 @@ export default function Onboarding() {
     },
     onError: (error: any, newMember, context) => {
       if (context?.previousMembers) {
-        queryClient.setQueryData(['/api/team-members'], context.previousMembers);
+        queryClient.setQueryData([API.TEAM_MEMBERS], context.previousMembers);
       }
       console.error('Failed to create team member:', error);
       toast({
@@ -591,7 +592,7 @@ export default function Onboarding() {
     },
     onSuccess: (data: TeamMember) => {
       // Replace optimistic update with actual data from database
-      queryClient.setQueryData<TeamMember[]>(['/api/team-members'], (old = []) => {
+      queryClient.setQueryData<TeamMember[]>([API.TEAM_MEMBERS], (old = []) => {
         // Remove any temporary members
         const withoutTemp = old.filter(member => {
           if (!member || !member.id) return false;
@@ -615,7 +616,7 @@ export default function Onboarding() {
       });
       
       // Invalidate and refetch to ensure we have the latest data from database
-      queryClient.invalidateQueries({ queryKey: ['/api/team-members'] });
+      queryClient.invalidateQueries({ queryKey: [API.TEAM_MEMBERS] });
       
       toast({
         title: "Team Member Created",
@@ -627,14 +628,14 @@ export default function Onboarding() {
   // Update team member mutation
   const updateTeamMemberMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<TeamMemberFormData> }) => {
-      const response = await apiRequest('PUT', `/api/team-members/${id}`, data);
+      const response = await apiRequest('PUT', `${API.TEAM_MEMBERS}/${id}`, data);
       return response.json();
     },
     onMutate: async ({ id, data: updateData }) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/team-members'] });
-      const previousMembers = queryClient.getQueryData<TeamMember[]>(['/api/team-members']);
+      await queryClient.cancelQueries({ queryKey: [API.TEAM_MEMBERS] });
+      const previousMembers = queryClient.getQueryData<TeamMember[]>([API.TEAM_MEMBERS]);
 
-      queryClient.setQueryData<TeamMember[]>(['/api/team-members'], (old = []) => {
+      queryClient.setQueryData<TeamMember[]>([API.TEAM_MEMBERS], (old = []) => {
         return old.map(member => 
           member.id === id 
             ? { ...member, ...updateData }
@@ -658,7 +659,7 @@ export default function Onboarding() {
     },
     onError: (error: any, variables, context) => {
       if (context?.previousMembers) {
-        queryClient.setQueryData(['/api/team-members'], context.previousMembers);
+        queryClient.setQueryData([API.TEAM_MEMBERS], context.previousMembers);
       }
       console.error('Failed to update team member:', error);
       toast({
@@ -669,13 +670,13 @@ export default function Onboarding() {
     },
     onSuccess: (data: TeamMember) => {
       // Update with actual data from database
-      queryClient.setQueryData<TeamMember[]>(['/api/team-members'], (old = []) => {
+      queryClient.setQueryData<TeamMember[]>([API.TEAM_MEMBERS], (old = []) => {
         return old.map(member => member.id === data.id ? data : member)
           .sort((a, b) => (a.order || 0) - (b.order || 0));
       });
       
       // Invalidate and refetch to ensure we have the latest data from database
-      queryClient.invalidateQueries({ queryKey: ['/api/team-members'] });
+      queryClient.invalidateQueries({ queryKey: [API.TEAM_MEMBERS] });
       
       toast({
         title: "Team Member Updated",
@@ -687,14 +688,14 @@ export default function Onboarding() {
   // Delete team member mutation
   const deleteTeamMemberMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/team-members/${id}`);
+      const response = await apiRequest('DELETE', `${API.TEAM_MEMBERS}/${id}`);
       return response.json();
     },
     onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ['/api/team-members'] });
-      const previousMembers = queryClient.getQueryData<TeamMember[]>(['/api/team-members']);
+      await queryClient.cancelQueries({ queryKey: [API.TEAM_MEMBERS] });
+      const previousMembers = queryClient.getQueryData<TeamMember[]>([API.TEAM_MEMBERS]);
 
-      queryClient.setQueryData<TeamMember[]>(['/api/team-members'], (old = []) => {
+      queryClient.setQueryData<TeamMember[]>([API.TEAM_MEMBERS], (old = []) => {
         return old.filter(member => member.id !== id);
       });
 
@@ -705,7 +706,7 @@ export default function Onboarding() {
     },
     onError: (error: any, id, context) => {
       if (context?.previousMembers) {
-        queryClient.setQueryData(['/api/team-members'], context.previousMembers);
+        queryClient.setQueryData([API.TEAM_MEMBERS], context.previousMembers);
       }
       console.error('Failed to delete team member:', error);
       toast({
@@ -724,10 +725,10 @@ export default function Onboarding() {
 
   // Fetch FAQs from API
   const { data: faqs = [], isLoading: isLoadingFAQs, error: faqsError } = useQuery({
-    queryKey: ['/api/faqs'],
+    queryKey: [API.FAQS],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', '/api/faqs');
+        const response = await apiRequest('GET', API.FAQS);
         const data = await response.json();
         return Array.isArray(data) 
           ? data.sort((a: FAQ, b: FAQ) => (a.order || 0) - (b.order || 0))
@@ -743,7 +744,7 @@ export default function Onboarding() {
   // Create FAQ mutation
   const createFAQMutation = useMutation({
     mutationFn: async (data: FAQFormData & { order?: number }) => {
-      const response = await apiRequest('POST', '/api/faqs', data);
+      const response = await apiRequest('POST', API.FAQS, data);
       return response.json();
     },
     onError: (error: any) => {
@@ -756,13 +757,13 @@ export default function Onboarding() {
     },
     onSuccess: (data: FAQ) => {
       // Update state only after successful API response
-      queryClient.setQueryData<FAQ[]>(['/api/faqs'], (old = []) => {
+      queryClient.setQueryData<FAQ[]>([API.FAQS], (old = []) => {
         const updated = [...old, data];
         return updated.sort((a, b) => (a.order || 0) - (b.order || 0));
       });
       
       // Invalidate and refetch to ensure we have the latest data from database
-      queryClient.invalidateQueries({ queryKey: ['/api/faqs'] });
+      queryClient.invalidateQueries({ queryKey: [API.FAQS] });
       
       // Close modal and reset form after successful creation
       setIsFAQModalOpen(false);
@@ -783,7 +784,7 @@ export default function Onboarding() {
   // Update FAQ mutation
   const updateFAQMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<FAQFormData> }) => {
-      const response = await apiRequest('PUT', `/api/faqs/${id}`, data);
+      const response = await apiRequest('PUT', `${API.FAQS}/${id}`, data);
       return response.json();
     },
     onError: (error: any) => {
@@ -796,13 +797,13 @@ export default function Onboarding() {
     },
     onSuccess: (data: FAQ) => {
       // Update state only after successful API response
-      queryClient.setQueryData<FAQ[]>(['/api/faqs'], (old = []) => {
+      queryClient.setQueryData<FAQ[]>([API.FAQS], (old = []) => {
         return old.map(faq => faq.id === data.id ? data : faq)
           .sort((a, b) => (a.order || 0) - (b.order || 0));
       });
       
       // Invalidate and refetch to ensure we have the latest data from database
-      queryClient.invalidateQueries({ queryKey: ['/api/faqs'] });
+      queryClient.invalidateQueries({ queryKey: [API.FAQS] });
       
       // Close modal and reset form after successful update
       setIsFAQModalOpen(false);
@@ -823,7 +824,7 @@ export default function Onboarding() {
   // Delete FAQ mutation
   const deleteFAQMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/faqs/${id}`);
+      const response = await apiRequest('DELETE', `${API.FAQS}/${id}`);
       return response.json();
     },
     onError: (error: any) => {
@@ -836,7 +837,7 @@ export default function Onboarding() {
     },
     onSuccess: () => {
       // Update state only after successful API response
-      queryClient.invalidateQueries({ queryKey: ['/api/faqs'] });
+      queryClient.invalidateQueries({ queryKey: [API.FAQS] });
       
       // Close modal after successful deletion
       setIsDeleteFAQModalOpen(false);
@@ -851,10 +852,10 @@ export default function Onboarding() {
 
   // Fetch journey steps from API
   const { data: journeySteps = [], isLoading: isLoadingJourneySteps, error: journeyStepsError } = useQuery({
-    queryKey: ['/api/journey-steps'],
+    queryKey: [API.JOURNEY_STEPS],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', '/api/journey-steps');
+        const response = await apiRequest('GET', API.JOURNEY_STEPS);
         const data = await response.json();
         return Array.isArray(data) 
           ? data.sort((a: JourneyStep, b: JourneyStep) => (a.order || 0) - (b.order || 0))
@@ -870,7 +871,7 @@ export default function Onboarding() {
   // Create journey step mutation
   const createJourneyStepMutation = useMutation({
     mutationFn: async (data: JourneyStepFormData & { order?: number }) => {
-      const response = await apiRequest('POST', '/api/journey-steps', data);
+      const response = await apiRequest('POST', API.JOURNEY_STEPS, data);
       return response.json();
     },
     onError: (error: any) => {
@@ -882,12 +883,12 @@ export default function Onboarding() {
       });
     },
     onSuccess: (data: JourneyStep) => {
-      queryClient.setQueryData<JourneyStep[]>(['/api/journey-steps'], (old = []) => {
+      queryClient.setQueryData<JourneyStep[]>([API.JOURNEY_STEPS], (old = []) => {
         const updated = [...old, data];
         return updated.sort((a, b) => (a.order || 0) - (b.order || 0));
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/journey-steps'] });
+      queryClient.invalidateQueries({ queryKey: [API.JOURNEY_STEPS] });
       
       setIsJourneyStepModalOpen(false);
       setJourneyStepFormData({
@@ -908,7 +909,7 @@ export default function Onboarding() {
   // Update journey step mutation
   const updateJourneyStepMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<JourneyStepFormData> }) => {
-      const response = await apiRequest('PUT', `/api/journey-steps/${id}`, data);
+      const response = await apiRequest('PUT', `${API.JOURNEY_STEPS}/${id}`, data);
       return response.json();
     },
     onError: (error: any) => {
@@ -920,12 +921,12 @@ export default function Onboarding() {
       });
     },
     onSuccess: (data: JourneyStep) => {
-      queryClient.setQueryData<JourneyStep[]>(['/api/journey-steps'], (old = []) => {
+      queryClient.setQueryData<JourneyStep[]>([API.JOURNEY_STEPS], (old = []) => {
         return old.map(step => step.id === data.id ? data : step)
           .sort((a, b) => (a.order || 0) - (b.order || 0));
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/journey-steps'] });
+      queryClient.invalidateQueries({ queryKey: [API.JOURNEY_STEPS] });
       
       setIsJourneyStepModalOpen(false);
       setJourneyStepFormData({
@@ -946,7 +947,7 @@ export default function Onboarding() {
   // Delete journey step mutation
   const deleteJourneyStepMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/journey-steps/${id}`);
+      const response = await apiRequest('DELETE', `${API.JOURNEY_STEPS}/${id}`);
       return response.json();
     },
     onError: (error: any) => {
@@ -958,7 +959,7 @@ export default function Onboarding() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/journey-steps'] });
+      queryClient.invalidateQueries({ queryKey: [API.JOURNEY_STEPS] });
       
       setIsDeleteJourneyStepModalOpen(false);
       setJourneyStepToDelete(null);
@@ -972,10 +973,10 @@ export default function Onboarding() {
 
   // Fetch orientation video from API
   const { data: orientationVideo, isLoading: isLoadingOrientationVideo, error: orientationVideoError } = useQuery({
-    queryKey: ['/api/orientation-video'],
+    queryKey: [API.ORIENTATION_VIDEO],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', '/api/orientation-video');
+        const response = await apiRequest('GET', API.ORIENTATION_VIDEO);
         if (response.status === 404) {
           return null; // No orientation video set yet
         }
@@ -992,7 +993,7 @@ export default function Onboarding() {
   // Create orientation video mutation
   const createOrientationVideoMutation = useMutation({
     mutationFn: async (data: OrientationVideoFormData) => {
-      const response = await apiRequest('POST', '/api/orientation-video', { ...data, stepNumber: 0 });
+      const response = await apiRequest('POST', API.ORIENTATION_VIDEO, { ...data, stepNumber: 0 });
       return response.json();
     },
     onError: (error: any) => {
@@ -1004,8 +1005,8 @@ export default function Onboarding() {
       });
     },
     onSuccess: (data: OrientationVideo) => {
-      queryClient.setQueryData(['/api/orientation-video'], data);
-      queryClient.invalidateQueries({ queryKey: ['/api/orientation-video'] });
+      queryClient.setQueryData([API.ORIENTATION_VIDEO], data);
+      queryClient.invalidateQueries({ queryKey: [API.ORIENTATION_VIDEO] });
       
       setIsOrientationVideoModalOpen(false);
       setOrientationVideoFormData({
@@ -1025,7 +1026,7 @@ export default function Onboarding() {
   // Update orientation video mutation
   const updateOrientationVideoMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<OrientationVideoFormData> }) => {
-      const response = await apiRequest('PUT', `/api/orientation-video/${id}`, data);
+      const response = await apiRequest('PUT', `${API.ORIENTATION_VIDEO}/${id}`, data);
       return response.json();
     },
     onError: (error: any) => {
@@ -1037,8 +1038,8 @@ export default function Onboarding() {
       });
     },
     onSuccess: (data: OrientationVideo) => {
-      queryClient.setQueryData(['/api/orientation-video'], data);
-      queryClient.invalidateQueries({ queryKey: ['/api/orientation-video'] });
+      queryClient.setQueryData([API.ORIENTATION_VIDEO], data);
+      queryClient.invalidateQueries({ queryKey: [API.ORIENTATION_VIDEO] });
       
       setIsOrientationVideoModalOpen(false);
       setOrientationVideoFormData({
@@ -1058,7 +1059,7 @@ export default function Onboarding() {
   // Delete orientation video mutation
   const deleteOrientationVideoMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest('DELETE', `/api/orientation-video/${id}`);
+      const response = await apiRequest('DELETE', `${API.ORIENTATION_VIDEO}/${id}`);
       return response.json();
     },
     onError: (error: any) => {
@@ -1070,8 +1071,8 @@ export default function Onboarding() {
       });
     },
     onSuccess: () => {
-      queryClient.setQueryData(['/api/orientation-video'], null);
-      queryClient.invalidateQueries({ queryKey: ['/api/orientation-video'] });
+      queryClient.setQueryData([API.ORIENTATION_VIDEO], null);
+      queryClient.invalidateQueries({ queryKey: [API.ORIENTATION_VIDEO] });
       
       setIsDeleteOrientationVideoModalOpen(false);
       setOrientationVideoToDelete(null);

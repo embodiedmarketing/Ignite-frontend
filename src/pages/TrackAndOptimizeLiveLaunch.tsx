@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/services/queryClient";
+import { API, queryKeys, apiRequest } from "@/services";
 import { useToast } from "@/hooks/use-toast";
 import {
   Card,
@@ -298,11 +298,9 @@ export default function TrackAndOptimizeLiveLaunch() {
 
   // Fetch all launches for the user
   const { data: launches = [], isLoading: launchesLoading } = useQuery({
-    queryKey: ["/api/live-launches/user", userId],
+    queryKey: queryKeys.liveLaunchesUser(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/live-launches/user/${userId}`
-      );
+      const response = await apiRequest("GET", API.liveLaunchesUser(userId));
       if (!response.ok) throw new Error("Failed to fetch launches");
       return response.json();
     },
@@ -349,12 +347,12 @@ export default function TrackAndOptimizeLiveLaunch() {
   // Create new launch mutation
   const createLaunchMutation = useMutation({
     mutationFn: async (data: { userId: number; label: string }) => {
-      const response = await apiRequest("POST", "/api/live-launches", data);
+      const response = await apiRequest("POST", API.LIVE_LAUNCHES, data);
       return await response.json();
     },
     onSuccess: (newLaunch: any) => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches/user", userId],
+        queryKey: queryKeys.liveLaunchesUser(userId),
       });
       setSelectedLaunchId(newLaunch.id);
       setShowCreateLaunchModal(false);
@@ -376,11 +374,11 @@ export default function TrackAndOptimizeLiveLaunch() {
   // Delete launch mutation
   const deleteLaunchMutation = useMutation({
     mutationFn: async (launchId: number) => {
-      return apiRequest("DELETE", `/api/live-launches/${launchId}`);
+      return apiRequest("DELETE", API.liveLaunchesId(launchId));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches/user", userId],
+        queryKey: queryKeys.liveLaunchesUser(userId),
       });
 
       // If we deleted the currently selected launch, select another one
@@ -425,13 +423,12 @@ export default function TrackAndOptimizeLiveLaunch() {
 
   // Query to fetch emails for the selected launch
   const { data: emailsForDate = [], isLoading: emailsLoading } = useQuery({
-    queryKey: ["/api/live-launches", selectedLaunchId, "email-tracking"],
+    queryKey: queryKeys.liveLaunchEmailTracking(selectedLaunchId ?? 0),
     queryFn: async () => {
       if (!selectedLaunchId) return [];
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/live-launches/${selectedLaunchId}/email-tracking?userId=${userId}`
+      const response = await apiRequest(
+        "GET",
+        API.liveLaunchesEmailTracking(selectedLaunchId, userId)
       );
       if (!response.ok) throw new Error("Failed to fetch emails");
       return response.json();
@@ -450,11 +447,11 @@ export default function TrackAndOptimizeLiveLaunch() {
       userId: number;
       liveLaunchId: number;
     }) => {
-      return apiRequest("POST", "/api/email-tracking", emailData);
+      return apiRequest("POST", API.EMAIL_TRACKING, emailData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches", selectedLaunchId, "email-tracking"],
+        queryKey: queryKeys.liveLaunchEmailTracking(selectedLaunchId ?? 0),
       });
       toast({
         title: "Email saved",
@@ -479,11 +476,11 @@ export default function TrackAndOptimizeLiveLaunch() {
   // Mutation to delete email
   const deleteEmailMutation = useMutation({
     mutationFn: async (emailId: number) => {
-      return apiRequest("DELETE", `/api/email-tracking/${emailId}`);
+      return apiRequest("DELETE", API.emailTrackingId(emailId));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches", selectedLaunchId, "email-tracking"],
+        queryKey: queryKeys.liveLaunchEmailTracking(selectedLaunchId ?? 0),
       });
       toast({
         title: "Email deleted",
@@ -516,13 +513,12 @@ export default function TrackAndOptimizeLiveLaunch() {
 
   // Fetch funnel metrics (Ads) for the selected launch
   const { data: funnelMetricsData = [] } = useQuery({
-    queryKey: ["/api/live-launches", selectedLaunchId, "funnel-metrics"],
+    queryKey: queryKeys.liveLaunchesFunnelMetrics(selectedLaunchId ?? 0),
     queryFn: async () => {
       if (!selectedLaunchId) return [];
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/live-launches/${selectedLaunchId}/funnel-metrics`
+      const response = await apiRequest(
+        "GET",
+        API.liveLaunchesFunnelMetrics(selectedLaunchId)
       );
       if (!response.ok) throw new Error("Failed to fetch funnel metrics");
       return response.json();
@@ -532,13 +528,12 @@ export default function TrackAndOptimizeLiveLaunch() {
 
   // Fetch organic metrics for the selected launch
   const { data: organicMetricsData = [] } = useQuery({
-    queryKey: ["/api/live-launches", selectedLaunchId, "organic-metrics"],
+    queryKey: queryKeys.liveLaunchesOrganicMetrics(selectedLaunchId ?? 0),
     queryFn: async () => {
       if (!selectedLaunchId) return [];
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/live-launches/${selectedLaunchId}/organic-metrics`
+      const response = await apiRequest(
+        "GET",
+        API.liveLaunchesOrganicMetrics(selectedLaunchId)
       );
       if (!response.ok) throw new Error("Failed to fetch organic metrics");
       return response.json();
@@ -548,17 +543,12 @@ export default function TrackAndOptimizeLiveLaunch() {
 
   // Fetch saved optimization suggestions for the selected launch
   const { data: savedSuggestions = [] } = useQuery({
-    queryKey: [
-      "/api/live-launches",
-      selectedLaunchId,
-      "optimization-suggestions",
-    ],
+    queryKey: queryKeys.liveLaunchesOptimizationSuggestions(selectedLaunchId ?? 0),
     queryFn: async () => {
       if (!selectedLaunchId) return [];
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/live-launches/${selectedLaunchId}/optimization-suggestions`
+      const response = await apiRequest(
+        "GET",
+        API.liveLaunchesOptimizationSuggestions(selectedLaunchId)
       );
       if (!response.ok)
         throw new Error("Failed to fetch optimization suggestions");
@@ -621,7 +611,7 @@ export default function TrackAndOptimizeLiveLaunch() {
       // First save the optimization suggestions
       await apiRequest(
         "POST",
-        `/api/live-launches/${data.liveLaunchId}/optimization-suggestions`,
+        API.liveLaunchesOptimizationSuggestions(data.liveLaunchId),
         data
       );
 
@@ -646,20 +636,16 @@ export default function TrackAndOptimizeLiveLaunch() {
         },
       };
 
-      await apiRequest("POST", "/api/ignite-docs", igniteDoc);
+      await apiRequest("POST", API.IGNITE_DOCS, igniteDoc);
 
       return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: [
-          "/api/live-launches",
-          selectedLaunchId,
-          "optimization-suggestions",
-        ],
+        queryKey: queryKeys.liveLaunchesOptimizationSuggestions(selectedLaunchId ?? 0),
       });
       queryClient.invalidateQueries({
-        queryKey: ["/api/ignite-docs/user", userId],
+        queryKey: queryKeys.igniteDocsUser(userId),
       });
     },
   });
@@ -676,13 +662,13 @@ export default function TrackAndOptimizeLiveLaunch() {
     }) => {
       return apiRequest(
         "POST",
-        `/api/live-launches/${data.liveLaunchId}/funnel-metrics`,
+        API.liveLaunchesFunnelMetrics(data.liveLaunchId),
         data
       );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches", selectedLaunchId, "funnel-metrics"],
+        queryKey: queryKeys.liveLaunchesFunnelMetrics(selectedLaunchId ?? 0),
       });
     },
   });
@@ -699,13 +685,13 @@ export default function TrackAndOptimizeLiveLaunch() {
     }) => {
       return apiRequest(
         "POST",
-        `/api/live-launches/${data.liveLaunchId}/organic-metrics`,
+        API.liveLaunchesOrganicMetrics(data.liveLaunchId),
         data
       );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches", selectedLaunchId, "organic-metrics"],
+        queryKey: queryKeys.liveLaunchesOrganicMetrics(selectedLaunchId ?? 0),
       });
     },
   });
@@ -721,13 +707,13 @@ export default function TrackAndOptimizeLiveLaunch() {
   // Mutation to update offer cost for the selected launch
   const updateOfferCostMutation = useMutation({
     mutationFn: async (data: { id: number; offerCost: string }) => {
-      return apiRequest("PATCH", `/api/live-launches/${data.id}`, {
+      return apiRequest("PATCH", API.liveLaunchesPatch(data.id), {
         offerCost: data.offerCost,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches/user", userId],
+        queryKey: queryKeys.liveLaunchesUser(userId),
       });
     },
   });

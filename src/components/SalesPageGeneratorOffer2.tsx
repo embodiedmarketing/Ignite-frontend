@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import SalesPageInputField from "@/components/SalesPageInputField";
 import { useSalesPageData } from "@/hooks/useSalesPageData";
 import { Textarea } from "@/components/ui/textarea";
+import { apiRequest, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 
 // Helper function to update specific sections of the sales page
 function updateSalesPageSection(
@@ -309,13 +310,9 @@ export default function SalesPageGenerator({
     isLoading: outlineLoading,
     error: outlineError,
   } = useQuery({
-    queryKey: ["/api/user-offer-outlines/user", userId, offerNumber],
+    queryKey: queryKeys.userOfferOutlinesWithSuffix(userId, offerNumber),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/user-offer-outlines/user/${userId}`
-      );
+      const response = await apiRequest("GET", API.userOfferOutlinesUser(userId));
       if (!response.ok) throw new Error("Failed to fetch offer outlines");
       const outlines = await response.json();
       return outlines.find(
@@ -331,13 +328,9 @@ export default function SalesPageGenerator({
     isLoading: responsesLoading,
     error: responsesError,
   } = useQuery({
-    queryKey: ["/api/workbook-responses", userId, offerNumber],
+    queryKey: queryKeys.workbookResponsesList(userId, offerNumber),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/workbook-responses/${userId}?offerNumber=${offerNumber}`
-      );
+      const response = await apiRequest("GET", API.workbookResponsesByUser(userId, offerNumber));
       if (!response.ok) throw new Error("Failed to fetch workbook responses");
       return await response.json();
     },
@@ -350,13 +343,9 @@ export default function SalesPageGenerator({
     isLoading: originalOutlineLoading,
     error: originalOutlineError,
   } = useQuery({
-    queryKey: ["/api/workbook-responses/user", userId, "step", 2],
+    queryKey: queryKeys.workbookResponsesUserStep2(userId),
     queryFn: async () => {
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_BASE_URL
-        }/api/workbook-responses/user/${userId}/step/2`
-      );
+      const response = await apiRequest("GET", API.workbookResponsesUserStep(userId, 2, 1));
       if (!response.ok)
         throw new Error("Failed to fetch original offer outline");
       const responses = await response.json();
@@ -490,23 +479,19 @@ export default function SalesPageGenerator({
         hasOfferSpecificResponses: !!offerSpecificResponses,
       });
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+      const response = await apiRequest(
+        "POST",
+        API.GENERATE_SALES_PAGE,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId,
-            messagingStrategy, // Shared across offers
-            offerOutline: offerData, // Offer-specific outline
-            workbookResponses: workbookData, // Offer-specific responses
-            salesPageInputs,
-            offerNumber, // CRITICAL: Pass offer number for backend differentiation
-            offerType: offerNumber === 2 ? "course" : "program", // Different types for variety
-          }),
-        }
+          userId,
+          messagingStrategy,
+          offerOutline: offerData,
+          workbookResponses: workbookData,
+          salesPageInputs,
+          offerNumber,
+          offerType: offerNumber === 2 ? "course" : "program",
+        },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {

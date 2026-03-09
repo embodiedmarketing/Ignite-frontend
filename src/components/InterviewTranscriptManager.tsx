@@ -45,7 +45,7 @@ import type {
   IcaInterviewTranscript,
   InsertIcaInterviewTranscript,
 } from "@shared/schema";
-import { apiRequest } from "@/services/apiClient";
+import { API, queryKeys, apiRequest, AI_REQUEST_OPTIONS } from "@/services";
 
 interface InterviewTranscriptManagerProps {
   userId: number;
@@ -173,7 +173,7 @@ export function InterviewTranscriptManager({
   const { data: transcripts = [], isLoading } = useQuery<
     IcaInterviewTranscript[]
   >({
-    queryKey: [`/api/interview-transcripts/user/${userId}`],
+    queryKey: queryKeys.interviewTranscriptsUser(userId),
     enabled: !!userId,
   });
 
@@ -202,7 +202,7 @@ export function InterviewTranscriptManager({
         try {
           await apiRequest(
             "PUT",
-            `/api/interview-transcripts/${transcript.id}`,
+            API.interviewTranscriptsId(transcript.id),
             {
               status: "draft",
             }
@@ -221,7 +221,7 @@ export function InterviewTranscriptManager({
       // Refresh the list after a short delay
       setTimeout(() => {
         queryClient.invalidateQueries({
-          queryKey: [`/api/interview-transcripts/user/${userId}`],
+          queryKey: queryKeys.interviewTranscriptsUser(userId),
         });
       }, 1000);
     }
@@ -231,14 +231,14 @@ export function InterviewTranscriptManager({
     mutationFn: async (data: InsertIcaInterviewTranscript) => {
       const response = await apiRequest(
         "POST",
-        `/api/interview-transcripts`,
+        API.INTERVIEW_TRANSCRIPTS,
         data
       );
       return await response.json();
     },
     onSuccess: async (createdTranscript, variables) => {
       queryClient.invalidateQueries({
-        queryKey: [`/api/interview-transcripts/user/${userId}`],
+        queryKey: queryKeys.interviewTranscriptsUser(userId),
       });
 
       // Save transcript to IGNITE Docs automatically
@@ -251,7 +251,7 @@ export function InterviewTranscriptManager({
             : "Not specified"
         }\n\n---\n\n## Transcript\n\n${variables.rawTranscript}`;
 
-        await apiRequest("POST", "/api/ignite-docs", {
+        await apiRequest("POST", API.IGNITE_DOCS, {
           userId,
           docType: "interview_transcript",
           title: variables.title,
@@ -267,7 +267,7 @@ export function InterviewTranscriptManager({
 
         // Invalidate IGNITE Docs cache to refresh the Resources page
         queryClient.invalidateQueries({
-          queryKey: ["/api/ignite-docs/user", userId],
+          queryKey: queryKeys.igniteDocsUser(userId),
         });
       } catch (error) {
         console.error("Failed to save transcript to IGNITE Docs:", error);
@@ -320,13 +320,13 @@ export function InterviewTranscriptManager({
         try {
           await apiRequest(
             "PUT",
-            `/api/interview-transcripts/${transcriptId}`,
+            API.interviewTranscriptsId(transcriptId),
             {
               status: "processing",
             }
           );
           queryClient.invalidateQueries({
-            queryKey: [`/api/interview-transcripts/user/${userId}`],
+            queryKey: queryKeys.interviewTranscriptsUser(userId),
           });
           console.log(
             `✅ Updated transcript ${transcriptId} status to 'processing'`
@@ -352,28 +352,12 @@ export function InterviewTranscriptManager({
           `🤖 Calling AI processing endpoint with 120 second timeout...`
         );
 
-        // Use fetch directly with extended timeout for AI processing
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 seconds for AI processing
-
-        const response = await fetch(
-          `${
-            import.meta.env.VITE_BASE_URL
-          }/api/interview/intelligent-interview-processing`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              transcript,
-              userId,
-              existingMessagingStrategy,
-            }),
-            credentials: "include",
-            signal: controller.signal,
-          }
+        const response = await apiRequest(
+          "POST",
+          API.INTELLIGENT_INTERVIEW_PROCESSING,
+          { transcript, userId, existingMessagingStrategy },
+          AI_REQUEST_OPTIONS.generate
         );
-
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -387,9 +371,9 @@ export function InterviewTranscriptManager({
         return { aiResponse, transcriptId };
       } catch (aiError) {
         console.error(`❌ AI processing failed:`, aiError);
-        if (aiError instanceof Error && aiError.name === "AbortError") {
+        if (aiError instanceof Error && aiError.message.includes("timeout")) {
           throw new Error(
-            "AI processing timed out after 120 seconds. Please try again with a shorter transcript."
+            "AI processing timed out. Please try again with a shorter transcript."
           );
         }
         throw new Error(
@@ -407,13 +391,13 @@ export function InterviewTranscriptManager({
         try {
           await apiRequest(
             "PUT",
-            `/api/interview-transcripts/${transcriptId}`,
+            API.interviewTranscriptsId(transcriptId),
             {
               status: "processed",
             }
           );
           queryClient.invalidateQueries({
-            queryKey: [`/api/interview-transcripts/user/${userId}`],
+            queryKey: queryKeys.interviewTranscriptsUser(userId),
           });
           console.log(
             `✅ Successfully updated transcript ${transcriptId} status to 'processed'`
@@ -462,7 +446,7 @@ export function InterviewTranscriptManager({
         try {
           const savePromises = Object.entries(messagingUpdates).map(
             ([noteKey, content]) =>
-              apiRequest("POST", "/api/interview-notes", {
+              apiRequest("POST", API.INTERVIEW_NOTES, {
                 userId,
                 noteKey,
                 content: content as string,
@@ -552,13 +536,9 @@ export function InterviewTranscriptManager({
           await new Promise((resolve) => setTimeout(resolve, 2000));
 
           // Refetch transcripts to check actual database status
-          const transcriptsResponse = await fetch(
-            `${
-              import.meta.env.VITE_BASE_URL
-            }/api/interview-transcripts/user/${userId}`,
-            {
-              credentials: "include",
-            }
+          const transcriptsResponse = await apiRequest(
+            "GET",
+            API.interviewTranscriptsUser(userId)
           );
 
           if (transcriptsResponse.ok) {
@@ -579,10 +559,10 @@ export function InterviewTranscriptManager({
 
               // Refetch interview notes to update UI
               queryClient.invalidateQueries({
-                queryKey: [`/api/interview-transcripts/user/${userId}`],
+                queryKey: queryKeys.interviewTranscriptsUser(userId),
               });
               queryClient.invalidateQueries({
-                queryKey: ["/api/interview-notes"],
+                queryKey: queryKeys.interviewNotesAll(),
               });
 
               // Trigger UI update
@@ -619,13 +599,13 @@ export function InterviewTranscriptManager({
           );
           await apiRequest(
             "PUT",
-            `/api/interview-transcripts/${variables.transcriptId}`,
+            API.interviewTranscriptsId(variables.transcriptId),
             {
               status: "draft",
             }
           );
           queryClient.invalidateQueries({
-            queryKey: [`/api/interview-transcripts/user/${userId}`],
+            queryKey: queryKeys.interviewTranscriptsUser(userId),
           });
           console.log(`✅ Successfully reverted status to 'draft'`);
         } catch (updateError) {
@@ -677,13 +657,11 @@ export function InterviewTranscriptManager({
       const formData = new FormData();
       formData.append("transcript", file);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/interview/upload-transcript`,
-        {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-        }
+      const response = await apiRequest(
+        "POST",
+        API.UPLOAD_TRANSCRIPT,
+        formData,
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (response.ok) {
@@ -723,11 +701,11 @@ export function InterviewTranscriptManager({
         data.status = "updated";
       }
 
-      return apiRequest("PUT", `/api/interview-transcripts/${id}`, data);
+      return apiRequest("PUT", API.interviewTranscriptsId(id), data);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: [`/api/interview-transcripts/user/${userId}`],
+        queryKey: queryKeys.interviewTranscriptsUser(userId),
       });
       setEditingTranscript(null);
 
@@ -753,11 +731,11 @@ export function InterviewTranscriptManager({
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest("DELETE", `/api/interview-transcripts/${id}`);
+      return apiRequest("DELETE", API.interviewTranscriptsId(id));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: [`/api/interview-transcripts/user/${userId}`],
+        queryKey: queryKeys.interviewTranscriptsUser(userId),
       });
       toast({ title: "Interview transcript deleted successfully" });
     },

@@ -32,6 +32,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useSalesPageData } from "@/hooks/useSalesPageData";
 import { validateAndNotify } from "@/utils/prerequisite-validator";
+import { apiRequest, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 
 interface EmotionalSalesPageGeneratorProps {
   userId: number;
@@ -168,20 +169,16 @@ export default function EmotionalSalesPageGenerator({
         throw new Error("Missing prerequisites");
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/generate-sales-page`,
+      const response = await apiRequest(
+        "POST",
+        API.GENERATE_SALES_PAGE,
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId,
-            messagingStrategy,
-            offerOutline,
-            offerType: "program",
-          }),
-        }
+          userId,
+          messagingStrategy,
+          offerOutline,
+          offerType: "program",
+        },
+        AI_REQUEST_OPTIONS.generate
       );
 
       if (!response.ok) {

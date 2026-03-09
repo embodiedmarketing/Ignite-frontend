@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { FileText, AlertTriangle, CheckCircle } from "lucide-react";
-import { apiRequest } from "@/services/queryClient";
+import { apiRequest, AI_REQUEST_OPTIONS } from "@/services/queryClient";
 import { useOfferOutlines } from "@/hooks/useDatabasePersistence";
 
 function FormattedOfferOutline({ content }: { content: string }) {
@@ -161,9 +161,7 @@ export default function OfferOutlinePanel({ userId, stepNumber, showOnAllTabs = 
       }
     } else if (offerId) {
       // Fallback for legacy offerId approach (if still needed)
-      fetch(`/api/offers/${offerId}/outline`, {
-        credentials: 'include'
-      })
+      apiRequest("GET", API.offersOutline(offerId))
         .then(res => res.json())
         .then(data => {
           if (data && data.outline) {
@@ -226,11 +224,12 @@ export default function OfferOutlinePanel({ userId, stepNumber, showOnAllTabs = 
         }
       }
 
-      const response = await apiRequest('POST', '/api/generate-offer-outline', {
-        userId,
-        offerResponses,
-        messagingStrategy
-      });
+      const response = await apiRequest(
+        'POST',
+        API.GENERATE_OFFER_OUTLINE,
+        { userId, offerResponses, messagingStrategy },
+        AI_REQUEST_OPTIONS.generate
+      );
 
       const result: OfferOutlineResult = await response.json();
 

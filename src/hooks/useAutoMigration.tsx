@@ -1,22 +1,19 @@
 import { useEffect } from 'react';
 import { apiRequest } from '@/services/queryClient';
+import { API } from '@/services/apiEndpoints';
 
 export function useAutoMigration(userId: number | string) {
   useEffect(() => {
     if (!userId) return;
 
     const runAutoMigration = async () => {
-      // Check if migration has already been completed
       const migrationKey = `migration-completed-${userId}`;
-      if (localStorage.getItem(migrationKey)) {
-        return; // Already migrated
-      }
+      if (localStorage.getItem(migrationKey)) return;
 
       try {
-        // Migrate offer outline
         const offerOutline = localStorage.getItem(`offer-outline-${userId}`);
         if (offerOutline) {
-          await apiRequest("/api/user-offer-outlines", "POST", {
+          await apiRequest("POST", API.USER_OFFER_OUTLINES_MIGRATE, {
             userId,
             outline: offerOutline,
             completeness: 100,
@@ -34,7 +31,7 @@ export function useAutoMigration(userId: number | string) {
           const content = localStorage.getItem(key);
           if (content) {
             const draftNumber = key.split('-').pop() || '1';
-            await apiRequest("/api/sales-page-drafts", "POST", {
+            await apiRequest("POST", API.SALES_PAGE_DRAFTS, {
               userId,
               title: `Draft ${draftNumber}`,
               content,
@@ -48,7 +45,7 @@ export function useAutoMigration(userId: number | string) {
         const customerTodos = localStorage.getItem(`customer-experience-todos-${userId}`);
         
         if (customerResponses || customerTodos) {
-          await apiRequest("/api/customer-experience", "POST", {
+          await apiRequest("POST", API.CUSTOMER_EXPERIENCE, {
             userId,
             responses: customerResponses ? JSON.parse(customerResponses) : {},
             todos: customerTodos ? JSON.parse(customerTodos) : []
