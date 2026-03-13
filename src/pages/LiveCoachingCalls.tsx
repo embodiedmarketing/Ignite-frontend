@@ -33,7 +33,10 @@ const callSchema = z.object({
     const timePattern = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]\s*(AM|PM|am|pm)?\s*(EST|PST|CST|MST|est|pst|cst|mst)?$/i;
     return timePattern.test(time.trim());
   }, "Please enter a valid time format (e.g., 1:00 PM EST)"),
+  // Date is optional; when creating non-recurring calls we derive it from (day + week)
   date: z.string().optional(),
+  // Week index used only on the frontend for non-recurring calls (0 = this week, 1 = next week, etc.)
+  week: z.number().int().min(0).max(3).default(0),
   recurring: z.boolean().default(false),
   description: z.string().optional(),
   link: z.string().optional().refine((link) => {
@@ -46,28 +49,6 @@ const callSchema = z.object({
   color: z.enum(["blue", "green", "purple", "orange", "coral", "slate"]).default("blue"),
   canceled: z.boolean().default(false),
   cancelReason: z.string().optional()
-})
-.refine((data) => {
-  // Date validation: required for non-recurring calls, optional for recurring
-  if (!data.recurring) {
-    if (!data.date || data.date.trim() === "") {
-      return false;
-    }
-    // Validate date format (YYYY-MM-DD)
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!datePattern.test(data.date)) {
-      return false;
-    }
-    const selectedDate = new Date(data.date);
-    if (isNaN(selectedDate.getTime())) {
-      return false;
-    }
-  }
-  // For recurring calls, date is optional
-  return true;
-}, {
-  message: "Date is required for non-recurring calls",
-  path: ["date"]
 })
 .refine((data) => {
   // If canceled is true, cancelReason should be provided
@@ -131,6 +112,7 @@ export default function LiveCoachingCalls() {
       day: "Monday",
       time: "",
       date: "",
+      week: 0,
       description: "",
       link: "",
       color: "blue",
@@ -150,6 +132,7 @@ export default function LiveCoachingCalls() {
       day: "Monday",
       time: "",
       date: "",
+      week: 0,
       description: "",
       link: "",
       color: "blue",
@@ -158,146 +141,249 @@ export default function LiveCoachingCalls() {
       recurring: false
     }
   });
+  // Generate dynamic weeks from API calls (group by call.week 0-3)
+//   const generateWeeksData = (calls: any[]) => {
+//     console.log("@calls",calls)
 
-  // Generate dynamic weeks based on current date
-  const generateWeeksData = () => {
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+// const getWeeks = calls.filter((call: any) => call.week === 0);
+// const getNextWeeks = calls.filter((call: any) => call.week === 1);
+// const get2WeeksAhead = calls.filter((call: any) => call.week === 2);
+// const get3WeeksAhead = calls.filter((call: any) => call.week === 3);
+
+
+//     const today = new Date();
+//     const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
     
-    // Calculate the start of this week (Monday)
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+//     // Calculate the start of this week (Monday)
+//     const startOfWeek = new Date(today);
+//     startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
     
-    const weeks = [];
+//     const weeks = [];
     
-    for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
-      const weekStart = new Date(startOfWeek);
-      weekStart.setDate(startOfWeek.getDate() + (weekOffset * 7));
+//     for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
+//       const weekStart = new Date(startOfWeek);
+//       weekStart.setDate(startOfWeek.getDate() + (weekOffset * 7));
       
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
+//       const weekEnd = new Date(weekStart);
+//       weekEnd.setDate(weekStart.getDate() + 6);
       
-      const formatDate = (date: Date) => {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      };
+//       const formatDate = (date: Date) => {
+//         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+//       };
       
-      const weekLabel = weekOffset === 0 ? 
-        `This Week (${formatDate(weekStart)}-${formatDate(weekEnd)})` :
-        weekOffset === 1 ?
-        `Next Week (${formatDate(weekStart)}-${formatDate(weekEnd)})` :
-        `Week of ${formatDate(weekStart)}-${formatDate(weekEnd)}`;
+//       const weekLabel = weekOffset === 0 ? 
+//         `This Week (${formatDate(weekStart)}-${formatDate(weekEnd)})` :
+//         weekOffset === 1 ?
+//         `Next Week (${formatDate(weekStart)}-${formatDate(weekEnd)})` :
+//         `Week of ${formatDate(weekStart)}-${formatDate(weekEnd)}`;
       
-      // Generate call dates for this week
-      const mondayDate = new Date(weekStart);
-      const tuesdayDate = new Date(weekStart);
-      tuesdayDate.setDate(weekStart.getDate() + 1);
-      const wednesdayDate = new Date(weekStart);
-      wednesdayDate.setDate(weekStart.getDate() + 2);
-      const thursdayDate = new Date(weekStart);
-      thursdayDate.setDate(weekStart.getDate() + 3);
-      const fridayDate = new Date(weekStart);
-      fridayDate.setDate(weekStart.getDate() + 4);
+//       // Generate call dates for this week
+//       const mondayDate = new Date(weekStart);
+//       const tuesdayDate = new Date(weekStart);
+//       tuesdayDate.setDate(weekStart.getDate() + 1);
+//       const wednesdayDate = new Date(weekStart);
+//       wednesdayDate.setDate(weekStart.getDate() + 2);
+//       const thursdayDate = new Date(weekStart);
+//       thursdayDate.setDate(weekStart.getDate() + 3);
+//       const fridayDate = new Date(weekStart);
+//       fridayDate.setDate(weekStart.getDate() + 4);
       
-      const baseCalls = [
-        {
-          id: weekOffset * 10 + 1,
-          title: "Accountability Call",
-          category: "Accountability",
-          day: "Monday",
-          time: "1:00 PM EST",
-          date: mondayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Share progress and get clarity on your next steps.",
-          link: "https://us02web.zoom.us/j/4086742007",
-          icon: CheckCircle,
-          color: "orange"
-        },
-        {
-          id: weekOffset * 10 + 2,
-          title: "Strategy and Conversion Call",
-          category: "Strategy",
-          day: "Tuesday",
-          time: "1:00 PM EST",
-          date: tuesdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Get feedback on your funnel strategy and overall business approach.",
-          link: "https://us02web.zoom.us/j/4086742007", 
-          icon: Target,
-          color: "blue"
-        },
-        {
-          id: weekOffset * 10 + 3,
-          title: "Ads Strategy Call",
-          category: "Ads",
-          day: "Wednesday",
-          time: "10:30 AM EST", 
-          date: wednesdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Get expert feedback on your ad setup and performance.",
-          link: "https://us02web.zoom.us/j/7442098096",
-          icon: TrendingUp,
-          color: "purple"
-        },
-        {
-          id: weekOffset * 10 + 4,
-          title: "Tech Support Call",
-          category: "Tech Support",
-          day: "Wednesday",
-          time: "3:00 PM EST",
-          date: wednesdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Live tech support for funnel setup and automation challenges.",
-          link: "https://us02web.zoom.us/j/7442098096",
-          icon: Settings,
-          color: "coral",
-          canceled:true,
-        },
-        {
-          id: weekOffset * 10 + 5,
-          title: "Messaging Support",
-          category: "Messaging",
-          day: "Thursday",
-          time: "12:00 PM EST",
-          date: thursdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Get feedback on your copy, offers, and messaging.",
-          link: "https://us02web.zoom.us/j/4086742007",
-          icon: MessageSquare,
-          color: "green"
-        },
-        {
-          id: weekOffset * 10 + 6,
-          title: "Strategy and Conversion Call",
-          category: "Strategy",
-          day: "Friday",
-          time: "10:00 AM EST",
-          date: fridayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Get feedback on your funnel strategy and overall business approach.",
-          link: "https://us02web.zoom.us/j/4086742007", 
-          icon: Target,
-          color: "blue"
-        },
-        {
-          id: weekOffset * 10 + 7,
-          title: "Ads Strategy Call",
-          category: "Ads",
-          day: "Friday",
-          time: "3:00 PM EST",
-          date: fridayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          description: "Get expert feedback on your ad setup and performance.",
-          link: "https://us02web.zoom.us/j/7442098096",
-          icon: TrendingUp,
-          color: "purple"
-        }
-      ];
+//       const baseCalls = [
+//         {
+//           id: weekOffset * 10 + 1,
+//           title: "Accountability Call",
+//           category: "Accountability",
+//           day: "Monday",
+//           time: "1:00 PM EST",
+//           date: mondayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Share progress and get clarity on your next steps.",
+//           link: "https://us02web.zoom.us/j/4086742007",
+//           icon: CheckCircle,
+//           color: "orange"
+//         },
+//         {
+//           id: weekOffset * 10 + 2,
+//           title: "Strategy and Conversion Call",
+//           category: "Strategy",
+//           day: "Tuesday",
+//           time: "1:00 PM EST",
+//           date: tuesdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Get feedback on your funnel strategy and overall business approach.",
+//           link: "https://us02web.zoom.us/j/4086742007", 
+//           icon: Target,
+//           color: "blue"
+//         },
+//         {
+//           id: weekOffset * 10 + 3,
+//           title: "Ads Strategy Call",
+//           category: "Ads",
+//           day: "Wednesday",
+//           time: "10:30 AM EST", 
+//           date: wednesdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Get expert feedback on your ad setup and performance.",
+//           link: "https://us02web.zoom.us/j/7442098096",
+//           icon: TrendingUp,
+//           color: "purple"
+//         },
+//         {
+//           id: weekOffset * 10 + 4,
+//           title: "Tech Support Call",
+//           category: "Tech Support",
+//           day: "Wednesday",
+//           time: "3:00 PM EST",
+//           date: wednesdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Live tech support for funnel setup and automation challenges.",
+//           link: "https://us02web.zoom.us/j/7442098096",
+//           icon: Settings,
+//           color: "coral",
+//           canceled:true,
+//         },
+//         {
+//           id: weekOffset * 10 + 5,
+//           title: "Messaging Support",
+//           category: "Messaging",
+//           day: "Thursday",
+//           time: "12:00 PM EST",
+//           date: thursdayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Get feedback on your copy, offers, and messaging.",
+//           link: "https://us02web.zoom.us/j/4086742007",
+//           icon: MessageSquare,
+//           color: "green"
+//         },
+//         {
+//           id: weekOffset * 10 + 6,
+//           title: "Strategy and Conversion Call",
+//           category: "Strategy",
+//           day: "Friday",
+//           time: "10:00 AM EST",
+//           date: fridayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Get feedback on your funnel strategy and overall business approach.",
+//           link: "https://us02web.zoom.us/j/4086742007", 
+//           icon: Target,
+//           color: "blue"
+//         },
+//         {
+//           id: weekOffset * 10 + 7,
+//           title: "Ads Strategy Call",
+//           category: "Ads",
+//           day: "Friday",
+//           time: "3:00 PM EST",
+//           date: fridayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+//           description: "Get expert feedback on your ad setup and performance.",
+//           link: "https://us02web.zoom.us/j/7442098096",
+//           icon: TrendingUp,
+//           color: "purple"
+//         }
+//       ];
 
 
 
 
 
-      weeks.push({
-        weekLabel,
-        calls: baseCalls
-      });
-    }
+//       weeks.push({
+//         weekLabel,
+//         calls: baseCalls
+//       });
+//     }
     
-    return weeks;
+//     return weeks;
+//   };
+
+
+// const generateWeeksData = (calls: any[]) => {
+//   const today = new Date();
+//   const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+//   // Start of this week (Monday)
+//   const startOfWeek = new Date(today);
+//   startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+
+//   const weeks: { weekLabel: string; calls: any[] }[] = [];
+
+//   for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
+//     const weekStart = new Date(startOfWeek);
+//     weekStart.setDate(startOfWeek.getDate() + weekOffset * 7);
+
+//     const weekEnd = new Date(weekStart);
+//     weekEnd.setDate(weekStart.getDate() + 6);
+
+//     const formatDate = (date: Date) =>
+//       date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+//     const weekLabel =
+//       weekOffset === 0
+//         ? `This Week (${formatDate(weekStart)}-${formatDate(weekEnd)})`
+//         : weekOffset === 1
+//         ? `Next Week (${formatDate(weekStart)}-${formatDate(weekEnd)})`
+//         : `Week of ${formatDate(weekStart)}-${formatDate(weekEnd)}`;
+
+//     // Filter backend calls for this week index (week can be number or string)
+//     const weekCalls = calls.filter((call: any) => Number(call.week) === weekOffset);
+
+//     weeks.push({
+//       weekLabel,
+//       calls: weekCalls,
+//     });
+//   }
+
+//   return weeks;
+// };
+
+
+const generateWeeksData = (calls: any[]) => {
+  const today = new Date();
+  const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+  // Start of this week (Monday)
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
+
+  const weeks: { weekLabel: string; calls: any[] }[] = [];
+
+  const formatRangeDate = (date: Date) =>
+    date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  const formatCallDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   };
+
+  for (let weekOffset = 0; weekOffset < 4; weekOffset++) {
+    const weekStart = new Date(startOfWeek);
+    weekStart.setDate(startOfWeek.getDate() + weekOffset * 7);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const weekLabel =
+      weekOffset === 0
+        ? `This Week (${formatRangeDate(weekStart)}-${formatRangeDate(weekEnd)})`
+        : weekOffset === 1
+        ? `Next Week (${formatRangeDate(weekStart)}-${formatRangeDate(weekEnd)})`
+        : `Week of ${formatRangeDate(weekStart)}-${formatRangeDate(weekEnd)}`;
+
+    const weekCallsRaw = calls.filter(
+      (call: any) => Number(call.week ?? call.weekOffset) === weekOffset
+    );
+
+    const weekCalls = weekCallsRaw.map((call: any) => ({
+      ...call,
+      date: formatCallDate(call.date), // e.g. "Mar 30, 2026"
+    }));
+    weeks.push({
+      weekLabel,
+      calls: weekCalls,
+    });
+  }
+
+  return weeks;
+}
 
   // Fetch calls from API
   const getCalls = async () => {
@@ -466,7 +552,7 @@ export default function LiveCoachingCalls() {
       
       console.log("transformedCalls", transformedCalls);
       console.log("expandedCalls", expandedCalls);
-      setCalls(expandedCalls);
+      setCalls(data);
       setCallsLoading(false);
       // const weeksData = generateWeeksData();
       // console.log("weeksData",weeksData)
@@ -478,139 +564,32 @@ export default function LiveCoachingCalls() {
     });
   }, []);
 
-  // Filter calls for current week
-  // Uses the same week calculation logic as generateWeeksData() to ensure consistency
-  // Recurring calls: Show in EVERY week (they have dates calculated for each week)
-  // Non-recurring calls: Show only in the week their date falls in (date-wise)
-  const getCurrentWeekCalls = () => {
-    if (!calls || calls.length === 0) return [];
-    
-    // Use the same week calculation as generateWeeksData()
-    const startOfWeek = getStartOfCurrentWeek();
-    const weekStart = new Date(startOfWeek);
-    weekStart.setDate(startOfWeek.getDate() + (currentWeek * 7));
-    weekStart.setHours(0, 0, 0, 0);
-    
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    
-    // Debug: Log week range
-    console.log(`Week ${currentWeek} range: ${weekStart.toISOString().split('T')[0]} to ${weekEnd.toISOString().split('T')[0]}`);
-    
-    const filteredCalls = calls.filter((call: any) => {
-    
-      if (!call.date) {
-        console.warn("Call without date:", call);
-        return false;
-      }
-      
-     
-      let callDate: Date;
-      if (typeof call.date === 'string') {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(call.date)) {
-          // Parse YYYY-MM-DD as local date (not UTC)
-          const [year, month, day] = call.date.split('-').map(Number);
-          callDate = new Date(year, month - 1, day);
-        } else {
-          // Try to parse other formats like "Jan 12, 2026"
-          callDate = new Date(call.date);
-        }
-      } else {
-        callDate = new Date(call.date);
-      }
-      
-      // Check if date is valid
-      if (isNaN(callDate.getTime())) {
-        console.warn("Invalid date for call:", call);
-        return false;
-      }
-      
-      callDate.setHours(0, 0, 0, 0);
-      const isInWeek = callDate >= weekStart && callDate <= weekEnd;
-      
-      // Debug logging for all calls in the last week
-      if (currentWeek === 3) {
-        console.log(`Call "${call.title}" (${call.day}): date=${call.date}, parsed=${callDate.toISOString().split('T')[0]}, weekStart=${weekStart.toISOString().split('T')[0]}, weekEnd=${weekEnd.toISOString().split('T')[0]}, inWeek=${isInWeek}, recurring=${call.recurring}`);
-      }
-      
-      // Debug logging for recurring calls
-      if (call.recurring && isInWeek) {
-        console.log(`Recurring call "${call.title}" (${call.day}) showing in week ${currentWeek} with date ${call.date}`);
-      }
-      
-      return isInWeek;
-    });
-    
-    console.log(`Week ${currentWeek}: Showing ${filteredCalls.length} calls (${filteredCalls.filter(c => c.recurring).length} recurring, ${filteredCalls.filter(c => !c.recurring).length} non-recurring)`);
-    
-    // Debug: Log all calls for week 3
-    if (currentWeek === 3) {
-      console.log(`Week 3 calls:`, filteredCalls.map((c: any) => ({ title: c.title, day: c.day, date: c.date, recurring: c.recurring })));
-    }
-    
-    return filteredCalls;
+  // Schedule tab: drive from generateWeeksData(calls) — one entry per week index (0–3)
+  const weeksData = generateWeeksData(calls ?? []);
+  console.log("weeksData", weeksData);
+  const currentWeekData = weeksData[currentWeek] ?? { weekLabel: "", calls: [] };
+
+  const dayOrder: { [key: string]: number } = {
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+    Sunday: 7,
   };
+  const sortedCallsForCurrentWeek = [...currentWeekData.calls].sort((a: any, b: any) => {
+    const orderA = dayOrder[a.day] ?? 999;
+    const orderB = dayOrder[b.day] ?? 999;
+    if (orderA !== orderB) return orderA - orderB;
+    return (a.time || "").localeCompare(b.time || "");
+  });
 
-  const thisWeeksCalls = (() => {
-    const calls = getCurrentWeekCalls();
-    // Sort by day sequence (Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday)
-    const dayOrder: { [key: string]: number } = {
-      "Monday": 1,
-      "Tuesday": 2,
-      "Wednesday": 3,
-      "Thursday": 4,
-      "Friday": 5,
-      "Saturday": 6,
-      "Sunday": 7
-    };
-    
-    return [...calls].sort((a: any, b: any) => {
-      const dayA = a.day || "";
-      const dayB = b.day || "";
-      const orderA = dayOrder[dayA] || 999;
-      const orderB = dayOrder[dayB] || 999;
-      
-      // If same day, sort by time
-      if (orderA === orderB) {
-        const timeA = a.time || "";
-        const timeB = b.time || "";
-        return timeA.localeCompare(timeB);
-      }
-      
-      return orderA - orderB;
-    });
-  })();
-
-
-  // Generate week label for current week
   const generateWeekLabel = () => {
-    const today = new Date();
-    const currentDay = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
-    
-    const weekStart = new Date(startOfWeek);
-    weekStart.setDate(startOfWeek.getDate() + (currentWeek * 7));
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    
-    const formatDate = (date: Date) => {
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-    
-    if (currentWeek === 0) {
-      return `This Week (${formatDate(weekStart)}-${formatDate(weekEnd)})`;
-    } else if (currentWeek === 1) {
-      return `Next Week (${formatDate(weekStart)}-${formatDate(weekEnd)})`;
-    } else {
-      return `Week of ${formatDate(weekStart)}-${formatDate(weekEnd)}`;
-    }
+    return currentWeekData.weekLabel || (currentWeek === 0 ? "This Week" : currentWeek === 1 ? "Next Week" : `Week ${currentWeek + 1}`);
   };
 
-
-
-const [recordings, setRecordings] = useState<any>({});
+  const [recordings, setRecordings] = useState<any>({});
 
   const getCategoryIcon = (category: string) => {
     const categoryLower = category.toLowerCase();
@@ -1130,6 +1109,7 @@ useEffect(() => {
         day: callData.day,
         time: callData.time,
         date: callDate,
+        week: weekOffset,
         description: callData.description || "",
         link: callData.link || "",
         color: callData.color || "blue",
@@ -1150,14 +1130,18 @@ useEffect(() => {
       if (callData.recurring) {
         // Generate multiple calls for each week
         payload = generateRecurringCallsPayload(callData);
+        console.log("@payload",payload)
       } else {
-        // Regular call - send as array with single item
+        // Regular call - send as array with single item.
+        // Derive date from selected (day + week) so backend always gets a concrete date.
+      
         payload = [{
           title: callData.title,
           category: callData.category,
           day: callData.day,
           time: callData.time,
           date: callData.date,
+          week: Number(callData.week),
           description: callData.description || "",
           link: callData.link || "",
           color: callData.color || "blue",
@@ -1184,15 +1168,7 @@ useEffect(() => {
     onSuccess: (data) => {
       // Refetch all calls to get the updated list
       getCalls().then(fetchedData => {
-        if (!fetchedData || !Array.isArray(fetchedData)) {
-          // If refetch fails, try to add the returned data
-          if (Array.isArray(data)) {
-            setCalls((prev: any[]) => [...prev, ...data]);
-          } else {
-            setCalls((prev: any[]) => [...prev, data]);
-          }
-          return;
-        }
+       
         
         const transformedCalls = fetchedData.map((call: any) => ({
           ...call,
@@ -1201,7 +1177,7 @@ useEffect(() => {
         }));
         
         const expandedCalls = expandRecurringCalls(transformedCalls);
-        setCalls(expandedCalls);
+        setCalls(fetchedData);
       }).catch(() => {
         // If refetch fails, try to add the returned data
         if (Array.isArray(data)) {
@@ -1323,28 +1299,28 @@ useEffect(() => {
     onSuccess: (data, variables) => {
       // Refetch all calls to get the updated list (especially important when recurring calls were created)
       getCalls().then(fetchedData => {
-        if (!fetchedData || !Array.isArray(fetchedData)) {
-          // If refetch fails, try to update with returned data
-          if (Array.isArray(data)) {
-            // Multiple calls created (recurring)
-            setCalls((prev: any[]) => {
-              // Remove the original call and add new ones
-              const filtered = prev.filter((call: any) => call.id !== variables.id);
-              const transformedCalls = data.map((call: any) => ({
-                ...call,
-                date: call.date ? parseDate(call.date) : '',
-                cancelReason: call.cancelReason || '',
-              }));
-              return [...filtered, ...transformedCalls];
-            });
-          } else {
-            // Single call updated
-            setCalls((prev: any[]) => 
-              prev.map((call: any) => call.id === data.id ? data : call)
-            );
-          }
-          return;
-        }
+        // if (!fetchedData || !Array.isArray(fetchedData)) {
+        //   // If refetch fails, try to update with returned data
+        //   if (Array.isArray(data)) {
+        //     // Multiple calls created (recurring)
+        //     setCalls((prev: any[]) => {
+        //       // Remove the original call and add new ones
+        //       const filtered = prev.filter((call: any) => call.id !== variables.id);
+        //       const transformedCalls = data.map((call: any) => ({
+        //         ...call,
+        //         date: call.date ? parseDate(call.date) : '',
+        //         cancelReason: call.cancelReason || '',
+        //       }));
+        //       return [...filtered, ...transformedCalls];
+        //     });
+        //   } else {
+        //     // Single call updated
+        //     setCalls((prev: any[]) => 
+        //       prev.map((call: any) => call.id === data.id ? data : call)
+        //     );
+        //   }
+        //   return;
+        // }
         
         const transformedCalls = fetchedData.map((call: any) => ({
           ...call,
@@ -1353,7 +1329,7 @@ useEffect(() => {
         }));
         
         const expandedCalls = expandRecurringCalls(transformedCalls);
-        setCalls(expandedCalls);
+        setCalls(fetchedData);
       }).catch(() => {
         // If refetch fails, try to update with returned data
         if (Array.isArray(data)) {
@@ -1476,6 +1452,7 @@ useEffect(() => {
 
   // Handle add call
   const handleAddCall = (data: CallFormData) => {
+    console.log("handleAddCall", data);
     addCallMutation.mutate(data);
   };
 
@@ -1523,12 +1500,14 @@ useEffect(() => {
       }
     }
     
+    const weekValue = Number(call.week ?? call.weekOffset ?? 0);
     editCallForm.reset({
       title: call.title,
       category: call.category as "Strategy" | "Messaging" | "Ads" | "Tech Support" | "Accountability",
       day: call.day as "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday" | "Sunday",
       time: call.time,
       date: formattedDate, // Empty string if recurring, formatted date otherwise
+      week: weekValue,
       description: call.description || "",
       link: call.link || "",
       color: (call.color || "blue") as "blue" | "green" | "purple" | "orange" | "coral" | "slate",
@@ -1607,7 +1586,7 @@ useEffect(() => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
-                <CardTitle>{generateWeekLabel()}</CardTitle>
+                <CardTitle>{currentWeekData.weekLabel || generateWeekLabel()}</CardTitle>
               </div>
               <div className="flex items-center gap-2">
                 {user?.isAdmin && (
@@ -1702,6 +1681,10 @@ useEffect(() => {
                                 </FormItem>
                               )}
                             />
+                      
+                          </div>
+                          {/* Recurring and Time in one row */}
+                          <div className="grid grid-cols-2 gap-4">
                             <FormField
                               control={addCallForm.control}
                               name="recurring"
@@ -1712,10 +1695,7 @@ useEffect(() => {
                                     onValueChange={(value) => {
                                       const isRecurring = value === "true";
                                       field.onChange(isRecurring);
-                                      // Clear date when enabling recurring
-                                      if (isRecurring) {
-                                        addCallForm.setValue("date", "");
-                                      }
+                                      // When recurring toggles, week select below will visually update/disable
                                     }} 
                                     value={field.value ? "true" : "false"}
                                   >
@@ -1729,30 +1709,6 @@ useEffect(() => {
                                       <SelectItem value="true">True</SelectItem>
                                     </SelectContent>
                                   </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                              control={addCallForm.control}
-                              name="date"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>
-                                    Date {!addCallForm.watch("recurring") && "*"}
-                                    {addCallForm.watch("recurring") && (
-                                      <span className="text-xs text-slate-500 ml-1">(Optional - will be calculated for each week)</span>
-                                    )}
-                                  </FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      type="date" 
-                                      {...field}
-                                      disabled={addCallForm.watch("recurring")}
-                                    />
-                                  </FormControl>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -1774,6 +1730,44 @@ useEffect(() => {
                               )}
                             />
                           </div>
+                          {/* Week full width below */}
+                          <FormField
+                            control={addCallForm.control}
+                            name="week"
+                            render={({ field }) => {
+                              const isRecurring = addCallForm.watch("recurring");
+                              return (
+                                <FormItem>
+                                  <FormLabel>
+                                    Week
+                                    {isRecurring && (
+                                      <span className="ml-1 text-xs text-slate-500">
+                                        (ignored for recurring)
+                                      </span>
+                                    )}
+                                  </FormLabel>
+                                  <Select
+                                    onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                                    value={String(field.value ?? 0)}
+                                    disabled={isRecurring}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger disabled={isRecurring}>
+                                        <SelectValue placeholder="Select week" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="0">This Week</SelectItem>
+                                      <SelectItem value="1">Next Week</SelectItem>
+                                      <SelectItem value="2">2 Weeks Ahead</SelectItem>
+                                      <SelectItem value="3">3 Weeks Ahead</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
+                          />
                           <FormField
                             control={addCallForm.control}
                             name="link"
@@ -1934,7 +1928,7 @@ useEffect(() => {
               <div className="flex items-center justify-center min-h-[300px]">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>
-            ) : thisWeeksCalls.length === 0 ? (
+            ) : sortedCallsForCurrentWeek.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[300px] text-center">
                 <Calendar className="w-12 h-12 text-slate-400 mb-4" />
                 <p className="text-slate-600 font-medium mb-2">No calls scheduled for this week</p>
@@ -1942,7 +1936,7 @@ useEffect(() => {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 gap-4">
-                {thisWeeksCalls.map((call: any) => {
+                {sortedCallsForCurrentWeek.map((call: any) => {
                   const IconComponent = getCategoryIcon(call.category);
                   const isCanceled = call.canceled;
                   
@@ -2626,6 +2620,9 @@ useEffect(() => {
                     </FormItem>
                   )}
                 />
+              </div>
+              {/* Recurring and Time on same line */}
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editCallForm.control}
                   name="recurring"
@@ -2657,30 +2654,6 @@ useEffect(() => {
                     </FormItem>
                   )}
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={editCallForm.control}
-                  name="date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Date {!editCallForm.watch("recurring") && "*"}
-                        {editCallForm.watch("recurring") && (
-                          <span className="text-xs text-slate-500 ml-1">(Optional - will be calculated for each week)</span>
-                        )}
-                      </FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="date" 
-                          {...field}
-                          disabled={editCallForm.watch("recurring")}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={editCallForm.control}
                   name="time"
@@ -2698,6 +2671,22 @@ useEffect(() => {
                   )}
                 />
               </div>
+              {/* Date only when not recurring. Week is hidden in edit modal. */}
+              {!editCallForm.watch("recurring") && (
+                <FormField
+                  control={editCallForm.control}
+                  name="date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date *</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
               <FormField
                 control={editCallForm.control}
                 name="link"
