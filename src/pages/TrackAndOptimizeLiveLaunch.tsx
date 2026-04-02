@@ -710,6 +710,62 @@ export default function TrackAndOptimizeLiveLaunch() {
     },
   });
 
+  const persistCalculatedAdsMetricsForDate = (metrics: MetricData[], date: string) => {
+    if (!selectedLaunchId || !userId) return;
+
+    const calculatedMetricTypes = [
+      "Cost Per Landing Page View",
+      "Landing Page Conversion Rate - Ads",
+      "Cost Per Registration",
+    ] as const;
+
+    calculatedMetricTypes.forEach((metricType) => {
+      const metric = metrics.find((m) => m.step === metricType);
+      if (!metric) return;
+      const calculatedValue = metric.values[date];
+      if (calculatedValue === undefined || Number.isNaN(calculatedValue)) return;
+
+      saveFunnelMetricMutation.mutate({
+        userId,
+        liveLaunchId: selectedLaunchId,
+        date,
+        metricType,
+        value: String(calculatedValue),
+        goal: metric.goal,
+      });
+    });
+  };
+
+  const persistCalculatedOrganicMetricsForDate = (
+    metrics: MetricData[],
+    date: string
+  ) => {
+    if (!selectedLaunchId || !userId) return;
+
+    const calculatedMetricTypes = [
+      "Landing Page Conversion Rate - Organic",
+      "Sales Page Conversion",
+      "Total Revenue",
+      "Total ROAS from Launch",
+    ] as const;
+
+    calculatedMetricTypes.forEach((metricType) => {
+      const metric = metrics.find((m) => m.step === metricType);
+      if (!metric) return;
+      const calculatedValue = metric.values[date];
+      if (calculatedValue === undefined || Number.isNaN(calculatedValue)) return;
+
+      saveOrganicMetricMutation.mutate({
+        userId,
+        liveLaunchId: selectedLaunchId,
+        date,
+        metricType,
+        value: String(calculatedValue),
+        goal: metric.goal,
+      });
+    });
+  };
+
   // Remove email by ID
   const removeEmail = (date: string, emailId: number) => {
     deleteEmailMutation.mutate(emailId);
@@ -2341,6 +2397,30 @@ export default function TrackAndOptimizeLiveLaunch() {
       });
 
       setOrganicFunnelData(updatedData);
+
+      // Persist manual + calculated metrics for affected dates
+      if (selectedLaunchId && userId) {
+        dates.forEach((date) => {
+          Object.entries(bulkData).forEach(([metricType, dateValues]) => {
+            const rawValue = dateValues?.[date];
+            if (rawValue === undefined || rawValue.trim() === "") return;
+            const numericValue = parseFloat(rawValue);
+            if (Number.isNaN(numericValue)) return;
+
+            const metric = updatedData.find((m) => m.step === metricType);
+            saveOrganicMetricMutation.mutate({
+              userId,
+              liveLaunchId: selectedLaunchId,
+              date,
+              metricType,
+              value: String(numericValue),
+              goal: metric?.goal ?? "",
+            });
+          });
+
+          persistCalculatedOrganicMetricsForDate(updatedData, date);
+        });
+      }
     } else {
       // Apply to ads funnel data
       const updatedData = [...funnelData];
@@ -2388,6 +2468,30 @@ export default function TrackAndOptimizeLiveLaunch() {
       });
 
       setFunnelData(updatedData);
+
+      // Persist manual + calculated metrics for affected dates
+      if (selectedLaunchId && userId) {
+        dates.forEach((date) => {
+          Object.entries(bulkData).forEach(([metricType, dateValues]) => {
+            const rawValue = dateValues?.[date];
+            if (rawValue === undefined || rawValue.trim() === "") return;
+            const numericValue = parseFloat(rawValue);
+            if (Number.isNaN(numericValue)) return;
+
+            const metric = updatedData.find((m) => m.step === metricType);
+            saveFunnelMetricMutation.mutate({
+              userId,
+              liveLaunchId: selectedLaunchId,
+              date,
+              metricType,
+              value: String(numericValue),
+              goal: metric?.goal ?? "",
+            });
+          });
+
+          persistCalculatedAdsMetricsForDate(updatedData, date);
+        });
+      }
     }
 
     setShowHistoryModal(false);
@@ -2510,6 +2614,9 @@ export default function TrackAndOptimizeLiveLaunch() {
         value: value || "0",
         goal: organicFunnelData[index].goal,
       });
+
+      // Also persist auto-calculated (non-green) metrics
+      persistCalculatedOrganicMetricsForDate(updatedData, date);
     }
   };
 
@@ -2631,29 +2738,35 @@ export default function TrackAndOptimizeLiveLaunch() {
     }
   };
 
+  /**
+   * Ads funnel derived metrics for one calendar date (the "Value (date)" row).
+   * Display: CP metrics as $ via isCurrencyMetric; conversion as % via isPercentageMetric.
+   *
+   * - Cost per landing page view ($) = ad spend ÷ landing page views
+   * - Landing page conversion rate (%) = (registrations ÷ landing page views) × 100
+   *   (registrations = "Registration - Ads" / conversions on the LP; NOT views÷registrations,
+   *   which would not be a 0–100% style rate and would not match 30–40% goals.)
+   * - Cost per registration ($) = ad spend ÷ registrations
+   */
   const calculateAutoMetrics = (data: MetricData[], date: string) => {
     const newData = [...data];
 
-    // Get values for the specific date
-    const adSpend = newData[0].values[date] || 0; // Ad Spend
-    const landingPageViews = newData[2].values[date] || 0; // Landing Page Views
-    const registrations = newData[4].values[date] || 0; // Registration - Ads
+    const adSpend = newData[0].values[date] || 0;
+    const landingPageViews = newData[2].values[date] || 0;
+    const registrations = newData[4].values[date] || 0;
 
-    // Calculate Cost Per Landing Page View (Ad Spend / Landing Page Views)
     if (landingPageViews > 0) {
       newData[3].values[date] = adSpend / landingPageViews;
     } else {
       delete newData[3].values[date];
     }
 
-    // Calculate Landing Page Conversion Rate - Ads (Registration - Ads / Landing Page Views) * 100 for percentage
     if (landingPageViews > 0) {
       newData[5].values[date] = (registrations / landingPageViews) * 100;
     } else {
       delete newData[5].values[date];
     }
 
-    // Calculate Cost Per Registration (Ad Spend / Registration - Ads)
     if (registrations > 0) {
       newData[6].values[date] = adSpend / registrations;
     } else {
@@ -2703,6 +2816,9 @@ export default function TrackAndOptimizeLiveLaunch() {
         value: value || "0",
         goal: funnelData[metricIndex].goal,
       });
+
+      // Also persist auto-calculated (non-green) metrics
+      persistCalculatedAdsMetricsForDate(updatedData, date);
     }
   };
 
