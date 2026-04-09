@@ -243,23 +243,44 @@ export default function TrackAndOptimize() {
 
   // Track whether data has been initialized from database
   const isInitialized = useRef(false);
+  // Hydrate local funnel state from GET only once per user session. Refetches after save used to
+  // re-run hydration and replace state with stale/partial API responses, which looked like a DB wipe.
+  const funnelTrackerHydratedRef = useRef(false);
 
-  // Initialize data from database when loaded
   useEffect(() => {
+    funnelTrackerHydratedRef.current = false;
+    isInitialized.current = false;
+  }, [userId]);
+
+  // Initialize data from database when loaded (once per userId; not on every query refetch)
+  useEffect(() => {
+    if (!userId) return;
+    if (funnelTrackerHydratedRef.current) return;
+
     if (funnelTrackerData) {
       if (funnelTrackerData.tripwireProductCost) {
         setTripwireProductCost(funnelTrackerData.tripwireProductCost);
       }
       if (funnelTrackerData.funnelData && funnelTrackerData.funnelData.length > 0) {
         setFunnelData(funnelTrackerData.funnelData);
+
+        // Default to the most recent date that has any saved values so users don't land on "today" empty.
+        const allDates = new Set<string>();
+        funnelTrackerData.funnelData.forEach((metric) => {
+          Object.keys(metric.values || {}).forEach((d) => allDates.add(d));
+        });
+        const sortedDates = Array.from(allDates).sort();
+        const mostRecentDate =
+          sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : undefined;
+        if (mostRecentDate) setSelectedDate(mostRecentDate);
       }
-      // Mark as initialized after loading data
+      funnelTrackerHydratedRef.current = true;
       isInitialized.current = true;
     } else if (!isLoadingTrackerData) {
-      // If no data exists and loading is complete, mark as initialized
+      funnelTrackerHydratedRef.current = true;
       isInitialized.current = true;
     }
-  }, [funnelTrackerData, isLoadingTrackerData]);
+  }, [funnelTrackerData, isLoadingTrackerData, userId]);
 
   // Memoized debounced save to database
   const saveFunnelTrackerData = useMemo(() => {
@@ -274,7 +295,18 @@ export default function TrackAndOptimize() {
           ...data,
           organicFunnelData: [] // Empty for now, will be added later if needed
         });
-        queryClient.invalidateQueries({ queryKey: ['/api/funnel-tracker-data', userId] });
+        // Keep React Query cache in sync without refetching — refetch re-ran hydration before
+        // funnelTrackerHydratedRef guarded it, and could overwrite in-progress edits.
+        queryClient.setQueryData<FunnelTrackerData>(['/api/funnel-tracker-data', userId], (prev) => ({
+          ...(prev ?? {
+            tripwireProductCost: null,
+            funnelData: [],
+            organicFunnelData: [],
+          }),
+          tripwireProductCost: data.tripwireProductCost,
+          funnelData: data.funnelData,
+          organicFunnelData: [],
+        }));
       } catch (error) {
         console.error('Error saving funnel tracker data:', error);
       }
@@ -325,24 +357,6 @@ export default function TrackAndOptimize() {
       }
     }
   }, [funnelData, userId, isLoadingTrackerData, isLoadingSuggestions, savedSuggestions]);
-
-  // Recalculate totals/averages on mount to ensure they use the correct formula
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const updatedData = [...funnelData];
-    
-    updatedData.forEach((metric, index) => {
-      if (shouldUseTotals(metric.step)) {
-        updatedData[index].sevenDayAvg = calculateTotal(metric.values, today, 7);
-        updatedData[index].thirtyDayAvg = calculateTotal(metric.values, today, 30);
-      } else {
-        updatedData[index].sevenDayAvg = calculateAverage(metric.values, today, 7);
-        updatedData[index].thirtyDayAvg = calculateAverage(metric.values, today, 30);
-      }
-    });
-    
-    setFunnelData(updatedData);
-  }, []); // Only run on mount
 
   // Auto-fill Landing Page Views goal when Ad Spend changes
   useEffect(() => {
