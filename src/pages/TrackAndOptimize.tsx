@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,7 +44,8 @@ import {
   Calculator,
   AlertTriangle,
   XCircle,
-  Download
+  Download,
+  Save
 } from "lucide-react";
 import VimeoEmbed from "@/components/VimeoEmbed";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,7 +53,6 @@ import { useMarkSectionComplete, useUnmarkSectionComplete } from "@/hooks/useSec
 import { useChecklistItems, useUpsertChecklistItem } from "@/hooks/useChecklistItems";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/services/queryClient";
-import debounce from "lodash.debounce";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
@@ -87,12 +87,28 @@ type OptimizationSuggestionsData = {
   suggestions: OptimizationSuggestion[];
 };
 
+/** Total number of date keys stored across all metrics (each metric × date is one cell). */
+function countFunnelValueCells(funnelData: MetricData[] | undefined): number {
+  if (!funnelData?.length) return 0;
+  return funnelData.reduce((acc, m) => acc + Object.keys(m.values || {}).length, 0);
+}
+
 export default function TrackAndOptimize() {
   const { user } = useAuth();
   const userId = user?.id || 0;
   const { toast } = useToast();
   const markSectionComplete = useMarkSectionComplete();
   const unmarkSectionComplete = useUnmarkSectionComplete();
+
+  // Use local date strings (YYYY-MM-DD). Using `toISOString()` (UTC) can shift the day near midnight
+  // and make it look like values "disappear" the next day because they were stored under a different key.
+  const toLocalYmd = (d: Date): string => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const todayLocal = () => toLocalYmd(new Date());
   
   // Load checklist items from database
   const sectionKey = "track_optimize_implementation";
@@ -100,7 +116,7 @@ export default function TrackAndOptimize() {
   const upsertChecklistItem = useUpsertChecklistItem();
   
   const [activeTab, setActiveTab] = useState("script-generator");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]); // Today's date in YYYY-MM-DD format
+  const [selectedDate, setSelectedDate] = useState(todayLocal()); // Today's date in YYYY-MM-DD format
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM format
@@ -129,7 +145,7 @@ export default function TrackAndOptimize() {
   
   // Bulk entry state
   const [bulkEntryMode, setBulkEntryMode] = useState(false); // Toggle between week view and bulk entry
-  const [bulkStartDate, setBulkStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [bulkStartDate, setBulkStartDate] = useState(todayLocal());
   const [bulkDaysCount, setBulkDaysCount] = useState(5);
   const [bulkOverwriteExisting, setBulkOverwriteExisting] = useState(false);
   const [bulkData, setBulkData] = useState<Record<string, Record<string, string>>>({});
@@ -243,13 +259,22 @@ export default function TrackAndOptimize() {
 
   // Track whether data has been initialized from database
   const isInitialized = useRef(false);
+  // Funnel tracker is saved only when the user clicks Save (not on every input change).
+  const [funnelTrackerDirty, setFunnelTrackerDirty] = useState(false);
+  const [isSavingFunnelTracker, setIsSavingFunnelTracker] = useState(false);
   // Hydrate local funnel state from GET only once per user session. Refetches after save used to
   // re-run hydration and replace state with stale/partial API responses, which looked like a DB wipe.
   const funnelTrackerHydratedRef = useRef(false);
+  // After hydrate or successful save: how many value cells exist on server (approx.). Used to block POSTs that would wipe all dates.
+  const lastPersistedFunnelValueCellsRef = useRef(0);
+  // Set after `generateSuggestions` / `saveToIgniteDocs` exist; invoked when user saves funnel data.
+  const syncOptimizationSuggestionsRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
     funnelTrackerHydratedRef.current = false;
     isInitialized.current = false;
+    setFunnelTrackerDirty(false);
+    lastPersistedFunnelValueCellsRef.current = 0;
   }, [userId]);
 
   // Initialize data from database when loaded (once per userId; not on every query refetch)
@@ -274,89 +299,105 @@ export default function TrackAndOptimize() {
           sortedDates.length > 0 ? sortedDates[sortedDates.length - 1] : undefined;
         if (mostRecentDate) setSelectedDate(mostRecentDate);
       }
+      lastPersistedFunnelValueCellsRef.current = countFunnelValueCells(
+        funnelTrackerData.funnelData ?? undefined
+      );
       funnelTrackerHydratedRef.current = true;
       isInitialized.current = true;
+      setFunnelTrackerDirty(false);
     } else if (!isLoadingTrackerData) {
+      lastPersistedFunnelValueCellsRef.current = 0;
       funnelTrackerHydratedRef.current = true;
       isInitialized.current = true;
+      setFunnelTrackerDirty(false);
     }
   }, [funnelTrackerData, isLoadingTrackerData, userId]);
 
-  // Memoized debounced save to database
-  const saveFunnelTrackerData = useMemo(() => {
-    return debounce(async (data: {
-      tripwireProductCost: string;
-      funnelData: MetricData[];
-    }) => {
-      if (!userId) return;
-      
-      try {
-        await apiRequest('POST', '/api/funnel-tracker-data', {
-          ...data,
-          organicFunnelData: [] // Empty for now, will be added later if needed
-        });
-        // Keep React Query cache in sync without refetching — refetch re-ran hydration before
-        // funnelTrackerHydratedRef guarded it, and could overwrite in-progress edits.
-        queryClient.setQueryData<FunnelTrackerData>(['/api/funnel-tracker-data', userId], (prev) => ({
-          ...(prev ?? {
-            tripwireProductCost: null,
-            funnelData: [],
-            organicFunnelData: [],
-          }),
-          tripwireProductCost: data.tripwireProductCost,
-          funnelData: data.funnelData,
-          organicFunnelData: [],
-        }));
-      } catch (error) {
-        console.error('Error saving funnel tracker data:', error);
-      }
-    }, 1000);
-  }, [userId]);
+  type PersistFunnelResult = "saved" | "skipped_empty" | "skipped_wipe";
 
-  // Cancel debounced function on unmount
-  useEffect(() => {
-    return () => {
-      saveFunnelTrackerData.cancel();
-    };
-  }, [saveFunnelTrackerData]);
+  const persistFunnelTracker = useCallback(async (): Promise<PersistFunnelResult> => {
+    if (!userId) return "skipped_empty";
 
-  // Save data to database whenever it changes (only after initialization)
-  useEffect(() => {
-    if (isInitialized.current && !isLoadingTrackerData && userId) {
-      saveFunnelTrackerData({
-        tripwireProductCost,
-        funnelData
+    const data = { tripwireProductCost, funnelData };
+    const valueCells = countFunnelValueCells(data.funnelData);
+    const hasTripwire = Boolean(data.tripwireProductCost?.trim());
+
+    if (valueCells === 0 && !hasTripwire) {
+      return "skipped_empty";
+    }
+    if (lastPersistedFunnelValueCellsRef.current > 0 && valueCells === 0) {
+      console.warn(
+        "[TrackAndOptimize] Skipped funnel tracker save: payload would remove all saved date values"
+      );
+      return "skipped_wipe";
+    }
+
+    await apiRequest("POST", "/api/funnel-tracker-data", {
+      ...data,
+      organicFunnelData: [],
+    });
+    lastPersistedFunnelValueCellsRef.current = valueCells;
+    queryClient.setQueryData<FunnelTrackerData>(['/api/funnel-tracker-data', userId], (prev) => ({
+      ...(prev ?? {
+        tripwireProductCost: null,
+        funnelData: [],
+        organicFunnelData: [],
+      }),
+      tripwireProductCost: data.tripwireProductCost,
+      funnelData: data.funnelData,
+      organicFunnelData: [],
+    }));
+    return "saved";
+  }, [userId, tripwireProductCost, funnelData]);
+
+  const handleSaveFunnelTracker = useCallback(async () => {
+    if (!userId) {
+      toast({
+        title: "Sign in required",
+        description: "Log in to save funnel tracker data.",
+        variant: "destructive",
       });
+      return;
     }
-  }, [tripwireProductCost, funnelData, userId, isLoadingTrackerData, saveFunnelTrackerData]);
-
-  // Save optimization suggestions to database AND IGNITE Docs when funnel data changes
-  useEffect(() => {
-    // Only save if initialized, user is logged in, and saved suggestions have finished loading
-    if (!isInitialized.current || !userId || isLoadingTrackerData || isLoadingSuggestions) return;
-    
-    // Generate suggestions based on current funnel data
-    const suggestions = generateSuggestions();
-    
-    // Only save if we have suggestions and they're different from what's saved
-    if (suggestions.length > 0) {
-      const suggestionsChanged = JSON.stringify(suggestions) !== JSON.stringify(savedSuggestions?.suggestions || []);
-      
-      if (suggestionsChanged) {
-        // Save to database
-        apiRequest('POST', '/api/optimization-suggestions', { suggestions })
-          .then(() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/optimization-suggestions', userId] });
-            
-            // Also automatically save to IGNITE Docs (silently, no toast notifications)
-            saveToIgniteDocs(true);
-          })
-          .catch((error) => {
-            console.error('Error saving optimization suggestions:', error);
-          });
+    if (isSavingFunnelTracker) return;
+    setIsSavingFunnelTracker(true);
+    try {
+      const result = await persistFunnelTracker();
+      if (result === "saved") {
+        setFunnelTrackerDirty(false);
+        try {
+          await syncOptimizationSuggestionsRef.current();
+        } catch (syncErr) {
+          console.error("Error syncing optimization suggestions after funnel save:", syncErr);
+        }
+        toast({
+          title: "Saved",
+          description: "Funnel tracker data was saved.",
+        });
+      } else if (result === "skipped_empty") {
+        toast({
+          title: "Nothing to save",
+          description: "Add at least one daily value or tripwire cost before saving.",
+          variant: "destructive",
+        });
+      } else if (result === "skipped_wipe") {
+        toast({
+          title: "Save blocked",
+          description: "Saving would remove all saved dates. Add data back or refresh the page.",
+          variant: "destructive",
+        });
       }
+    } catch (error) {
+      console.error("Error saving funnel tracker data:", error);
+      toast({
+        title: "Save failed",
+        description: "Could not save funnel tracker data. Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingFunnelTracker(false);
     }
-  }, [funnelData, userId, isLoadingTrackerData, isLoadingSuggestions, savedSuggestions]);
+  }, [userId, isSavingFunnelTracker, persistFunnelTracker, toast]);
 
   // Auto-fill Landing Page Views goal when Ad Spend changes
   useEffect(() => {
@@ -371,6 +412,7 @@ export default function TrackAndOptimize() {
       const lpvIndex = updatedData.findIndex(m => m.step === "Landing Page Views");
       if (lpvIndex >= 0) {
         updatedData[lpvIndex].goal = calculatedLPV.toString();
+        setFunnelTrackerDirty(true);
         setFunnelData(updatedData);
       }
     }
@@ -391,6 +433,7 @@ export default function TrackAndOptimize() {
       const leadsIndex = updatedData.findIndex(m => m.step === "Leads");
       if (leadsIndex >= 0) {
         updatedData[leadsIndex].goal = suggested.toString();
+        setFunnelTrackerDirty(true);
         setFunnelData(updatedData);
       }
     }
@@ -415,6 +458,7 @@ export default function TrackAndOptimize() {
       const salesIndex = updatedData.findIndex(m => m.step === "Tripwire Sales");
       if (salesIndex >= 0) {
         updatedData[salesIndex].goal = suggested.toString();
+        setFunnelTrackerDirty(true);
         setFunnelData(updatedData);
       }
     }
@@ -435,6 +479,7 @@ export default function TrackAndOptimize() {
       const revenueIndex = updatedData.findIndex(m => m.step === "Total Revenue");
       if (revenueIndex >= 0) {
         updatedData[revenueIndex].goal = `$${suggested.toFixed(2)}`;
+        setFunnelTrackerDirty(true);
         setFunnelData(updatedData);
       }
     }
@@ -458,6 +503,7 @@ export default function TrackAndOptimize() {
       const roasIndex = updatedData.findIndex(m => m.step === "ROAs");
       if (roasIndex >= 0) {
         updatedData[roasIndex].goal = `${suggested.toFixed(2)}x`;
+        setFunnelTrackerDirty(true);
         setFunnelData(updatedData);
       }
     }
@@ -470,7 +516,7 @@ export default function TrackAndOptimize() {
     for (let i = 0; i < days; i++) {
       const currentDate = new Date(date);
       currentDate.setDate(date.getDate() - i);
-      dates.push(currentDate.toISOString().split('T')[0]);
+      dates.push(toLocalYmd(currentDate));
     }
     return dates;
   };
@@ -897,7 +943,10 @@ export default function TrackAndOptimize() {
   };
 
   // Save optimization suggestions to IGNITE Docs (silent = no toast notifications)
-  const saveToIgniteDocs = async (silent: boolean = false) => {
+  const saveToIgniteDocs = async (
+    silent: boolean = false,
+    suggestionsOverride?: OptimizationSuggestion[]
+  ) => {
     if (!userId) {
       if (!silent) {
         toast({
@@ -909,9 +958,12 @@ export default function TrackAndOptimize() {
       return;
     }
 
-    const suggestions = savedSuggestions?.suggestions && savedSuggestions.suggestions.length > 0 
-      ? savedSuggestions.suggestions 
-      : generateSuggestions();
+    const suggestions =
+      suggestionsOverride && suggestionsOverride.length > 0
+        ? suggestionsOverride
+        : savedSuggestions?.suggestions && savedSuggestions.suggestions.length > 0
+          ? savedSuggestions.suggestions
+          : generateSuggestions();
 
     if (suggestions.length === 0) {
       if (!silent) {
@@ -976,6 +1028,21 @@ export default function TrackAndOptimize() {
           variant: "destructive"
         });
       }
+    }
+  };
+
+  syncOptimizationSuggestionsRef.current = async () => {
+    if (!userId || isLoadingSuggestions) return;
+    const suggestions = generateSuggestions();
+    if (suggestions.length === 0) return;
+    const prev = savedSuggestions?.suggestions || [];
+    if (JSON.stringify(suggestions) === JSON.stringify(prev)) return;
+    try {
+      await apiRequest("POST", "/api/optimization-suggestions", { suggestions });
+      await queryClient.invalidateQueries({ queryKey: ["/api/optimization-suggestions", userId] });
+      await saveToIgniteDocs(true, suggestions);
+    } catch (error) {
+      console.error("Error saving optimization suggestions:", error);
     }
   };
 
@@ -1291,7 +1358,7 @@ export default function TrackAndOptimize() {
     for (let i = 0; i < days; i++) {
       const currentDate = new Date(date);
       currentDate.setDate(date.getDate() + i);
-      dates.push(currentDate.toISOString().split('T')[0]);
+      dates.push(toLocalYmd(currentDate));
     }
     return dates;
   };
@@ -1458,7 +1525,7 @@ export default function TrackAndOptimize() {
     });
     
     // Get today's date for calculating averages
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocal();
     
     // Recalculate averages/totals for all metrics from today's date
     updatedData.forEach((metric, index) => {
@@ -1471,6 +1538,7 @@ export default function TrackAndOptimize() {
       }
     });
     
+    setFunnelTrackerDirty(true);
     setFunnelData(updatedData);
     setShowHistoryModal(false);
     
@@ -1491,12 +1559,12 @@ export default function TrackAndOptimize() {
     const currentDate = new Date(selectedDate);
     if (direction === 'prev') {
       currentDate.setDate(currentDate.getDate() - 1);
-      setSelectedDate(currentDate.toISOString().split('T')[0]);
+      setSelectedDate(toLocalYmd(currentDate));
     } else if (direction === 'next') {
       currentDate.setDate(currentDate.getDate() + 1);
-      setSelectedDate(currentDate.toISOString().split('T')[0]);
+      setSelectedDate(toLocalYmd(currentDate));
     } else if (direction === 'today') {
-      setSelectedDate(new Date().toISOString().split('T')[0]);
+      setSelectedDate(todayLocal());
     }
   };
 
@@ -1559,6 +1627,7 @@ export default function TrackAndOptimize() {
   };
 
   const updateMetricValue = (metricIndex: number, date: string, value: string) => {
+    setFunnelTrackerDirty(true);
     const newData = [...funnelData];
     if (value === "") {
       delete newData[metricIndex].values[date];
@@ -1570,7 +1639,7 @@ export default function TrackAndOptimize() {
     const updatedData = calculateAutoMetrics(newData, date);
     
     // Get the most recent date (either today or the latest date with data)
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocal();
     
     // Recalculate averages/totals for all metrics from today's date
     updatedData.forEach((metric, index) => {
@@ -1958,6 +2027,7 @@ export default function TrackAndOptimize() {
                         placeholder="47.00"
                         value={tripwireProductCost}
                         onChange={(e) => {
+                          setFunnelTrackerDirty(true);
                           setTripwireProductCost(e.target.value);
                           
                           // Recalculate metrics for ALL dates when product cost changes
@@ -1975,7 +2045,7 @@ export default function TrackAndOptimize() {
                           });
                           
                           // Get today's date for calculating averages
-                          const today = new Date().toISOString().split('T')[0];
+                          const today = todayLocal();
                           
                           // Recalculate averages/totals for all metrics from today's date
                           updatedData.forEach((metric, index) => {
@@ -2005,25 +2075,47 @@ export default function TrackAndOptimize() {
               <div className="overflow-x-auto">
                 <div className="min-w-full">
                   {/* View Mode Toggle */}
-                  <div className="flex items-center gap-2 mb-4">
-                    <Button
-                      variant={viewMode === 'daily' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setViewMode('daily')}
-                      data-testid="button-daily-view"
-                    >
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Daily View
-                    </Button>
-                    <Button
-                      variant={viewMode === 'monthly' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setViewMode('monthly')}
-                      data-testid="button-monthly-view"
-                    >
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      Monthly View
-                    </Button>
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant={viewMode === 'daily' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('daily')}
+                        data-testid="button-daily-view"
+                      >
+                        <Calendar className="w-4 h-4 mr-2" />
+                        Daily View
+                      </Button>
+                      <Button
+                        variant={viewMode === 'monthly' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setViewMode('monthly')}
+                        data-testid="button-monthly-view"
+                      >
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        Monthly View
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {funnelTrackerDirty && (
+                        <span className="text-sm text-amber-700 dark:text-amber-500">Unsaved changes</span>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSaveFunnelTracker}
+                        disabled={
+                          !funnelTrackerDirty ||
+                          isSavingFunnelTracker ||
+                          !userId ||
+                          isLoadingTrackerData
+                        }
+                        data-testid="button-save-funnel-tracker"
+                      >
+                        <Save className="w-4 h-4 mr-2" />
+                        {isSavingFunnelTracker ? "Saving…" : "Save"}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Date/Month Navigation */}
@@ -2179,6 +2271,7 @@ export default function TrackAndOptimize() {
                             }
                             value={step.goal}
                             onChange={(e) => {
+                              setFunnelTrackerDirty(true);
                               const newData = [...funnelData];
                               newData[index].goal = e.target.value;
                               setFunnelData(newData);
@@ -2324,6 +2417,7 @@ export default function TrackAndOptimize() {
                               }
                               value={step.goal}
                               onChange={(e) => {
+                                setFunnelTrackerDirty(true);
                                 const newData = [...funnelData];
                                 newData[index].goal = e.target.value;
                                 setFunnelData(newData);
@@ -2630,6 +2724,7 @@ export default function TrackAndOptimize() {
                       sevenDayAvg: 0,
                       thirtyDayAvg: 0
                     }));
+                    setFunnelTrackerDirty(true);
                     setFunnelData(newData);
                   }}
                   className="text-sm"
@@ -2876,7 +2971,7 @@ export default function TrackAndOptimize() {
                   <Button variant="outline" size="sm" onClick={() => {
                     const weekAgo = new Date(selectedDate);
                     weekAgo.setDate(weekAgo.getDate() - 7);
-                    setSelectedDate(weekAgo.toISOString().split('T')[0]);
+                    setSelectedDate(toLocalYmd(weekAgo));
                   }}>
                     <ChevronLeft className="w-4 h-4 mr-2" />
                     Previous Week
@@ -2887,7 +2982,7 @@ export default function TrackAndOptimize() {
                   <Button variant="outline" size="sm" onClick={() => {
                     const weekForward = new Date(selectedDate);
                     weekForward.setDate(weekForward.getDate() + 7);
-                    setSelectedDate(weekForward.toISOString().split('T')[0]);
+                    setSelectedDate(toLocalYmd(weekForward));
                   }}>
                     Next Week
                     <ChevronRight className="w-4 h-4 ml-2" />
@@ -2904,7 +2999,7 @@ export default function TrackAndOptimize() {
                       for (let i = 0; i < 7; i++) {
                         const date = new Date(startDate);
                         date.setDate(startDate.getDate() + i);
-                        days.push(date.toISOString().split('T')[0]);
+                        days.push(toLocalYmd(date));
                       }
                       
                       return (

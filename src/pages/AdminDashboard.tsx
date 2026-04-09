@@ -2338,6 +2338,39 @@ export default function AdminDashboard() {
     toggleUserRoleMutation.mutate({ userId, isAdmin: !currentIsAdmin });
   };
 
+  const [impersonatingUserId, setImpersonatingUserId] = useState<number | null>(null);
+
+  const handleImpersonateUser = async (targetUserId: number) => {
+    setImpersonatingUserId(targetUserId);
+    try {
+      const response = await apiRequest(
+        "POST",
+        `/api/admin/users/${targetUserId}/impersonate`,
+        {}
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error((body as any)?.message || "Failed to impersonate user");
+      }
+      // Do not invalidate /auth/user here: a refetch while still on this page would
+      // update the cache to the impersonated (non-admin) user and briefly render
+      // AdminDashboard's "Access Denied" before navigation completes.
+      toast({
+        title: "Impersonation started",
+        description: "Opening the app as this user…",
+      });
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      toast({
+        title: "Could not login as user",
+        description: err?.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setImpersonatingUserId(null);
+    }
+  };
+
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -3270,7 +3303,7 @@ export default function AdminDashboard() {
                         <TableHead>Status</TableHead>
                         {/* <TableHead>Active</TableHead> */}
                         {/* <TableHead>Subscription Status</TableHead> */}
-                        <TableHead>Role</TableHead>
+                        <TableHead className="text-right">Role & actions</TableHead>
                         {/* <TableHead>End Date</TableHead>
                         <TableHead>Days Left</TableHead> */}
                       </TableRow>
@@ -3330,13 +3363,14 @@ export default function AdminDashboard() {
                                 </Badge>
                               </TableCell> */}
                               <TableCell onClick={(e) => e.stopPropagation()}>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center justify-end gap-2">
                                   <Badge 
                                     variant={user.isAdmin ? 'default' : 'secondary'}
                                     className={user.isAdmin ? 'bg-blue-500 hover:bg-blue-600 text-white border-transparent' : 'bg-gray-500 hover:bg-gray-600 text-white border-transparent'}
                                   >
                                     {user.isAdmin ? 'Admin' : 'User'}
                                   </Badge>
+                                 
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -3350,6 +3384,20 @@ export default function AdminDashboard() {
                                       user.isAdmin ? 'Downgrade' : 'Upgrade'
                                     )}
                                   </Button>
+                           {!user.isAdmin &&       <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => handleImpersonateUser(user.id)}
+                                    disabled={impersonatingUserId === user.id}
+                                    className="w-24 h-7 px-2 text-xs"
+                                    data-testid={`button-impersonate-user-${user.id}`}
+                                  >
+                                    {impersonatingUserId === user.id ? (
+                                      <div className="animate-spin w-3 h-3 border-2 border-[#4593ed] border-t-transparent rounded-full" />
+                                    ) : (
+                                      "Login as user"
+                                    )}
+                                  </Button>}
                                 </div>
                               </TableCell>
                               {/* <TableCell>

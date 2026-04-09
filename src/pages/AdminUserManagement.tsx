@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Search, LogOut, Eye, BarChart3, Clock, Activity, XCircle } from "lucide-react";
+import { Shield, Users, Search, LogOut, LogIn, Eye, BarChart3, Clock, Activity, XCircle } from "lucide-react";
 import { useState } from "react";
 import { format } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
+import { apiClient } from "@/services/api.config";
+import { useToast } from "@/hooks/use-toast";
 
 interface AdminUser {
   id: number;
@@ -21,6 +23,7 @@ interface AdminUser {
   lastLoginAt: string | null;
   createdAt: string;
   completedSections: number;
+  isAdmin?: boolean;
 }
 
 interface UserLogin {
@@ -64,6 +67,7 @@ export default function AdminUserManagement() {
   const [, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // Access control - redirect if not admin
   if (!user || !user.isAdmin) {
@@ -108,6 +112,28 @@ export default function AdminUserManagement() {
     });
     localStorage.clear();
     setLocation("/admin/login");
+  };
+
+  const handleImpersonate = async (targetUserId: number) => {
+    try {
+      await apiClient.post(`/api/admin/users/${targetUserId}/impersonate`, {});
+      toast({
+        title: "Impersonation started",
+        description: "Redirecting you into the user account…",
+      });
+      window.location.href = "/dashboard";
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+          ?.message ||
+        (err as Error)?.message ||
+        "Failed to impersonate user";
+      toast({
+        title: "Could not login as user",
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   const filteredUsers = users?.filter((user) => {
@@ -207,9 +233,18 @@ export default function AdminUserManagement() {
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
-                      All Users
+                      User Management
                     </CardTitle>
-                    <CardDescription>View and manage platform users</CardDescription>
+                    <CardDescription>View and manage all platform users</CardDescription>
+                    <div
+                      className="mt-3 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"
+                      title="Use the login action in each row to open that user’s account"
+                    >
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-800">
+                        <LogIn className="h-4 w-4" aria-hidden />
+                      </span>
+                      <span>Log in as user from the actions column</span>
+                    </div>
                   </div>
                   <div className="relative w-72">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -278,15 +313,28 @@ export default function AdminUserManagement() {
                                 </span>
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setLocation(`/admin/users/${user.id}`)}
-                                  data-testid={`button-view-user-${user.id}`}
-                                >
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  View
-                                </Button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleImpersonate(user.id)}
+                                    data-testid={`button-impersonate-user-${user.id}`}
+                                    disabled={user.isAdmin === true}
+                                    title="Log in as this user"
+                                    aria-label="Log in as this user"
+                                  >
+                                    <LogIn className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setLocation(`/admin/users/${user.id}`)}
+                                    data-testid={`button-view-user-${user.id}`}
+                                  >
+                                    <Eye className="w-4 h-4 mr-2" />
+                                    View
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))

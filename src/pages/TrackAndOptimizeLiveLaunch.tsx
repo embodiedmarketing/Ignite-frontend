@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -91,6 +91,40 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+/** Per-cell snapshot for Live Launch metrics (avoids re-POSTing unchanged rows on Save). */
+type LiveLaunchMetricCellSnapshot = Record<
+  string,
+  { value: string; goal: string }
+>;
+
+function buildLiveLaunchMetricCellSnapshot(
+  metrics: Array<{ step: string; goal: string; values: Record<string, number> }>
+): LiveLaunchMetricCellSnapshot {
+  const snap: LiveLaunchMetricCellSnapshot = {};
+  for (const m of metrics) {
+    for (const date of Object.keys(m.values)) {
+      const v = m.values[date];
+      if (v === undefined || Number.isNaN(v)) continue;
+      snap[`${m.step}|||${date}`] = {
+        value: String(v),
+        goal: m.goal,
+      };
+    }
+  }
+  return snap;
+}
+
+function liveLaunchCellNeedsPersist(
+  key: string,
+  value: string,
+  goal: string,
+  prev: LiveLaunchMetricCellSnapshot
+): boolean {
+  const p = prev[key];
+  if (!p) return true;
+  return p.value !== value || p.goal !== goal;
+}
 
 export default function TrackAndOptimizeLiveLaunch() {
   const { user } = useAuth();
@@ -288,6 +322,16 @@ export default function TrackAndOptimizeLiveLaunch() {
     getDefaultOrganicFunnelData()
   );
 
+  // Manual save for launch metrics (ads + organic + offer cost); no auto-save on input change.
+  const [liveLaunchMetricsDirty, setLiveLaunchMetricsDirty] = useState(false);
+  const [isSavingLiveLaunchMetrics, setIsSavingLiveLaunchMetrics] =
+    useState(false);
+
+  const liveLaunchAdsCellSnapshotRef = useRef<LiveLaunchMetricCellSnapshot>({});
+  const liveLaunchOrganicCellSnapshotRef =
+    useRef<LiveLaunchMetricCellSnapshot>({});
+  const liveLaunchOfferCostSnapshotRef = useRef<string>("");
+
   // New Email Form State
   const [newEmailForm, setNewEmailForm] = useState({
     type: "Invite",
@@ -340,11 +384,22 @@ export default function TrackAndOptimizeLiveLaunch() {
       );
       if (currentLaunch && currentLaunch.offerCost) {
         setOfferCost(currentLaunch.offerCost);
+        liveLaunchOfferCostSnapshotRef.current = String(
+          currentLaunch.offerCost
+        );
       } else {
         setOfferCost("");
+        liveLaunchOfferCostSnapshotRef.current = "";
       }
     }
   }, [selectedLaunchId, launches]);
+
+  useEffect(() => {
+    setLiveLaunchMetricsDirty(false);
+    liveLaunchAdsCellSnapshotRef.current = {};
+    liveLaunchOrganicCellSnapshotRef.current = {};
+    liveLaunchOfferCostSnapshotRef.current = "";
+  }, [selectedLaunchId]);
 
   // Create new launch mutation
   const createLaunchMutation = useMutation({
@@ -680,11 +735,6 @@ export default function TrackAndOptimizeLiveLaunch() {
         data
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches", selectedLaunchId, "funnel-metrics"],
-      });
-    },
   });
 
   // Mutation to save/update organic metric
@@ -703,68 +753,7 @@ export default function TrackAndOptimizeLiveLaunch() {
         data
       );
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches", selectedLaunchId, "organic-metrics"],
-      });
-    },
   });
-
-  const persistCalculatedAdsMetricsForDate = (metrics: MetricData[], date: string) => {
-    if (!selectedLaunchId || !userId) return;
-
-    const calculatedMetricTypes = [
-      "Cost Per Landing Page View",
-      "Landing Page Conversion Rate - Ads",
-      "Cost Per Registration",
-    ] as const;
-
-    calculatedMetricTypes.forEach((metricType) => {
-      const metric = metrics.find((m) => m.step === metricType);
-      if (!metric) return;
-      const calculatedValue = metric.values[date];
-      if (calculatedValue === undefined || Number.isNaN(calculatedValue)) return;
-
-      saveFunnelMetricMutation.mutate({
-        userId,
-        liveLaunchId: selectedLaunchId,
-        date,
-        metricType,
-        value: String(calculatedValue),
-        goal: metric.goal,
-      });
-    });
-  };
-
-  const persistCalculatedOrganicMetricsForDate = (
-    metrics: MetricData[],
-    date: string
-  ) => {
-    if (!selectedLaunchId || !userId) return;
-
-    const calculatedMetricTypes = [
-      "Landing Page Conversion Rate - Organic",
-      "Sales Page Conversion",
-      "Total Revenue",
-      "Total ROAS from Launch",
-    ] as const;
-
-    calculatedMetricTypes.forEach((metricType) => {
-      const metric = metrics.find((m) => m.step === metricType);
-      if (!metric) return;
-      const calculatedValue = metric.values[date];
-      if (calculatedValue === undefined || Number.isNaN(calculatedValue)) return;
-
-      saveOrganicMetricMutation.mutate({
-        userId,
-        liveLaunchId: selectedLaunchId,
-        date,
-        metricType,
-        value: String(calculatedValue),
-        goal: metric.goal,
-      });
-    });
-  };
 
   // Remove email by ID
   const removeEmail = (date: string, emailId: number) => {
@@ -779,11 +768,6 @@ export default function TrackAndOptimizeLiveLaunch() {
     mutationFn: async (data: { id: number; offerCost: string }) => {
       return apiRequest("PATCH", `/api/live-launches/${data.id}`, {
         offerCost: data.offerCost,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["/api/live-launches/user", userId],
       });
     },
   });
@@ -905,6 +889,9 @@ export default function TrackAndOptimizeLiveLaunch() {
 
     // Reset to fresh state for new launches or when switching launches
     setOrganicFunnelData(transformed);
+    liveLaunchOrganicCellSnapshotRef.current =
+      buildLiveLaunchMetricCellSnapshot(transformed);
+    setLiveLaunchMetricsDirty(false);
   }, [organicMetricsData, selectedLaunchId]);
 
   useEffect(() => {
@@ -952,6 +939,9 @@ export default function TrackAndOptimizeLiveLaunch() {
 
     // Reset to fresh state for new launches or when switching launches
     setFunnelData(transformed);
+    liveLaunchAdsCellSnapshotRef.current =
+      buildLiveLaunchMetricCellSnapshot(transformed);
+    setLiveLaunchMetricsDirty(false);
   }, [funnelMetricsData, selectedLaunchId]);
 
   // Auto-calculate ALL downstream goals when Ad Spend changes
@@ -993,59 +983,10 @@ export default function TrackAndOptimizeLiveLaunch() {
     }
 
     if (hasChanges) {
+      setLiveLaunchMetricsDirty(true);
       setFunnelData(updatedData);
     }
   }, [funnelData]);
-
-  // Auto-save optimization suggestions when metrics change
-  useEffect(() => {
-    if (!selectedLaunchId || !userId) return;
-
-    // Generate fresh suggestions based on current metrics
-    const currentSuggestions = generateSuggestions();
-
-    // Only save if we have suggestions and they've changed
-    if (currentSuggestions.length > 0) {
-      // Check if suggestions have actually changed by comparing to savedSuggestions
-      const suggestionsChanged =
-        JSON.stringify(currentSuggestions) !==
-        JSON.stringify(
-          savedSuggestions.map((s: any) => ({
-            type: s.suggestionType,
-            title: s.title,
-            issue: s.issue,
-            actions: s.actions,
-          }))
-        );
-
-      if (suggestionsChanged) {
-        // Debounce the save to avoid too many requests
-        const timeoutId = setTimeout(() => {
-          const currentLaunch = launches?.find(
-            (l: any) => l.id === selectedLaunchId
-          );
-          const launchLabel = currentLaunch?.label || "Live Launch";
-
-          saveOptimizationSuggestionsMutation.mutate({
-            liveLaunchId: selectedLaunchId,
-            userId,
-            suggestions: currentSuggestions,
-            launchLabel,
-          });
-        }, 2000); // Wait 2 seconds after last change before saving
-
-        return () => clearTimeout(timeoutId);
-      }
-    }
-  }, [
-    funnelData,
-    organicFunnelData,
-    emailsForDate,
-    selectedLaunchId,
-    userId,
-    launches,
-    savedSuggestions,
-  ]);
 
   // Utility functions for date calculations
   const getDatesBefore = (fromDate: string, days: number): string[] => {
@@ -1934,6 +1875,126 @@ export default function TrackAndOptimizeLiveLaunch() {
     return suggestions;
   };
 
+  const handleSaveLiveLaunchTracker = async () => {
+    if (!selectedLaunchId || !userId) {
+      toast({
+        title: "Cannot save",
+        description: "Select a launch and sign in to save tracking data.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isSavingLiveLaunchMetrics) return;
+    setIsSavingLiveLaunchMetrics(true);
+    try {
+      if (offerCost !== liveLaunchOfferCostSnapshotRef.current) {
+        await updateOfferCostMutation.mutateAsync({
+          id: selectedLaunchId,
+          offerCost,
+        });
+        liveLaunchOfferCostSnapshotRef.current = offerCost;
+      }
+
+      const prevAds = liveLaunchAdsCellSnapshotRef.current;
+      for (const metric of funnelData) {
+        for (const date of Object.keys(metric.values)) {
+          const v = metric.values[date];
+          if (v === undefined || Number.isNaN(v)) continue;
+          const key = `${metric.step}|||${date}`;
+          const valueStr = String(v);
+          if (
+            !liveLaunchCellNeedsPersist(key, valueStr, metric.goal, prevAds)
+          ) {
+            continue;
+          }
+          await saveFunnelMetricMutation.mutateAsync({
+            userId,
+            liveLaunchId: selectedLaunchId,
+            date,
+            metricType: metric.step,
+            value: valueStr,
+            goal: metric.goal,
+          });
+        }
+      }
+      liveLaunchAdsCellSnapshotRef.current =
+        buildLiveLaunchMetricCellSnapshot(funnelData);
+
+      const prevOrganic = liveLaunchOrganicCellSnapshotRef.current;
+      for (const metric of organicFunnelData) {
+        for (const date of Object.keys(metric.values)) {
+          const v = metric.values[date];
+          if (v === undefined || Number.isNaN(v)) continue;
+          const key = `${metric.step}|||${date}`;
+          const valueStr = String(v);
+          if (
+            !liveLaunchCellNeedsPersist(key, valueStr, metric.goal, prevOrganic)
+          ) {
+            continue;
+          }
+          await saveOrganicMetricMutation.mutateAsync({
+            userId,
+            liveLaunchId: selectedLaunchId,
+            date,
+            metricType: metric.step,
+            value: valueStr,
+            goal: metric.goal,
+          });
+        }
+      }
+      liveLaunchOrganicCellSnapshotRef.current =
+        buildLiveLaunchMetricCellSnapshot(organicFunnelData);
+
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/live-launches", selectedLaunchId, "funnel-metrics"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/live-launches", selectedLaunchId, "organic-metrics"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/live-launches/user", userId],
+      });
+
+      const currentSuggestions = generateSuggestions();
+      if (currentSuggestions.length > 0) {
+        const normalizedSaved = (savedSuggestions || []).map((s: any) => ({
+          type: s.suggestionType,
+          title: s.title,
+          issue: s.issue,
+          actions: s.actions,
+        }));
+        if (
+          JSON.stringify(currentSuggestions) !== JSON.stringify(normalizedSaved)
+        ) {
+          const currentLaunch = launches?.find(
+            (l: any) => l.id === selectedLaunchId
+          );
+          await saveOptimizationSuggestionsMutation.mutateAsync({
+            liveLaunchId: selectedLaunchId,
+            userId,
+            suggestions: currentSuggestions,
+            launchLabel: currentLaunch?.label || "Live Launch",
+          });
+        }
+      }
+
+      setLiveLaunchMetricsDirty(false);
+      toast({
+        title: "Saved",
+        description: "Live launch tracking and suggestions were saved.",
+      });
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: "Save failed",
+        description: "Could not save launch data. Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingLiveLaunchMetrics(false);
+    }
+  };
+
   // Handle opening edit dialog with current suggestions
   const handleEditSuggestions = () => {
     const displaySuggestions =
@@ -2397,30 +2458,7 @@ export default function TrackAndOptimizeLiveLaunch() {
       });
 
       setOrganicFunnelData(updatedData);
-
-      // Persist manual + calculated metrics for affected dates
-      if (selectedLaunchId && userId) {
-        dates.forEach((date) => {
-          Object.entries(bulkData).forEach(([metricType, dateValues]) => {
-            const rawValue = dateValues?.[date];
-            if (rawValue === undefined || rawValue.trim() === "") return;
-            const numericValue = parseFloat(rawValue);
-            if (Number.isNaN(numericValue)) return;
-
-            const metric = updatedData.find((m) => m.step === metricType);
-            saveOrganicMetricMutation.mutate({
-              userId,
-              liveLaunchId: selectedLaunchId,
-              date,
-              metricType,
-              value: String(numericValue),
-              goal: metric?.goal ?? "",
-            });
-          });
-
-          persistCalculatedOrganicMetricsForDate(updatedData, date);
-        });
-      }
+      setLiveLaunchMetricsDirty(true);
     } else {
       // Apply to ads funnel data
       const updatedData = [...funnelData];
@@ -2468,30 +2506,7 @@ export default function TrackAndOptimizeLiveLaunch() {
       });
 
       setFunnelData(updatedData);
-
-      // Persist manual + calculated metrics for affected dates
-      if (selectedLaunchId && userId) {
-        dates.forEach((date) => {
-          Object.entries(bulkData).forEach(([metricType, dateValues]) => {
-            const rawValue = dateValues?.[date];
-            if (rawValue === undefined || rawValue.trim() === "") return;
-            const numericValue = parseFloat(rawValue);
-            if (Number.isNaN(numericValue)) return;
-
-            const metric = updatedData.find((m) => m.step === metricType);
-            saveFunnelMetricMutation.mutate({
-              userId,
-              liveLaunchId: selectedLaunchId,
-              date,
-              metricType,
-              value: String(numericValue),
-              goal: metric?.goal ?? "",
-            });
-          });
-
-          persistCalculatedAdsMetricsForDate(updatedData, date);
-        });
-      }
+      setLiveLaunchMetricsDirty(true);
     }
 
     setShowHistoryModal(false);
@@ -2579,6 +2594,7 @@ export default function TrackAndOptimizeLiveLaunch() {
     date: string,
     value: string
   ) => {
+    setLiveLaunchMetricsDirty(true);
     const newData = [...organicFunnelData];
     const numValue = parseFloat(value) || 0;
 
@@ -2603,25 +2619,11 @@ export default function TrackAndOptimizeLiveLaunch() {
     });
 
     setOrganicFunnelData(updatedData);
-
-    // Save to database
-    if (selectedLaunchId && userId) {
-      saveOrganicMetricMutation.mutate({
-        userId,
-        liveLaunchId: selectedLaunchId,
-        date,
-        metricType: organicFunnelData[index].step,
-        value: value || "0",
-        goal: organicFunnelData[index].goal,
-      });
-
-      // Also persist auto-calculated (non-green) metrics
-      persistCalculatedOrganicMetricsForDate(updatedData, date);
-    }
   };
 
   // Update offer cost and recalculate metrics
   const updateOfferCost = (newCost: string) => {
+    setLiveLaunchMetricsDirty(true);
     setOfferCost(newCost);
 
     // Recalculate auto metrics for the current date when offer cost changes
@@ -2641,18 +2643,11 @@ export default function TrackAndOptimizeLiveLaunch() {
       }
     });
     setOrganicFunnelData(updatedData);
-
-    // Save to database
-    if (selectedLaunchId) {
-      updateOfferCostMutation.mutate({
-        id: selectedLaunchId,
-        offerCost: newCost,
-      });
-    }
   };
 
   // Update organic metric goal
   const updateOrganicMetricGoal = (index: number, goal: string) => {
+    setLiveLaunchMetricsDirty(true);
     const newData = [...organicFunnelData];
     newData[index].goal = goal;
 
@@ -2781,6 +2776,7 @@ export default function TrackAndOptimizeLiveLaunch() {
     date: string,
     value: string
   ) => {
+    setLiveLaunchMetricsDirty(true);
     const newData = [...funnelData];
     if (value === "") {
       delete newData[metricIndex].values[date];
@@ -2805,24 +2801,10 @@ export default function TrackAndOptimizeLiveLaunch() {
     });
 
     setFunnelData(updatedData);
-
-    // Save to database
-    if (selectedLaunchId && userId) {
-      saveFunnelMetricMutation.mutate({
-        userId,
-        liveLaunchId: selectedLaunchId,
-        date,
-        metricType: funnelData[metricIndex].step,
-        value: value || "0",
-        goal: funnelData[metricIndex].goal,
-      });
-
-      // Also persist auto-calculated (non-green) metrics
-      persistCalculatedAdsMetricsForDate(updatedData, date);
-    }
   };
 
   const updateMetricGoal = (metricIndex: number, goal: string) => {
+    setLiveLaunchMetricsDirty(true);
     const newData = [...funnelData];
     newData[metricIndex].goal = goal;
 
@@ -3224,12 +3206,32 @@ export default function TrackAndOptimizeLiveLaunch() {
                   {/* Date Navigator and Controls */}
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="flex items-center gap-2">
-                            <BarChart3 className="w-5 h-5 text-purple-600" />
-                            Daily Funnel Metrics
-                          </CardTitle>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                          <BarChart3 className="w-5 h-5 text-purple-600" />
+                          Daily Funnel Metrics
+                        </CardTitle>
+                        <div className="flex shrink-0 items-center gap-3">
+                          {liveLaunchMetricsDirty && (
+                            <span className="text-sm text-amber-700 dark:text-amber-500">
+                              Unsaved changes
+                            </span>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSaveLiveLaunchTracker}
+                            disabled={
+                              !liveLaunchMetricsDirty ||
+                              isSavingLiveLaunchMetrics ||
+                              !selectedLaunchId ||
+                              !userId
+                            }
+                            data-testid="button-save-live-launch-tracker"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            {isSavingLiveLaunchMetrics ? "Saving…" : "Save"}
+                          </Button>
                         </div>
                       </div>
                     </CardHeader>
@@ -3620,14 +3622,40 @@ export default function TrackAndOptimizeLiveLaunch() {
                 <TabsContent value="organic" className="space-y-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-green-600" />
-                        Live Launch Organic & Funnel Tracking
-                      </CardTitle>
-                      <CardDescription>
-                        Track organic traffic, email performance, and overall
-                        funnel metrics
-                      </CardDescription>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-1.5">
+                          <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-green-600" />
+                            Live Launch Organic & Funnel Tracking
+                          </CardTitle>
+                          <CardDescription>
+                            Track organic traffic, email performance, and overall
+                            funnel metrics
+                          </CardDescription>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3 sm:pt-0.5">
+                          {liveLaunchMetricsDirty && (
+                            <span className="text-sm text-amber-700 dark:text-amber-500">
+                              Unsaved changes
+                            </span>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSaveLiveLaunchTracker}
+                            disabled={
+                              !liveLaunchMetricsDirty ||
+                              isSavingLiveLaunchMetrics ||
+                              !selectedLaunchId ||
+                              !userId
+                            }
+                            data-testid="button-save-live-launch-tracker-organic"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            {isSavingLiveLaunchMetrics ? "Saving…" : "Save"}
+                          </Button>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       {/* Organic Funnel Metrics */}

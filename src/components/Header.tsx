@@ -10,13 +10,13 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
-import { apiRequest } from "@/services/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import IssueReportDialog from "./IssueReportDialog";
 import NotificationBell from "./NotificationBell";
 import { apiClient } from "@/services/api.config";
 import { useEffect, useState } from "react";
 import { onMessageListener, requestForToken } from "@/services/firebase";
+import { queryClient } from "@/services/queryClient";
 
 // Helper function to detect device type
 const getDeviceType = (): "ios" | "android" | "web" => {
@@ -226,6 +226,28 @@ export default function Header() {
     }
   };
 
+  const handleStopImpersonating = async () => {
+    try {
+      await apiClient.post("/api/admin/impersonation/stop");
+      await queryClient.invalidateQueries({ queryKey: ["/auth/user"] });
+      toast({
+        title: "Stopped impersonating",
+        description: "Returning to the admin portal…",
+      });
+      window.location.href = "/admin";
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to stop impersonating";
+      toast({
+        title: "Action failed",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
   const getUserInitials = () => {
     if (user?.firstName && user?.lastName) {
       return `${user.firstName[0]}${user.lastName[0]}`.toUpperCase();
@@ -430,6 +452,14 @@ export default function Header() {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                {(user as any)?.isImpersonating ? (
+                  <>
+                    <DropdownMenuItem onClick={handleStopImpersonating}>
+                      Back to Admin
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
                 <DropdownMenuItem asChild>
                   <Link
                     href="/profile"
