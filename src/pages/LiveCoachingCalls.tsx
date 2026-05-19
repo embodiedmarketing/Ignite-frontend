@@ -434,6 +434,18 @@ const generateWeeksData = (calls: any[]) => {
     return `${year}-${month}-${dayOfMonth}`;
   };
 
+  const isValidYmdDate = (date: string | undefined): boolean =>
+    !!date && /^\d{4}-\d{2}-\d{2}$/.test(date.trim());
+
+  /** Backend requires YYYY-MM-DD; derive from day + week when the form has no date. */
+  const resolveScheduleDate = (data: CallFormData, weekOffset?: number): string => {
+    if (isValidYmdDate(data.date)) {
+      return data.date!.trim();
+    }
+    const week = weekOffset ?? Number(data.week ?? 0);
+    return calculateCallDateForWeek(data.day, week);
+  };
+
   // Helper function to parse date from various formats
   const parseDate = (dateString: string): string => {
     if (!dateString) return '';
@@ -1122,6 +1134,52 @@ useEffect(() => {
     return calls;
   };
 
+  const isRecurringCall = (call: any): boolean =>
+    call?.recurring === true || call?.recurring === "true" || call?.recurring === 1;
+
+  const findRecurringSiblingCalls = (originalCall: any, allCalls: any[]): any[] => {
+    if (!originalCall) return [];
+    return allCalls.filter(
+      (c: any) =>
+        isRecurringCall(c) &&
+        c.title === originalCall.title &&
+        c.category === originalCall.category &&
+        c.day === originalCall.day &&
+        c.time === originalCall.time
+    );
+  };
+
+  const deleteCallsByIds = async (ids: string[]) => {
+    for (const callId of ids) {
+      const deleteResponse = await apiRequest(
+        "DELETE",
+        `/api/coaching-calls/schedule/${callId}`
+      );
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.json().catch(() => ({ message: "Unknown error" }));
+        throw new Error(errorData.message || `Failed to delete call: ${deleteResponse.status}`);
+      }
+    }
+  };
+
+  const createRecurringCalls = async (data: CallFormData) => {
+    const recurringPayload = generateRecurringCallsPayload(data);
+
+    const createResponse = await apiRequest(
+      "POST",
+      "/api/coaching-calls/schedule",
+      recurringPayload
+    );
+
+    if (!createResponse.ok) {
+      const errorData = await createResponse.json().catch(() => ({ message: "Unknown error" }));
+      throw new Error(errorData.message || `Failed to create recurring calls: ${createResponse.status}`);
+    }
+
+    return await createResponse.json();
+  };
+
   // Add Call mutation
   const addCallMutation = useMutation({
     mutationFn: async (callData: CallFormData) => {
@@ -1133,14 +1191,13 @@ useEffect(() => {
         console.log("@payload",payload)
       } else {
         // Regular call - send as array with single item.
-        // Derive date from selected (day + week) so backend always gets a concrete date.
-      
+        // Derive date from selected (day + week) so backend always gets YYYY-MM-DD.
         payload = [{
           title: callData.title,
           category: callData.category,
           day: callData.day,
           time: callData.time,
-          date: callData.date,
+          date: resolveScheduleDate(callData),
           week: Number(callData.week),
           description: callData.description || "",
           link: callData.link || "",
@@ -1209,50 +1266,40 @@ useEffect(() => {
 
   // Update Call mutation
   const updateCallMutation = useMutation({
-    mutationFn: async ({ id, data, originalCall }: { id: string; data: CallFormData; originalCall?: any }) => {
+    mutationFn: async ({
+      id,
+      data,
+      originalCall,
+      allCalls = [],
+    }: {
+      id: string;
+      data: CallFormData;
+      originalCall?: any;
+      allCalls?: any[];
+    }) => {
       try {
-        // Check if recurring is being set to true (and it wasn't before)
-        const wasRecurring = originalCall && (originalCall.recurring === true || originalCall.recurring === "true" || originalCall.recurring === 1);
+        const wasRecurring = originalCall && isRecurringCall(originalCall);
         const isNowRecurring = data.recurring === true;
-        
-        // If recurring is being set to true, delete the original call and create recurring calls
+
+        // Converting to recurring, or updating an existing recurring call (e.g. time change)
         if (isNowRecurring && !wasRecurring) {
-          // First, delete the original call
-          const deleteResponse = await apiRequest(
-            "DELETE",
-            `/api/coaching-calls/schedule/${id}`
-          );
+          await deleteCallsByIds([id]);
+          return await createRecurringCalls(data);
+        }
 
-          if (!deleteResponse.ok) {
-            const errorData = await deleteResponse.json().catch(() => ({ message: "Unknown error" }));
-            throw new Error(errorData.message || `Failed to delete original call: ${deleteResponse.status}`);
-          }
-
-          // Then, create recurring calls (same as add call)
-          const recurringPayload = generateRecurringCallsPayload(data);
-          
-          const createResponse = await apiRequest(
-            "POST",
-            "/api/coaching-calls/schedule",
-            recurringPayload
-          );
-
-          if (!createResponse.ok) {
-            const errorData = await createResponse.json().catch(() => ({ message: "Unknown error" }));
-            throw new Error(errorData.message || `Failed to create recurring calls: ${createResponse.status}`);
-          }
-
-          return await createResponse.json();
+        if (wasRecurring && isNowRecurring) {
+          const siblings = findRecurringSiblingCalls(originalCall, allCalls);
+          const idsToDelete =
+            siblings.length > 0 ? siblings.map((c: any) => String(c.id)) : [String(id)];
+          const uniqueIds = [...new Set(idsToDelete)];
+          await deleteCallsByIds(uniqueIds);
+          return await createRecurringCalls(data);
         }
         
         // Otherwise, update the single call as normal
-        // If recurring is true and date is empty, calculate date based on the selected day
-        // Use the same helper function for consistency
-        let dateToSend = data.date;
-        if (data.recurring && (!data.date || data.date.trim() === "")) {
-          // Calculate date for week 0 (current week) using the same logic
-          dateToSend = calculateCallDateForWeek(data.day, 0);
-        }
+        const dateToSend = data.recurring
+          ? calculateCallDateForWeek(data.day, 0)
+          : resolveScheduleDate(data);
         
         const payload = {
           title: data.title,
@@ -1354,11 +1401,15 @@ useEffect(() => {
       setOriginalCallData(null);
       editCallForm.reset();
       
-      const isRecurring = Array.isArray(data) && data.length > 1;
+      const isRecurringBatch = Array.isArray(data) && data.length > 1;
+      const wasRecurringUpdate =
+        variables.originalCall && isRecurringCall(variables.originalCall) && variables.data.recurring;
       toast({
         title: "Success",
-        description: isRecurring 
-          ? `Call updated to recurring for ${data.length} weeks` 
+        description: isRecurringBatch
+          ? wasRecurringUpdate
+            ? `Recurring call updated successfully for ${data.length} weeks`
+            : `Call updated to recurring for ${data.length} weeks`
           : "Call updated successfully",
       });
     },
@@ -1528,7 +1579,8 @@ useEffect(() => {
       updateCallMutation.mutate({
         id: editingCallId,
         data: data,
-        originalCall: originalCallData // Pass original call data to check if it was recurring
+        originalCall: originalCallData,
+        allCalls: calls,
       });
     }
   };
