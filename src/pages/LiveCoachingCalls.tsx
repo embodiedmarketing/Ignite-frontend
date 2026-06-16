@@ -653,6 +653,16 @@ const generateWeeksData = (calls: any[]) => {
     return 0;
   };
 
+  const normalizeTimestamps = (value: unknown): string => {
+    if (Array.isArray(value)) {
+      return value.map((line) => String(line).trim()).filter(Boolean).join("\n");
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    return value != null ? String(value) : "";
+  };
+
   // Handle timestamp click
   const handleTimestampClick = (recordingId: string, timestamp: string) => {
     const seconds = parseTimestamp(timestamp);
@@ -749,7 +759,7 @@ useEffect(() => {
         duration: recordingData.duration || "60 min",
         vimeoId: recordingData.vimeoId,
         description: recordingData.description || "",
-        timestamps: recordingData.timestamps || "",
+        timestamps: normalizeTimestamps(recordingData.timestamps),
         transcript: recordingData.transcript || "",
         category: recordingData.category
       };
@@ -863,7 +873,7 @@ useEffect(() => {
         vimeoId: data.vimeoId,
         description: data.description || "",
         transcript: data.transcript || "",
-        timestamps: data.timestamps || "",
+        timestamps: normalizeTimestamps(data.timestamps),
         category: data.category
       };
 
@@ -933,7 +943,7 @@ useEffect(() => {
 
       const data = await response.json();
       const transcript = data.transcript || data.text || data.content || "";
-      const timestamps = data.timestamps || data.text || data.content || "";;
+      const timestamps = normalizeTimestamps(data.timestamps || data.text || data.content || "");
       if (isEdit) {
         setEditingRecording((prev: any) => ({
           ...prev,
@@ -1038,10 +1048,14 @@ useEffect(() => {
     }
 
     // 2. Create a new object with all string values trimmed
-    const trimmedRecording:any = Object.fromEntries(
+    const trimmedRecording: any = Object.fromEntries(
       Object.entries(newRecording).map(([key, value]) => [
         key,
-        typeof value === 'string' ? value.trim() : value
+        key === "timestamps"
+          ? normalizeTimestamps(value)
+          : typeof value === "string"
+            ? value.trim()
+            : value
       ])
     );
 
@@ -1081,7 +1095,11 @@ useEffect(() => {
     const trimmedData = Object.fromEntries(
       Object.entries(editingRecording).map(([key, value]) => [
         key,
-        typeof value === 'string' ? value.trim() : value
+        key === "timestamps"
+          ? normalizeTimestamps(value)
+          : typeof value === "string"
+            ? value.trim()
+            : value
       ])
     );
 
