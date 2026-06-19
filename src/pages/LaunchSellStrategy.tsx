@@ -594,6 +594,10 @@ export default function LaunchSellStrategy() {
         {
           messagingStrategy: latestMessagingStrategy.content,
           launchData: funnelData,
+        },
+        {
+          timeout: 120000, // 120 seconds for AI processing
+          priority: "high",
         }
       );
       return await response.json();
