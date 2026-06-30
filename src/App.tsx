@@ -50,6 +50,7 @@ import MonthlyAdRequest from "@/pages/MonthlyAdRequest";
 import GHLTemplates from "@/pages/GHLTemplates";
 import BusinessIncubatorMessaging from "@/pages/BusinessIncubatorMessaging";
 import BusinessIncubatorCustomerJourney from "@/pages/BusinessIncubatorCustomerJourney";
+import BonusTrainingSeriesPage from "@/pages/BonusTrainingSeries";
 import MessagingStrategyResults from "@/pages/MessagingStrategyResults";
 import Profile from "@/pages/Profile";
 import { lazy, Suspense } from "react";
@@ -283,6 +284,16 @@ function AppRouter() {
         {isAuthenticated ? (
           <Layout>
             <BonusTrainings />
+          </Layout>
+        ) : (
+          <Login />
+        )}
+      </Route>
+
+      <Route path="/resources/bonus-trainings/series/:seriesId">
+        {isAuthenticated ? (
+          <Layout>
+            <BonusTrainingSeriesPage />
           </Layout>
         ) : (
           <Login />
